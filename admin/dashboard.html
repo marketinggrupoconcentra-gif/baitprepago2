@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BAIT Prepago - Dashboard</title>
+  <!-- Security Headers (CSP) will be enforced via vercel.json -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self';">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+</head>
+<body class="dashboard-body">
+  
+  <div id="loadingState" class="loading-state">
+    Verificando sesión...
+  </div>
+
+  <div id="authProtected" class="auth-protected">
+    <header class="dashboard-header">
+      <h1>BAIT Prepago Dashboard</h1>
+      <div class="user-info">
+        <div class="user-details">
+          <span class="user-email" id="userEmail"></span>
+          <span class="user-role" id="userRole"></span>
+        </div>
+        <button id="logoutBtn" class="btn-logout">Cerrar sesión</button>
+      </div>
+    </header>
+    
+    <main class="dashboard-main">
+      <h2>Dashboard Administrativo</h2>
+      <p>Bienvenido. El panel de métricas y leads se implementará en la siguiente etapa.</p>
+    </main>
+  </div>
+
+  <script src="/admin/dashboard.js" type="module"></script>
+</body>
+</html>

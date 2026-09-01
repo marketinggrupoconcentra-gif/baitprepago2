@@ -9,7 +9,7 @@
     "test": "node tests/run.js"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4"
+    "@neondatabase/serverless": "^1.1.0"
   },
   "devDependencies": {
     "vercel": "^37.0.0"

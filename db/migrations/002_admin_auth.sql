@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS admin_users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role VARCHAR(50) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  last_login_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  id SERIAL PRIMARY KEY,
+  admin_user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS admin_sessions_admin_user_id_idx ON admin_sessions(admin_user_id);
+CREATE INDEX IF NOT EXISTS admin_sessions_expires_at_idx ON admin_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS admin_login_attempts (
+  id SERIAL PRIMARY KEY,
+  key_hash TEXT NOT NULL,
+  kind VARCHAR(50) NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 1,
+  window_started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  last_attempt_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  locked_until TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS admin_login_attempts_key_hash_idx ON admin_login_attempts(key_hash);
+
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id SERIAL PRIMARY KEY,
+  admin_user_id INTEGER REFERENCES admin_users(id) ON DELETE SET NULL,
+  action VARCHAR(255) NOT NULL,
+  actor_hash TEXT NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
