@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resumen — BAIT Prepago Admin</title>
+  <title>Leads — BAIT Prepago Admin</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self';">
   <link rel="stylesheet" href="/admin/dashboard.css">
@@ -44,7 +44,7 @@
         <div class="nav-section">
           <span class="nav-section-label">Principal</span>
 
-          <a href="/admin/dashboard" class="nav-item" aria-current="page" id="navResumen">
+          <a href="/admin/dashboard" class="nav-item" id="navResumen">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
               <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -52,7 +52,7 @@
             Resumen
           </a>
 
-          <a href="/admin/leads" class="nav-item" id="navLeads">
+          <a href="/admin/leads" class="nav-item" aria-current="page" id="navLeads">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
@@ -132,18 +132,21 @@
         </button>
 
         <div class="topbar-title-wrap">
-          <h1 class="topbar-title">Resumen</h1>
-          <p class="topbar-sub">Vista general de leads y atribución</p>
+          <h1 class="topbar-title">Gestión de Leads</h1>
+          <p class="topbar-sub">Listado, filtrado y búsqueda segura</p>
         </div>
 
         <div class="topbar-controls">
-          <label for="rangeSelect" class="sr-only">Período</label>
-          <select id="rangeSelect" class="range-select" aria-label="Seleccionar período">
-            <option value="7">Últimos 7 días</option>
-            <option value="14" selected>Últimos 14 días</option>
-            <option value="30">Últimos 30 días</option>
-          </select>
-
+          <form id="searchForm" class="search-form" aria-label="Búsqueda segura de teléfono">
+            <div class="search-input-wrap">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" id="phoneSearch" class="search-input" placeholder="Buscar 10 dígitos..." pattern="\d{10}" title="Debe contener exactamente 10 dígitos" required aria-label="Buscar por teléfono (10 dígitos)">
+            </div>
+            <button type="submit" class="btn-primary" id="btnSearch" aria-label="Realizar búsqueda segura">Buscar</button>
+          </form>
           <button id="refreshBtn" class="btn-refresh" aria-label="Actualizar datos">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="23 4 23 10 17 10"/>
@@ -156,100 +159,126 @@
 
       <!-- Scrollable page body -->
       <main class="page-body" id="pageBody">
-
-        <!-- ARIA live for status updates -->
         <div class="sr-only" role="status" aria-live="polite" id="statusLive"></div>
 
-        <!-- ── KPI Cards ─────────────────────────────────────────── -->
-        <section aria-labelledby="kpiHeading">
-          <h2 class="sr-only" id="kpiHeading">Indicadores clave</h2>
-          <div class="kpi-grid" id="kpiGrid">
-            <!-- Populated by JS -->
-          </div>
+        <!-- Filtros -->
+        <section class="card filters-section" aria-labelledby="filtersHeading">
+          <h2 class="sr-only" id="filtersHeading">Filtros de lista</h2>
+          <form id="filtersForm" class="filters-grid">
+            <div class="filter-group">
+              <label for="filterSource">Origen (Source)</label>
+              <select id="filterSource" name="source">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterMedium">Medio (Medium)</label>
+              <select id="filterMedium" name="medium">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterCampaign">Campaña (Campaign)</label>
+              <select id="filterCampaign" name="campaign">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-actions">
+              <button type="submit" class="btn-secondary">Filtrar</button>
+              <button type="button" id="btnResetFilters" class="btn-ghost">Limpiar</button>
+            </div>
+          </form>
         </section>
 
-        <!-- ── Charts row ────────────────────────────────────────── -->
-        <div class="two-col">
-          <!-- Trend chart -->
-          <section class="card" aria-labelledby="trendHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="trendHeading">Tendencia de leads</h2>
-                <p class="card-subtitle" id="trendSubtitle">Cargando...</p>
-              </div>
+        <!-- Tabla de Leads -->
+        <section class="card" aria-labelledby="leadsHeading">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="leadsHeading">Listado de Leads</h2>
+              <p class="card-subtitle">Datos enmascarados por defecto (Privacidad de PII)</p>
             </div>
-            <div class="card-body">
-              <div class="chart-wrap" id="trendChartWrap">
-                <div class="chart-skeleton skeleton" aria-hidden="true"></div>
-              </div>
-              <div class="chart-tooltip-wrap" id="chartTooltip" role="tooltip" aria-hidden="true"></div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="activity-table-wrap">
+              <table class="activity-table leads-table" id="leadsTable" aria-label="Tabla de Leads">
+                <thead>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Teléfono</th>
+                    <th scope="col">Fuente</th>
+                    <th scope="col">Campaña</th>
+                    <th scope="col">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="leadsBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
             </div>
-          </section>
-
-          <!-- Sources chart -->
-          <section class="card" aria-labelledby="sourcesHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="sourcesHeading">Fuentes de tráfico</h2>
-                <p class="card-subtitle" id="sourcesSubtitle">Distribución por utm_source</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div id="sourcesList" class="source-list" role="list">
-                <!-- Populated by JS -->
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <!-- ── Bottom row ────────────────────────────────────────── -->
-        <div class="two-col">
-          <!-- Campaigns -->
-          <section class="card" aria-labelledby="campaignsHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="campaignsHeading">Campañas principales</h2>
-                <p class="card-subtitle">Top 5 por volumen de leads</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="campaign-list" id="campaignList" role="list">
-                <!-- Populated by JS -->
-              </div>
-            </div>
-          </section>
-
-          <!-- Recent activity -->
-          <section class="card" aria-labelledby="activityHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="activityHeading">Actividad reciente</h2>
-                <p class="card-subtitle">Últimos 10 registros (sin datos personales)</p>
-              </div>
-            </div>
-            <div class="card-body" style="padding:0 0 0 0;">
-              <div class="activity-table-wrap">
-                <table class="activity-table" id="activityTable" aria-label="Actividad reciente">
-                  <thead>
-                    <tr>
-                      <th scope="col">Fecha y hora</th>
-                      <th scope="col">Fuente</th>
-                      <th scope="col">Campaña</th>
-                    </tr>
-                  </thead>
-                  <tbody id="activityBody">
-                    <!-- Populated by JS -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        </div>
-
+          </div>
+          <div class="card-footer pagination-controls" id="paginationControls">
+            <button id="btnLoadMore" class="btn-secondary" style="display:none;">Cargar más</button>
+            <p id="paginationStatus" class="pagination-status"></p>
+          </div>
+        </section>
       </main>
     </div><!-- /main-area -->
   </div><!-- /app -->
 
-  <script src="/admin/dashboard.js" type="module"></script>
+  <!-- Drawer para detalle del lead -->
+  <div id="drawerOverlay" class="drawer-overlay" aria-hidden="true"></div>
+  <aside id="leadDrawer" class="drawer" aria-hidden="true" aria-labelledby="drawerTitle">
+    <div class="drawer-header">
+      <h2 id="drawerTitle">Detalle de Lead <span id="drawerLeadId"></span></h2>
+      <button id="btnCloseDrawer" class="btn-icon" aria-label="Cerrar panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawerBody">
+      <!-- Loading state -->
+      <div id="drawerLoader" class="drawer-loader" style="display:none;">Cargando...</div>
+      
+      <!-- Content -->
+      <div id="drawerContent" class="drawer-content" style="display:none;">
+        
+        <div class="detail-group">
+          <h3>Información de Contacto</h3>
+          <div class="detail-row">
+            <span class="detail-label">Teléfono:</span>
+            <div class="phone-reveal-wrap">
+              <span class="detail-value" id="detailPhone">******0000</span>
+              <button id="btnRevealPhone" class="btn-reveal" aria-label="Mostrar número completo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="revealTimerWrap" class="reveal-timer-wrap" style="display:none;">
+            <span class="reveal-warning">Número expuesto. Se ocultará en <span id="revealCountdown">60</span>s. (Acción auditada)</span>
+          </div>
+        </div>
+
+        <div class="detail-group">
+          <h3>Atribución (UTM)</h3>
+          <div class="detail-row"><span class="detail-label">Source:</span> <span class="detail-value" id="detailSource"></span></div>
+          <div class="detail-row"><span class="detail-label">Medium:</span> <span class="detail-value" id="detailMedium"></span></div>
+          <div class="detail-row"><span class="detail-label">Campaign:</span> <span class="detail-value" id="detailCampaign"></span></div>
+          <div class="detail-row"><span class="detail-label">Term:</span> <span class="detail-value" id="detailTerm"></span></div>
+          <div class="detail-row"><span class="detail-label">Content:</span> <span class="detail-value" id="detailContent"></span></div>
+        </div>
+
+        <div class="detail-group">
+          <h3>Contexto</h3>
+          <div class="detail-row"><span class="detail-label">Fecha:</span> <span class="detail-value" id="detailDate"></span></div>
+          <div class="detail-row"><span class="detail-label">Página (URL):</span> <a href="#" target="_blank" rel="noopener noreferrer" class="detail-link" id="detailPageUrl">Ver</a></div>
+          <div class="detail-row"><span class="detail-label">Referrer:</span> <span class="detail-value" id="detailReferrer" style="word-break: break-all;"></span></div>
+          <div class="detail-row"><span class="detail-label">User Agent:</span> <span class="detail-value" id="detailUA" style="font-size: 0.8em;"></span></div>
+        </div>
+
+      </div>
+    </div>
+  </aside>
+
+  <script src="/assets/admin-leads.js" type="module"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
  * Ejecuta preview-safety.js internamente para garantizar FAIL CLOSED.
  */
 
-require('dotenv').config({ path: '.env.preview' });
+
 const { enforceSafety } = require('./preview-safety');
 const { neon } = require('@neondatabase/serverless');
 

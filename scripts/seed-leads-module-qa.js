@@ -4,7 +4,7 @@
  * Incluye un RUN_ID único en los UTMs para facilitar el tracking.
  */
 
-require('dotenv').config({ path: '.env.preview' });
+
 const { enforceSafety } = require('./preview-safety');
 const { neon } = require('@neondatabase/serverless');
 
