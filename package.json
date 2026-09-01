@@ -1,0 +1,17 @@
+{
+  "name": "baitprepago2",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel deploy",
+    "db:migrate": "node db/migrate.js",
+    "test": "node tests/run.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  },
+  "devDependencies": {
+    "vercel": "^37.0.0"
+  }
+}

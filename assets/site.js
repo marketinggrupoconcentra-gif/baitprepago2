@@ -6,6 +6,8 @@
   var menuButton = document.querySelector('.menu-toggle');
   var mobileMenu = document.getElementById('mobile-menu');
 
+  // ── Header scroll ──────────────────────────────────────────────────────────
+
   function updateHeader() {
     if (header) header.classList.toggle('scrolled', window.scrollY > 12);
   }
@@ -31,6 +33,8 @@
     });
   }
 
+  // ── Reveal on scroll ───────────────────────────────────────────────────────
+
   var revealItems = document.querySelectorAll('.reveal');
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -47,6 +51,8 @@
     revealItems.forEach(function (item) { observer.observe(item); });
   }
 
+  // ── FAQ accordion ──────────────────────────────────────────────────────────
+
   document.querySelectorAll('.faq-list details').forEach(function (detail) {
     detail.addEventListener('toggle', function () {
       if (!detail.open) return;
@@ -56,11 +62,64 @@
     });
   });
 
+  // ── Numeric-only inputs ────────────────────────────────────────────────────
+
   document.querySelectorAll('input[inputmode="numeric"]').forEach(function (input) {
     input.addEventListener('input', function () {
       input.value = input.value.replace(/\D/g, '').slice(0, Number(input.maxLength) || 99);
     });
   });
+
+  // ── UTM Capture ────────────────────────────────────────────────────────────
+  // Extrae parámetros UTM de Google y Meta desde la URL actual y los persiste
+  // en sessionStorage para que estén disponibles aunque el usuario navegue
+  // entre páginas de la misma sesión.
+
+  var UTM_KEYS = [
+    // Google Ads / GA4
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid',
+    // Meta / Facebook Ads
+    'fbclid', 'fb_ad_id', 'fb_adset_id', 'fb_campaign_id',
+  ];
+
+  var SESSION_KEY = 'bait_utms';
+
+  function captureUtms() {
+    var params = new URLSearchParams(window.location.search);
+    var stored = {};
+
+    // Recuperar UTMs ya guardados en esta sesión (primera página de entrada)
+    try {
+      stored = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
+    } catch (_) {
+      stored = {};
+    }
+
+    // Mezclar: los params de la URL tienen precedencia
+    UTM_KEYS.forEach(function (key) {
+      var val = params.get(key);
+      if (val) stored[key] = val;
+    });
+
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(stored));
+    } catch (_) {/* sessionStorage no disponible (private mode extremo) */}
+
+    return stored;
+  }
+
+  function getUtms() {
+    try {
+      return JSON.parse(sessionStorage.getItem(SESSION_KEY) || '{}');
+    } catch (_) {
+      return {};
+    }
+  }
+
+  // Capturar al cargar la página
+  captureUtms();
+
+  // ── Formulario de portabilidad ─────────────────────────────────────────────
 
   var form = document.getElementById('portability-form');
   if (!form) return;
@@ -108,6 +167,8 @@
     if (consentError) consentError.textContent = consent.checked ? '' : 'Necesitamos tu autorización para continuar.';
   });
 
+  // ── Submit — guarda en DB + redirige a WhatsApp ────────────────────────────
+
   form.addEventListener('submit', function (event) {
     event.preventDefault();
     status.textContent = '';
@@ -118,7 +179,63 @@
       return;
     }
 
-    status.textContent = 'Datos validados. Abriendo WhatsApp para continuar…';
-    window.location.assign(WHATSAPP_URL);
+    // Deshabilitar botón para evitar doble envío
+    var submitBtn = form.querySelector('[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    status.textContent = 'Guardando tu solicitud…';
+
+    var utms = getUtms();
+
+    var payload = {
+      phone: phone.value,
+      nip: nip.value,
+
+      // UTMs de Google
+      utm_source:   utms.utm_source   || null,
+      utm_medium:   utms.utm_medium   || null,
+      utm_campaign: utms.utm_campaign || null,
+      utm_content:  utms.utm_content  || null,
+      utm_term:     utms.utm_term     || null,
+      gclid:        utms.gclid        || null,
+
+      // UTMs de Meta
+      fbclid:         utms.fbclid         || null,
+      fb_ad_id:       utms.fb_ad_id       || null,
+      fb_adset_id:    utms.fb_adset_id    || null,
+      fb_campaign_id: utms.fb_campaign_id || null,
+
+      // Metadatos de contexto
+      referrer: document.referrer || null,
+      page_url: window.location.href,
+    };
+
+    // Enviar a la API — soft-fail: redirige a WhatsApp aunque falle
+    var apiUrl = '/api/leads';
+    var redirected = false;
+
+    function redirectToWhatsApp() {
+      if (redirected) return;
+      redirected = true;
+      status.textContent = 'Redirigiendo a WhatsApp…';
+      window.location.assign(WHATSAPP_URL);
+    }
+
+    // Timeout de seguridad: si la API tarda más de 4s, redirigir igual
+    var safetyTimer = setTimeout(redirectToWhatsApp, 4000);
+
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    })
+      .then(function () {
+        clearTimeout(safetyTimer);
+        redirectToWhatsApp();
+      })
+      .catch(function () {
+        clearTimeout(safetyTimer);
+        redirectToWhatsApp();
+      });
   });
 })();

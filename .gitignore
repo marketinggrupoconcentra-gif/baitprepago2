@@ -1,0 +1,14 @@
+# Archivos sensibles de entorno
+.env
+.env.*
+.dev.vars
+.dev.vars.example
+.vercel
+
+# Dependencias
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
