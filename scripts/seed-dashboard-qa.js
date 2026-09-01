@@ -13,7 +13,7 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-const PREVIEW_ENDPOINT_PREFIX = 'ep-little-darkness';
+const ALLOWED_ENDPOINTS = ['ep-little-darkness', 'ep-sparkling-pond'];
 const PRODUCTION_ENDPOINT     = 'a57hzmzw';
 const QA_SOURCE               = 'qa-dashboard';
 const SEED_COUNT               = 9; // must be small and deterministic
@@ -27,7 +27,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL || '';
 
   if (!dbUrl) failClose('DATABASE_URL not set');
-  if (!dbUrl.includes(PREVIEW_ENDPOINT_PREFIX))
+  if (!ALLOWED_ENDPOINTS.some(ep => dbUrl.includes(ep)))
     failClose(`Expected Preview endpoint (${PREVIEW_ENDPOINT_PREFIX}) not found in DATABASE_URL`);
   if (dbUrl.includes(PRODUCTION_ENDPOINT))
     failClose('Production endpoint detected — refusing to seed');

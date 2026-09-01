@@ -13,11 +13,12 @@ const PREVIEW_URL          = process.env.PREVIEW_URL          || '';
 const QA_EMAIL             = process.env.QA_ADMIN_EMAIL        || '';
 const QA_PASSWORD          = process.env.QA_ADMIN_PASSWORD     || '';
 const BYPASS_SECRET        = process.env.VERCEL_BYPASS_SECRET  || '';
-const PREVIEW_EP           = 'ep-little-darkness';
+const ALLOWED_PREVIEW_EPS  = ['ep-little-darkness', 'ep-sparkling-pond'];
 const PRODUCTION_EP        = 'a57hzmzw';
 
 let pass = 0, fail = 0;
 let sessionCookie = null;
+let bypassCookie = null; // _vercel_jwt bypass cookie
 
 async function runTest(label, fn) {
   try {
@@ -35,30 +36,58 @@ function assertEqual(a, b, msg) {
   if (a !== b) throw new Error(`${msg || ''}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
 }
 
+function buildCookieHeader(extra = '') {
+  const parts = [];
+  if (bypassCookie) parts.push(bypassCookie);
+  if (sessionCookie) parts.push(sessionCookie);
+  if (extra) parts.push(extra);
+  return parts.join('; ');
+}
+
 function headers(extra = {}) {
   const h = {
     'x-vercel-protection-bypass': BYPASS_SECRET,
-    'x-vercel-set-bypass-cookie': 'samesitenone',
     ...extra
   };
-  if (sessionCookie) h['cookie'] = sessionCookie;
+  const cookieStr = buildCookieHeader();
+  if (cookieStr) h['cookie'] = cookieStr;
   return h;
+}
+
+/** Extract and store bypass cookie from response */
+function captureBypassCookie(res) {
+  const setCookie = res.headers.get('set-cookie') || '';
+  const m = setCookie.match(/_vercel_jwt=[^;]+/);
+  if (m && !bypassCookie) {
+    bypassCookie = m[0];
+  }
 }
 
 async function apiFetch(path, opts = {}) {
   const url = PREVIEW_URL + path;
-  return fetch(url, {
+  const res = await fetch(url, {
     headers: headers(opts.headers || {}),
     method: opts.method || 'GET',
     body: opts.body || undefined,
-    redirect: 'manual'
+    redirect: opts.redirect || 'follow'
   });
+  captureBypassCookie(res);
+  return res;
+}
+
+/** Warm up bypass cookie with a simple request */
+async function warmBypass() {
+  const res = await fetch(PREVIEW_URL + '/admin/', {
+    headers: { 'x-vercel-protection-bypass': BYPASS_SECRET },
+    redirect: 'follow'
+  });
+  captureBypassCookie(res);
 }
 
 // ── DB Guard ─────────────────────────────────────────────────────────
 function assertPreviewDb() {
   const dbUrl = process.env.DATABASE_URL || '';
-  if (!dbUrl.includes(PREVIEW_EP)) throw new Error(`DB not preview: ${dbUrl.slice(0, 50)}`);
+  if (!ALLOWED_PREVIEW_EPS.some(ep => dbUrl.includes(ep))) throw new Error(`DB not preview: ${dbUrl.slice(0, 50)}`);
   if (dbUrl.includes(PRODUCTION_EP)) throw new Error('Production DB detected');
 }
 
@@ -87,11 +116,23 @@ async function getDb() {
     process.exit(1);
   }
 
+  // ── Warm up bypass cookie ──────────────────────────────────────────
+  console.log('   Warming bypass cookie...');
+  await warmBypass();
+  console.log(`   Bypass cookie: ${bypassCookie ? 'obtained' : 'not obtained (will use header only)'}\n`);
+
   // ── 1. GET overview without session → 401 ─────────────────────────
   await runTest('GET overview without cookie → 401', async () => {
     const savedCookie = sessionCookie;
     sessionCookie = null;
-    const res = await apiFetch('/api/admin/overview');
+    // Use redirect:manual so we see the real 401 (not a redirect to login page)
+    const res = await fetch(`${PREVIEW_URL}/api/admin/overview`, {
+      headers: {
+        'x-vercel-protection-bypass': BYPASS_SECRET,
+        ...(bypassCookie ? { cookie: bypassCookie } : {})
+      },
+      redirect: 'manual'
+    });
     sessionCookie = savedCookie;
     assertEqual(res.status, 401, 'status');
   });
@@ -104,6 +145,7 @@ async function getDb() {
 
   // ── 3. Login to get session ───────────────────────────────────────
   await runTest('Login to establish session', async () => {
+    const cookieStr = buildCookieHeader();
     const res = await fetch(`${PREVIEW_URL}/api/admin/login`, {
       method: 'POST',
       headers: {
@@ -111,10 +153,11 @@ async function getDb() {
         'origin': PREVIEW_URL,
         'host': new URL(PREVIEW_URL).host,
         'x-vercel-protection-bypass': BYPASS_SECRET,
-        'x-vercel-set-bypass-cookie': 'samesitenone'
+        ...(cookieStr ? { cookie: cookieStr } : {})
       },
       body: JSON.stringify({ email: QA_EMAIL, password: QA_PASSWORD })
     });
+    captureBypassCookie(res);
     assertEqual(res.status, 200, 'login status');
     const setCookieHeader = res.headers.get('set-cookie');
     assert(setCookieHeader && setCookieHeader.includes('bait_admin_session'), 'session cookie set');
@@ -267,9 +310,7 @@ async function getDb() {
 
   // ── 16. Expired session → 401 ─────────────────────────────────────
   await runTest('Expired session → 401 and session deleted', async () => {
-    // Manually expire the current session
-    const tokenHash = sessionCookie.split('=')[1];
-    // We don't have the hash here — instead create a fake old session
+    // Create a fake expired session
     const fakeHash = 'a'.repeat(64);
     const expiredAt = new Date(Date.now() - 3600000).toISOString(); // 1 hour ago
     const userRow = await sql`SELECT id FROM admin_users WHERE email = ${QA_EMAIL} LIMIT 1`;
@@ -278,25 +319,50 @@ async function getDb() {
       VALUES (${userRow[0].id}, ${fakeHash}, ${expiredAt})
     `;
     const fakeCookie = `bait_admin_session=${'x'.repeat(64)}`;
+    const cookieParts = [fakeCookie];
+    if (bypassCookie) cookieParts.unshift(bypassCookie);
     const res = await fetch(`${PREVIEW_URL}/api/admin/overview`, {
       headers: {
-        cookie: fakeCookie,
+        cookie: cookieParts.join('; '),
         'x-vercel-protection-bypass': BYPASS_SECRET
-      }
+      },
+      redirect: 'manual'
     });
-    assertEqual(res.status, 401, 'expired session → 401');
     // Clean up
     await sql`DELETE FROM admin_sessions WHERE token_hash = ${fakeHash}`;
+    assertEqual(res.status, 401, 'expired session → 401');
   });
 
   // ── 17. Inactive admin → 401 ──────────────────────────────────────
   await runTest('Inactive admin session → 401', async () => {
     // Temporarily deactivate QA user
     await sql`UPDATE admin_users SET active = false WHERE email = ${QA_EMAIL}`;
-    const res = await apiFetch('/api/admin/overview');
+    const res = await apiFetch('/api/admin/overview', { redirect: 'manual' });
     await sql`UPDATE admin_users SET active = true WHERE email = ${QA_EMAIL}`;
     assertEqual(res.status, 401, 'inactive → 401');
   });
+
+  // ── Re-login after test 17 deleted session ────────────────────────
+  // Test 17 (inactive user) caused session deletion — re-establish session
+  {
+    const cookieStr = buildCookieHeader();
+    const res = await fetch(`${PREVIEW_URL}/api/admin/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'origin': PREVIEW_URL,
+        'host': new URL(PREVIEW_URL).host,
+        'x-vercel-protection-bypass': BYPASS_SECRET,
+        ...(cookieStr ? { cookie: cookieStr } : {})
+      },
+      body: JSON.stringify({ email: QA_EMAIL, password: QA_PASSWORD })
+    });
+    if (res.ok) {
+      const setCookieHeader = res.headers.get('set-cookie');
+      const match = setCookieHeader && setCookieHeader.match(/bait_admin_session=[^;]+/);
+      if (match) sessionCookie = match[0];
+    }
+  }
 
   // ── 18. generatedAt is present and valid ISO date ─────────────────
   await runTest('Response includes generatedAt as valid ISO date', async () => {

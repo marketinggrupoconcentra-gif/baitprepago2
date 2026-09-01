@@ -10,7 +10,7 @@
  * If campaign-id not passed, reads from .qa-seed-run-id file.
  */
 
-const PREVIEW_ENDPOINT_PREFIX = 'ep-little-darkness';
+const ALLOWED_ENDPOINTS = ['ep-little-darkness', 'ep-sparkling-pond'];
 const PRODUCTION_ENDPOINT     = 'a57hzmzw';
 const QA_SOURCE               = 'qa-dashboard';
 
@@ -23,8 +23,8 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL || '';
 
   if (!dbUrl) failClose('DATABASE_URL not set');
-  if (!dbUrl.includes(PREVIEW_ENDPOINT_PREFIX))
-    failClose(`Expected Preview endpoint (${PREVIEW_ENDPOINT_PREFIX}) not found in DATABASE_URL`);
+  if (!ALLOWED_ENDPOINTS.some(ep => dbUrl.includes(ep)))
+    failClose(`Expected Preview endpoint not found in DATABASE_URL`);
   if (dbUrl.includes(PRODUCTION_ENDPOINT))
     failClose('Production endpoint detected — refusing to delete');
 
