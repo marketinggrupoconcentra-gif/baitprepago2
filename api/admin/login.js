@@ -1,14 +1,14 @@
 import { getDb } from '../../lib/db.js';
-import { 
-  hashIdentity, 
-  verifyPassword, 
-  generateSessionToken, 
-  hashSessionToken, 
-  serializeSessionCookie, 
+import {
+  hashIdentity,
+  verifyPassword,
+  generateSessionToken,
+  hashSessionToken,
+  serializeSessionCookie,
   assertSameOrigin,
   getClientIp,
   sanitizeUserAgent,
-  hashPassword // For dummy verification
+  DUMMY_PASSWORD_HASH
 } from '../../lib/admin-auth.js';
 
 export const config = {
@@ -18,28 +18,28 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // 1. no-store headers
+  // 1. Security headers
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
 
-  // 2. method check
+  // 2. Method check
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // 3. content-type
+  // 3. Content-Type check
   if (!req.headers['content-type']?.includes('application/json')) {
     return res.status(415).json({ error: 'Unsupported media type' });
   }
 
-  // 5. same-origin
+  // 4. Same-origin check
   try {
     assertSameOrigin(req);
-  } catch (err) {
+  } catch (_err) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // 4. payload size & read
+  // 5. Read and size-limit payload
   let body = '';
   for await (const chunk of req) {
     body += chunk;
@@ -48,149 +48,157 @@ export default async function handler(req, res) {
     }
   }
 
+  // 6. Parse JSON
   let data;
   try {
     data = JSON.parse(body);
-  } catch (e) {
+  } catch (_e) {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
   const { email, password } = data;
 
-  // 6. validate email/password
+  // 7. Validate types
   if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
     return res.status(400).json({ error: 'Email and password required' });
   }
 
-  // 7. normalize email
+  // 8. Normalize email
   const normalizedEmail = email.toLowerCase().trim();
 
-  // 8. derive HMAC identity keys
+  // 9. Derive HMAC identity keys — never store raw IP or email
   let ipHash, accountHash;
   try {
     ipHash = hashIdentity(`ip:${getClientIp(req)}`);
     accountHash = hashIdentity(`acc:${normalizedEmail}`);
-  } catch (e) {
-    console.error('Configuration error:', e.message);
+  } catch (_e) {
+    console.error('ADMIN_AUTH_PEPPER missing — cannot process login.');
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 
   const sql = getDb();
+  const ua = sanitizeUserAgent(req);
 
   try {
-    // 9. check rate-limit locks
+    // 10. Check active rate-limit locks for both IP and ACCOUNT keys
     const locks = await sql`
-      SELECT kind, locked_until 
-      FROM admin_login_attempts 
-      WHERE key_hash IN (${ipHash}, ${accountHash}) 
+      SELECT kind, locked_until
+      FROM admin_login_attempts
+      WHERE kind IN ('IP', 'ACCOUNT')
+        AND key_hash IN (${ipHash}, ${accountHash})
         AND locked_until > CURRENT_TIMESTAMP
     `;
+
     if (locks.length > 0) {
       return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
     }
 
-    // 10. query admin user
+    // 11. Query admin user (only email — no password in SELECT result set exposure via logs)
     const users = await sql`
-      SELECT id, password_hash, active 
-      FROM admin_users 
+      SELECT id, password_hash, active
+      FROM admin_users
       WHERE email = ${normalizedEmail}
     `;
 
     const user = users[0];
 
-    // 11. real/dummy password verify (Defense against timing enumeration)
+    // 12. Password verification — always exactly ONE scrypt operation regardless of user existence
     let isPasswordValid = false;
     if (user) {
       isPasswordValid = await verifyPassword(password, user.password_hash);
     } else {
-      // dummy verification to mitigate timing attacks
-      const dummyHash = await hashPassword('dummy_password_for_timing');
-      await verifyPassword(password, dummyHash);
+      // Unknown user: run exactly one dummy scrypt to prevent timing enumeration
+      await verifyPassword(password, DUMMY_PASSWORD_HASH);
+      // isPasswordValid remains false
     }
 
-    const ua = sanitizeUserAgent(req);
+    // 13. Also treat inactive users as invalid — but still run one scrypt path
+    // (user was already verified above if user exists, so no extra cost)
 
-    if (!user || !user.active || !isPasswordValid) {
-      // 12. failure -> increment attempts + audit
-      
+    const isSuccess = user && user.active && isPasswordValid;
+
+    if (!isSuccess) {
+      // 14. FAILURE path: upsert rate-limit records + audit (individual DB ops, not transaction)
       const recordAttempt = async (keyHash, kind) => {
         await sql`
           INSERT INTO admin_login_attempts (key_hash, kind, attempts, window_started_at, last_attempt_at)
           VALUES (${keyHash}, ${kind}, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-          ON CONFLICT (key_hash) DO UPDATE
-          SET 
-            attempts = CASE 
-              WHEN admin_login_attempts.window_started_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes' THEN 1
+          ON CONFLICT (kind, key_hash) DO UPDATE
+          SET
+            attempts = CASE
+              WHEN admin_login_attempts.window_started_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+              THEN 1
               ELSE admin_login_attempts.attempts + 1
             END,
-            window_started_at = CASE 
-              WHEN admin_login_attempts.window_started_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes' THEN CURRENT_TIMESTAMP
+            window_started_at = CASE
+              WHEN admin_login_attempts.window_started_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+              THEN CURRENT_TIMESTAMP
               ELSE admin_login_attempts.window_started_at
             END,
             last_attempt_at = CURRENT_TIMESTAMP,
-            locked_until = CASE 
-              WHEN (CASE 
-                      WHEN admin_login_attempts.window_started_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes' THEN 1
+            locked_until = CASE
+              WHEN (CASE
+                      WHEN admin_login_attempts.window_started_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+                      THEN 1
                       ELSE admin_login_attempts.attempts + 1
-                    END) >= 5 THEN CURRENT_TIMESTAMP + INTERVAL '15 minutes'
+                    END) >= 5
+              THEN CURRENT_TIMESTAMP + INTERVAL '15 minutes'
               ELSE NULL
             END
         `;
       };
 
-      // We don't want a transaction here because we want attempts recorded even if audit fails
+      // Record attempts (non-transactional — we want these even if audit fails)
       await recordAttempt(ipHash, 'IP');
       await recordAttempt(accountHash, 'ACCOUNT');
-      
+
+      // Audit log
       await sql`
         INSERT INTO admin_audit_log (admin_user_id, action, actor_hash, metadata)
         VALUES (
-          ${user ? user.id : null}, 
-          'LOGIN_FAILED', 
-          ${accountHash}, 
-          ${JSON.stringify({ reason: 'invalid_credentials', ua })}
+          ${user ? user.id : null},
+          'LOGIN_FAILED',
+          ${accountHash},
+          ${JSON.stringify({ ua })}
         )
       `;
 
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // 13. success -> transaction
+    // 15. SUCCESS path: create session atomically using sql.transaction()
     const sessionToken = generateSessionToken();
     const tokenHash = hashSessionToken(sessionToken);
 
-    await sql.begin(async (tx) => {
-      // crear session
-      await tx`
+    // sql.transaction() sends all queries in a single HTTP request as a BEGIN/COMMIT block
+    await sql.transaction([
+      sql`
         INSERT INTO admin_sessions (admin_user_id, token_hash, expires_at)
         VALUES (${user.id}, ${tokenHash}, CURRENT_TIMESTAMP + INTERVAL '8 hours')
-      `;
-      // limpiar login attempts
-      await tx`
-        DELETE FROM admin_login_attempts 
-        WHERE key_hash IN (${ipHash}, ${accountHash})
-      `;
-      // registrar LOGIN_SUCCESS
-      await tx`
+      `,
+      sql`
+        DELETE FROM admin_login_attempts
+        WHERE kind IN ('IP', 'ACCOUNT')
+          AND key_hash IN (${ipHash}, ${accountHash})
+      `,
+      sql`
         INSERT INTO admin_audit_log (admin_user_id, action, actor_hash, metadata)
         VALUES (${user.id}, 'LOGIN_SUCCESS', ${accountHash}, ${JSON.stringify({ ua })})
-      `;
-      // actualizar last_login_at
-      await tx`
-        UPDATE admin_users 
-        SET last_login_at = CURRENT_TIMESTAMP 
+      `,
+      sql`
+        UPDATE admin_users
+        SET last_login_at = CURRENT_TIMESTAMP
         WHERE id = ${user.id}
-      `;
-    });
+      `
+    ]);
 
-    // 15. Set-Cookie
+    // 16. Set session cookie
     res.setHeader('Set-Cookie', serializeSessionCookie(sessionToken));
 
-    // 16. minimal JSON response
     return res.status(200).json({ ok: true });
 
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login handler error:', err.message);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
