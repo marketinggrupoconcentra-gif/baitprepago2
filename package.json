@@ -6,10 +6,16 @@
     "dev": "vercel dev",
     "deploy": "vercel deploy",
     "db:migrate": "node db/migrate.js",
-    "test": "node tests/run.js"
+    "db:migrate-admin": "node scripts/migrate-admin.js",
+    "test:foundation": "node tests/run.js",
+    "test:auth": "node tests/admin-auth.js",
+    "test:dashboard-unit": "node tests/dashboard-unit.js",
+    "test:dashboard-integration": "node --env-file=.env.branch tests/dashboard-integration.js",
+    "test:migration-integration": "node scripts/verify-migration-idempotency.cjs",
+    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4"
+    "@neondatabase/serverless": "^1.1.0"
   },
   "devDependencies": {
     "vercel": "^37.0.0"
