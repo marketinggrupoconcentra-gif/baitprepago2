@@ -75,5 +75,26 @@ assert(!dashboardJs.match(/[^/]sessionStorage\./), 'DASHBOARD: no sessionStorage
 assert(dashboardJs.includes('Intl.DateTimeFormat'), 'DASHBOARD: uses Intl for dates');
 assert(dashboardJs.includes('America/Mexico_City'), 'DASHBOARD: uses correct timezone');
 
+// 7. Migration 002 — Production Safety (additive, idempotent)
+// Ensures no destructive DDL is introduced in production-safe migrations.
+const migration002Raw = fs.existsSync('db/migrations/002_admin_auth.sql')
+  ? fs.readFileSync('db/migrations/002_admin_auth.sql', 'utf8')
+  : '';
+// Strip comment lines before checking for forbidden keywords
+const migration002 = migration002Raw
+  .split('\n')
+  .filter(l => !l.trim().startsWith('--'))
+  .join('\n');
+
+assert(!migration002.match(/\bDROP\s+TABLE\b/i),       'MIGRATION 002: No DROP TABLE');
+assert(!migration002.match(/\bDROP\s+INDEX\b/i),        'MIGRATION 002: No DROP INDEX');
+assert(!migration002.match(/\bDROP\s+CONSTRAINT\b/i),   'MIGRATION 002: No DROP CONSTRAINT');
+assert(!migration002.match(/\bTRUNCATE\b/i),             'MIGRATION 002: No TRUNCATE');
+assert(!migration002.match(/^DROP.*CASCADE/im),          'MIGRATION 002: No bare CASCADE DDL');
+assert(migration002Raw.match(/CREATE TABLE IF NOT EXISTS/i), 'MIGRATION 002: Uses CREATE TABLE IF NOT EXISTS');
+assert(migration002Raw.match(/CREATE INDEX IF NOT EXISTS/i), 'MIGRATION 002: Uses CREATE INDEX IF NOT EXISTS');
+assert(!migration002Raw.match(/br-[a-z0-9\-]{10,}/),    'MIGRATION 002: No hardcoded branch IDs');
+assert(!migration002Raw.match(/Preview Only|DO NOT run on Production/i), 'MIGRATION 002: No preview-only restriction comments');
+
 console.log(`\nTests finished: ${passed} passed, ${failed} failed.`);
 if (failed > 0) process.exit(1);
