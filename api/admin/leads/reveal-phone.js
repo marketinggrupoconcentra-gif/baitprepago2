@@ -2,81 +2,75 @@
  * api/admin/leads/reveal-phone.js
  * POST /api/admin/leads/reveal-phone
  * 
- * Obtiene el teléfono crudo por ID de lead. Solo SUPER_ADMIN. 
- * Audita LEAD_PHONE_REVEAL. Caché no-store. Fail-closed si falla auditoría.
+ * Muestra temporalmente el teléfono real de un lead,
+ * registrando estrictamente la acción en auditoría.
  */
 
-const { neon } = require('@neondatabase/serverless');
-const { getAdminSession, assertSameOrigin } = require('../../../lib/admin-auth');
-const { hasRole, ROLES } = require('../../../lib/admin-rbac');
-const { logAdminAction } = require('../../../lib/admin-audit');
+import { getDb } from '../../../lib/db.js';
+import { requireAdminSession } from '../../../lib/admin-session.js';
+import { ROLES, hasRole } from '../../../lib/admin-rbac.js';
+import { logAdminAction } from '../../../lib/admin-audit.js';
+import { assertSameOrigin } from '../../../lib/admin-auth.js';
 
-export const config = {
-  runtime: 'edge'
-};
-
-export default async function handler(req) {
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.includes('application/json')) {
+    return res.status(415).json({ error: 'Unsupported Media Type' });
   }
 
   try {
-    if (!assertSameOrigin(req)) {
-      return new Response(JSON.stringify({ error: 'Forbidden Origin' }), { status: 403 });
+    assertSameOrigin(req);
+  } catch (err) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const user = await requireAdminSession(req, res);
+    if (!user) return; // 401 already sent
+
+    if (!hasRole(user.role, [ROLES.SUPER_ADMIN])) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const session = await getAdminSession(req);
-    if (!session) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    const { id } = req.body || {};
+    if (!id || typeof id !== 'number' || id <= 0) {
+      return res.status(400).json({ error: 'Invalid lead ID' });
     }
 
-    // ONLY SUPER_ADMIN
-    if (!hasRole(session.role, [ROLES.SUPER_ADMIN])) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
-    }
-
-    const body = await req.json().catch(() => ({}));
-    const { id } = body;
-    const parsedId = parseInt(id);
-
-    if (!parsedId || isNaN(parsedId)) {
-      return new Response(JSON.stringify({ error: 'Invalid ID' }), { status: 400 });
-    }
-
-    const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-    if (!dbUrl) throw new Error('DB Config Error');
-
-    // Registrar auditoría ANTES de devolver la información
-    const ip = req.headers.get('x-forwarded-for') || '';
-    const ua = req.headers.get('user-agent') || '';
-    await logAdminAction(session.email, 'LEAD_PHONE_REVEAL', parsedId.toString(), ip, ua);
-
-    const sql = neon(dbUrl);
-
-    // Obtener el teléfono crudo
+    const sql = getDb();
+    
+    // Verify lead exists and get phone
     const results = await sql`
-      SELECT phone
-      FROM leads
-      WHERE id = ${parsedId}
-      LIMIT 1
+      SELECT id, phone FROM leads WHERE id = ${id}
     `;
 
     if (results.length === 0) {
-      return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404 });
+      return res.status(404).json({ error: 'Lead not found' });
     }
 
-    const phoneRaw = results[0].phone;
+    const lead = results[0];
 
-    return new Response(JSON.stringify({ phone: phoneRaw }), { 
-      status: 200, 
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
-      } 
+    // Write Audit. Fail closed if this throws.
+    try {
+      await logAdminAction(user, 'LEAD_PHONE_REVEAL', { leadId: lead.id });
+    } catch (err) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+
+    return res.status(200).json({
+      id: lead.id,
+      phone: lead.phone,
+      expiresInSeconds: 60
     });
 
   } catch (err) {
-    console.error('API /admin/leads/reveal-phone Error:', err);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

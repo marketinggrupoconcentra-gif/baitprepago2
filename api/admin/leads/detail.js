@@ -1,84 +1,72 @@
 /**
  * api/admin/leads/detail.js
- * GET /api/admin/leads/detail?id=X
- * 
- * Retorna el detalle de un lead. Sanitiza URLs, enmascara el teléfono y omite IP.
+ * GET /api/admin/leads/detail?id=123
  */
 
-const { neon } = require('@neondatabase/serverless');
-const { getAdminSession } = require('../../../lib/admin-auth');
-const { hasRole, ROLES } = require('../../../lib/admin-rbac');
-const { maskPhone, sanitizeAdminUrl } = require('../../../lib/leads-utils');
+import { getDb } from '../../../lib/db.js';
+import { requireAdminSession } from '../../../lib/admin-session.js';
+import { ROLES, hasRole } from '../../../lib/admin-rbac.js';
+import { maskPhone, sanitizeAdminUrl } from '../../../lib/leads-utils.js';
 
-export const config = {
-  runtime: 'edge'
-};
-
-export default async function handler(req) {
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  
   if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const session = await getAdminSession(req);
-    if (!session) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    const user = await requireAdminSession(req, res);
+    if (!user) return; // 401 already sent
+
+    if (!hasRole(user.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.EDITOR, ROLES.VIEWER])) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (!hasRole(session.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.VIEWER])) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const id = parseInt(url.searchParams.get('id'), 10);
+    
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid lead ID' });
     }
 
-    const url = new URL(req.url);
-    const id = parseInt(url.searchParams.get('id'));
-
-    if (!id || isNaN(id)) {
-      return new Response(JSON.stringify({ error: 'Invalid ID' }), { status: 400 });
-    }
-
-    const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-    if (!dbUrl) throw new Error('DB Config Error');
-
-    const sql = neon(dbUrl);
-
-    // Omitimos IP y fbclid por defecto, y teléfono crudo para luego enmascarar
+    const sql = getDb();
+    
     const results = await sql`
       SELECT 
-        id, phone, utm_source, utm_medium, utm_campaign, utm_term, utm_content, 
-        user_agent, referrer, page_url, created_at
+        id, phone, created_at,
+        utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+        fb_ad_id, fb_adset_id, fb_campaign_id,
+        page_url, referrer
       FROM leads
       WHERE id = ${id}
-      LIMIT 1
     `;
 
     if (results.length === 0) {
-      return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404 });
+      return res.status(404).json({ error: 'Lead not found' });
     }
 
     const lead = results[0];
-    
-    // Mapeo Seguro PII
-    const safeLead = {
+
+    const data = {
       id: lead.id,
-      phone: maskPhone(lead.phone),
-      utm_source: lead.utm_source,
-      utm_medium: lead.utm_medium,
-      utm_campaign: lead.utm_campaign,
-      utm_term: lead.utm_term,
-      utm_content: lead.utm_content,
-      user_agent: lead.user_agent,
-      referrer: sanitizeAdminUrl(lead.referrer),
-      page_url: sanitizeAdminUrl(lead.page_url),
-      created_at: lead.created_at
+      createdAt: lead.created_at,
+      phoneMasked: maskPhone(lead.phone),
+      utmSource: lead.utm_source,
+      utmMedium: lead.utm_medium,
+      utmCampaign: lead.utm_campaign,
+      utmContent: lead.utm_content,
+      utmTerm: lead.utm_term,
+      fbAdId: lead.fb_ad_id,
+      fbAdsetId: lead.fb_adset_id,
+      fbCampaignId: lead.fb_campaign_id,
+      page: sanitizeAdminUrl(lead.page_url),
+      referrer: sanitizeAdminUrl(lead.referrer)
     };
 
-    return new Response(JSON.stringify({ data: safeLead }), { 
-      status: 200, 
-      headers: { 'Content-Type': 'application/json' } 
-    });
+    return res.status(200).json({ data });
 
   } catch (err) {
-    console.error('API /admin/leads/detail Error:', err);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

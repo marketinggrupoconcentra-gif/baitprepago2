@@ -2,81 +2,76 @@
  * api/admin/leads/search.js
  * POST /api/admin/leads/search
  * 
- * Búsqueda exacta de teléfono (10 dígitos). Solo SUPER_ADMIN. 
- * Audita LEAD_PHONE_SEARCH. Retorna resultado ENMASCARADO.
+ * Búsqueda de teléfono exacta. Solo SUPER_ADMIN.
  */
 
-const { neon } = require('@neondatabase/serverless');
-const { getAdminSession, assertSameOrigin } = require('../../../lib/admin-auth');
-const { hasRole, ROLES } = require('../../../lib/admin-rbac');
-const { logAdminAction } = require('../../../lib/admin-audit');
-const { maskPhone } = require('../../../lib/leads-utils');
+import { getDb } from '../../../lib/db.js';
+import { requireAdminSession } from '../../../lib/admin-session.js';
+import { ROLES, hasRole } from '../../../lib/admin-rbac.js';
+import { maskPhone } from '../../../lib/leads-utils.js';
+import { logAdminAction } from '../../../lib/admin-audit.js';
+import { assertSameOrigin } from '../../../lib/admin-auth.js';
 
-export const config = {
-  runtime: 'edge'
-};
-
-export default async function handler(req) {
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Require JSON
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.includes('application/json')) {
+    return res.status(415).json({ error: 'Unsupported Media Type' });
   }
 
   try {
-    if (!assertSameOrigin(req)) {
-      return new Response(JSON.stringify({ error: 'Forbidden Origin' }), { status: 403 });
+    assertSameOrigin(req);
+  } catch (err) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const user = await requireAdminSession(req, res);
+    if (!user) return; // 401 already sent
+
+    if (!hasRole(user.role, [ROLES.SUPER_ADMIN])) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const session = await getAdminSession(req);
-    if (!session) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    }
-
-    // ONLY SUPER_ADMIN
-    if (!hasRole(session.role, [ROLES.SUPER_ADMIN])) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
-    }
-
-    const body = await req.json().catch(() => ({}));
-    const { phone } = body;
-
+    const { phone } = req.body || {};
     if (!phone || typeof phone !== 'string' || !/^\d{10}$/.test(phone)) {
-      return new Response(JSON.stringify({ error: 'Invalid phone format (must be 10 digits)' }), { status: 400 });
+      return res.status(400).json({ error: 'Invalid phone format' });
     }
 
-    const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-    if (!dbUrl) throw new Error('DB Config Error');
-
-    // Registrar auditoría ANTES de la búsqueda real
-    const ip = req.headers.get('x-forwarded-for') || '';
-    const ua = req.headers.get('user-agent') || '';
-    await logAdminAction(session.email, 'LEAD_PHONE_SEARCH', phone, ip, ua);
-
-    const sql = neon(dbUrl);
-
-    // Search
+    const sql = getDb();
     const results = await sql`
-      SELECT id, phone, utm_source, utm_campaign, created_at
+      SELECT id, phone, created_at, utm_source, utm_medium, utm_campaign
       FROM leads
       WHERE phone = ${phone}
       ORDER BY created_at DESC
+      LIMIT 100
     `;
 
-    // Mapeo seguro
-    const leads = results.map(row => ({
+    // Audit the action BEFORE returning, without exposing the raw phone!
+    try {
+      await logAdminAction(user, 'LEAD_PHONE_SEARCH', { resultCount: results.length });
+    } catch (err) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+
+    const items = results.map(row => ({
       id: row.id,
-      phone: maskPhone(row.phone), // Retornamos enmascarado!
-      utm_source: row.utm_source,
-      utm_campaign: row.utm_campaign,
-      created_at: row.created_at
+      phoneMasked: maskPhone(row.phone),
+      source: row.utm_source,
+      medium: row.utm_medium,
+      campaign: row.utm_campaign,
+      createdAt: row.created_at
     }));
 
-    return new Response(JSON.stringify({ data: leads }), { 
-      status: 200, 
-      headers: { 'Content-Type': 'application/json' } 
-    });
+    return res.status(200).json({ data: items });
 
   } catch (err) {
-    console.error('API /admin/leads/search Error:', err);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

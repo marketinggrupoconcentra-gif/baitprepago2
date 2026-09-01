@@ -2,56 +2,43 @@
  * api/admin/leads/facets.js
  * GET /api/admin/leads/facets
  * 
- * Retorna las opciones únicas para source, medium y campaign para alimentar los dropdowns.
+ * Retorna las opciones disponibles (source, medium, campaign) limitadas a 100.
  */
 
-const { neon } = require('@neondatabase/serverless');
-const { getAdminSession } = require('../../../lib/admin-auth');
-const { hasRole, ROLES } = require('../../../lib/admin-rbac');
+import { getDb } from '../../../lib/db.js';
+import { requireAdminSession } from '../../../lib/admin-session.js';
+import { ROLES, hasRole } from '../../../lib/admin-rbac.js';
 
-export const config = {
-  runtime: 'edge'
-};
-
-export default async function handler(req) {
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  
   if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const session = await getAdminSession(req);
-    if (!session) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    const user = await requireAdminSession(req, res);
+    if (!user) return; // 401 already sent
+
+    if (!hasRole(user.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.EDITOR, ROLES.VIEWER])) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (!hasRole(session.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.VIEWER])) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
-    }
-
-    const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-    if (!dbUrl) throw new Error('DB Config Error');
-
-    const sql = neon(dbUrl);
-
-    // Obtener valores únicos (limitado para no reventar memoria si hay miles)
-    // En una base masiva usaríamos tablas de dimensiones, pero aquí un GROUP BY con límite es suficiente.
-    const [sources, mediums, campaigns] = await Promise.all([
-      sql`SELECT utm_source as value FROM leads WHERE utm_source IS NOT NULL GROUP BY utm_source ORDER BY count(*) DESC LIMIT 50`,
-      sql`SELECT utm_medium as value FROM leads WHERE utm_medium IS NOT NULL GROUP BY utm_medium ORDER BY count(*) DESC LIMIT 50`,
-      sql`SELECT utm_campaign as value FROM leads WHERE utm_campaign IS NOT NULL GROUP BY utm_campaign ORDER BY count(*) DESC LIMIT 100`
+    const sql = getDb();
+    
+    const [sourcesRes, mediumsRes, campaignsRes] = await Promise.all([
+      sql`SELECT utm_source as value, COUNT(*) as count FROM leads WHERE utm_source IS NOT NULL AND utm_source != '' GROUP BY utm_source ORDER BY count DESC LIMIT 100`,
+      sql`SELECT utm_medium as value, COUNT(*) as count FROM leads WHERE utm_medium IS NOT NULL AND utm_medium != '' GROUP BY utm_medium ORDER BY count DESC LIMIT 100`,
+      sql`SELECT utm_campaign as value, COUNT(*) as count FROM leads WHERE utm_campaign IS NOT NULL AND utm_campaign != '' GROUP BY utm_campaign ORDER BY count DESC LIMIT 100`
     ]);
 
-    return new Response(JSON.stringify({
-      sources: sources.map(r => r.value),
-      mediums: mediums.map(r => r.value),
-      campaigns: campaigns.map(r => r.value)
-    }), { 
-      status: 200, 
-      headers: { 'Content-Type': 'application/json' } 
+    return res.status(200).json({
+      sources: sourcesRes,
+      mediums: mediumsRes,
+      campaigns: campaignsRes
     });
 
   } catch (err) {
-    console.error('API /admin/leads/facets Error:', err);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

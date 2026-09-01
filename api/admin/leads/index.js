@@ -4,124 +4,157 @@
  * 
  * Retorna un listado de leads con paginación basada en cursor.
  * Los teléfonos se retornan ENMASCARADOS.
- * Filtros aceptados por querystring (utm_source, utm_medium, utm_campaign, fecha).
+ * Filtros aceptados por querystring (source, medium, campaign, from, to).
  */
 
-const { neon } = require('@neondatabase/serverless');
-const { getAdminSession } = require('../../../lib/admin-auth');
-const { hasRole, ROLES } = require('../../../lib/admin-rbac');
-const { maskPhone, decodeCursor, encodeCursor, sanitizeAdminUrl } = require('../../../lib/leads-utils');
+import { getDb } from '../../../lib/db.js';
+import { requireAdminSession } from '../../../lib/admin-session.js';
+import { ROLES, hasRole } from '../../../lib/admin-rbac.js';
+import { maskPhone, decodeCursor, encodeCursor } from '../../../lib/leads-utils.js';
 
-export const config = {
-  runtime: 'edge'
-};
-
-export default async function handler(req) {
+export default async function handler(req, res) {
+  // Prevent caching
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  
   if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const session = await getAdminSession(req);
-    if (!session) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    const user = await requireAdminSession(req, res);
+    if (!user) return; // 401 already sent
+
+    if (!hasRole(user.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.EDITOR, ROLES.VIEWER])) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (!hasRole(session.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.VIEWER])) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
-    }
-
-    const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-    if (!dbUrl) throw new Error('DB Config Error');
-
-    const sql = neon(dbUrl);
-    const url = new URL(req.url);
-
-    // Filtros
+    const sql = getDb();
+    
+    // Parse query params (node req.query or from URL)
+    const url = new URL(req.url, `http://${req.headers.host}`);
     const source = url.searchParams.get('source');
     const medium = url.searchParams.get('medium');
     const campaign = url.searchParams.get('campaign');
-    const dateFrom = url.searchParams.get('dateFrom');
-    const dateTo = url.searchParams.get('dateTo');
+    const dateFrom = url.searchParams.get('from');
+    const dateTo = url.searchParams.get('to');
     
-    // Paginación
-    const limit = parseInt(url.searchParams.get('limit')) || 20;
-    const maxLimit = limit > 100 ? 100 : limit;
-    const cursorRaw = url.searchParams.get('cursor');
+    // Limits
+    const limitRaw = url.searchParams.get('limit');
+    const limit = limitRaw ? parseInt(limitRaw, 10) : 25;
+    
+    if (![25, 50, 100].includes(limit)) {
+      return res.status(400).json({ error: 'Invalid limit. Allowed: 25, 50, 100' });
+    }
 
-    // Construcción de Query dinámica para Edge/Serverless (usando query tags de neon o arrays)
-    // Neon no soporta query builder nativo sin ORMs pesados, así que haremos construcción plana con bind de parámetros
+    // Filters validation (max 255 chars)
+    if (source && source.length > 255) return res.status(400).json({ error: 'Filter too long' });
+    if (medium && medium.length > 255) return res.status(400).json({ error: 'Filter too long' });
+    if (campaign && campaign.length > 255) return res.status(400).json({ error: 'Filter too long' });
+    
+    // Dates validation
+    if (dateFrom && isNaN(Date.parse(dateFrom))) return res.status(400).json({ error: 'Invalid from date' });
+    if (dateTo && isNaN(Date.parse(dateTo))) return res.status(400).json({ error: 'Invalid to date' });
+    if (dateFrom && dateTo && new Date(dateFrom) > new Date(dateTo)) {
+      return res.status(400).json({ error: 'Date from must be <= date to' });
+    }
+
+    // Cursor
+    const cursorRaw = url.searchParams.get('cursor');
+    let cursor = null;
+    if (cursorRaw) {
+      try {
+        cursor = decodeCursor(cursorRaw);
+      } catch (err) {
+        return res.status(400).json({ error: 'Invalid cursor format' });
+      }
+    }
+
+    // Construct Query dynamically using params
     let queryStr = `
       SELECT id, phone, utm_source, utm_medium, utm_campaign, created_at
       FROM leads
       WHERE 1=1
     `;
+    let countQueryStr = `
+      SELECT COUNT(*) as total
+      FROM leads
+      WHERE 1=1
+    `;
+    
     const params = [];
 
     if (source) {
       params.push(source);
       queryStr += ` AND utm_source = $${params.length}`;
+      countQueryStr += ` AND utm_source = $${params.length}`;
     }
     if (medium) {
       params.push(medium);
       queryStr += ` AND utm_medium = $${params.length}`;
+      countQueryStr += ` AND utm_medium = $${params.length}`;
     }
     if (campaign) {
       params.push(campaign);
       queryStr += ` AND utm_campaign = $${params.length}`;
+      countQueryStr += ` AND utm_campaign = $${params.length}`;
     }
     if (dateFrom) {
       params.push(dateFrom);
       queryStr += ` AND created_at >= $${params.length}::timestamptz`;
+      countQueryStr += ` AND created_at >= $${params.length}::timestamptz`;
     }
     if (dateTo) {
       params.push(dateTo);
       queryStr += ` AND created_at <= $${params.length}::timestamptz`;
+      countQueryStr += ` AND created_at <= $${params.length}::timestamptz`;
     }
 
-    // Lógica de Cursor
-    const cursor = decodeCursor(cursorRaw);
-    if (cursor && cursor.created_at && cursor.id) {
-      params.push(cursor.created_at);
+    // Total Count execution
+    const countRes = await sql(countQueryStr, params);
+    const total = parseInt(countRes[0].total, 10);
+
+    // Pagination via Cursor
+    if (cursor) {
+      params.push(cursor.createdAt);
       const idxCreated = params.length;
       params.push(cursor.id);
       const idxId = params.length;
-      
-      // Orden DESC: buscar registros con created_at menor, o (mismo created_at Y menor id)
       queryStr += ` AND (created_at < $${idxCreated}::timestamptz OR (created_at = $${idxCreated}::timestamptz AND id < $${idxId}))`;
     }
 
-    // Ordenamiento y Limite
-    queryStr += ` ORDER BY created_at DESC, id DESC LIMIT ${maxLimit}`;
+    // Order and Limit
+    queryStr += ` ORDER BY created_at DESC, id DESC LIMIT ${limit}`;
 
-    // Ejecutar query
-    // neon() en modo literal con arreglo (bypass de tag template cuando es dinámico)
     const results = await sql(queryStr, params);
 
-    // Mapeo seguro
-    const leads = results.map(row => ({
+    const items = results.map(row => ({
       id: row.id,
-      phone: maskPhone(row.phone), // ENMASCARADO
-      utm_source: row.utm_source,
-      utm_medium: row.utm_medium,
-      utm_campaign: row.utm_campaign,
-      created_at: row.created_at
+      phoneMasked: maskPhone(row.phone), // Masked!
+      source: row.utm_source,
+      medium: row.utm_medium,
+      campaign: row.utm_campaign,
+      createdAt: row.created_at
     }));
 
-    // Siguiente cursor
     let nextCursor = null;
-    if (leads.length === maxLimit) {
-      const last = leads[leads.length - 1];
-      nextCursor = encodeCursor({ created_at: last.created_at, id: last.id });
+    let hasMore = false;
+    if (items.length === limit) {
+      const last = items[items.length - 1];
+      nextCursor = encodeCursor({ createdAt: last.createdAt, id: last.id });
+      hasMore = true;
     }
 
-    return new Response(JSON.stringify({ data: leads, nextCursor }), { 
-      status: 200, 
-      headers: { 'Content-Type': 'application/json' } 
+    return res.status(200).json({
+      items,
+      pagination: {
+        limit,
+        nextCursor,
+        hasMore,
+        total
+      }
     });
 
   } catch (err) {
-    console.error('API /admin/leads Error:', err);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500 });
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

@@ -76,11 +76,9 @@ assert(dashboardJs.includes('Intl.DateTimeFormat'), 'DASHBOARD: uses Intl for da
 assert(dashboardJs.includes('America/Mexico_City'), 'DASHBOARD: uses correct timezone');
 
 // 7. Migration 002 — Production Safety (additive, idempotent)
-// Ensures no destructive DDL is introduced in production-safe migrations.
 const migration002Raw = fs.existsSync('db/migrations/002_admin_auth.sql')
   ? fs.readFileSync('db/migrations/002_admin_auth.sql', 'utf8')
   : '';
-// Strip comment lines before checking for forbidden keywords
 const migration002 = migration002Raw
   .split('\n')
   .filter(l => !l.trim().startsWith('--'))
@@ -95,6 +93,31 @@ assert(migration002Raw.match(/CREATE TABLE IF NOT EXISTS/i), 'MIGRATION 002: Use
 assert(migration002Raw.match(/CREATE INDEX IF NOT EXISTS/i), 'MIGRATION 002: Uses CREATE INDEX IF NOT EXISTS');
 assert(!migration002Raw.match(/br-[a-z0-9\-]{10,}/),    'MIGRATION 002: No hardcoded branch IDs');
 assert(!migration002Raw.match(/Preview Only|DO NOT run on Production/i), 'MIGRATION 002: No preview-only restriction comments');
+
+// 8. Stage 1C — Admin Leads Module Security & Static Analysis
+const endpointPaths = [
+  'api/admin/leads/index.js',
+  'api/admin/leads/detail.js',
+  'api/admin/leads/facets.js',
+  'api/admin/leads/search.js',
+  'api/admin/leads/reveal-phone.js'
+];
+for (const p of endpointPaths) {
+  const content = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
+  assert(!content.includes("runtime: 'edge'"), `STAGE 1C: ${p} does not use edge runtime`);
+  assert(!content.includes('getAdminSession'), `STAGE 1C: ${p} does not use getAdminSession`);
+  assert(content.includes('requireAdminSession'), `STAGE 1C: ${p} uses requireAdminSession`);
+  assert(!content.match(/new\s+neon\(/), `STAGE 1C: ${p} does not instantiate new neon()`);
+  assert(!content.match(/SELECT\s+\*/i) || content.match(/SELECT\s+\*/i)?.[0] === null, `STAGE 1C: ${p} has no SELECT *`);
+}
+
+const detailJs = fs.existsSync('api/admin/leads/detail.js') ? fs.readFileSync('api/admin/leads/detail.js', 'utf8') : '';
+assert(!detailJs.includes('user_agent'), 'STAGE 1C: detail.js does not expose user_agent');
+assert(!detailJs.includes('fbclid'), 'STAGE 1C: detail.js does not expose fbclid');
+
+const auditJs = fs.existsSync('lib/admin-audit.js') ? fs.readFileSync('lib/admin-audit.js', 'utf8') : '';
+assert(auditJs.includes("['phone', 'ip', 'user_agent', 'ip_address']"), 'STAGE 1C: admin-audit.js strictly forbids raw phone and ip');
+assert(auditJs.includes('hashIdentity'), 'STAGE 1C: admin-audit.js uses hashIdentity for actor_hash');
 
 console.log(`\nTests finished: ${passed} passed, ${failed} failed.`);
 if (failed > 0) process.exit(1);
