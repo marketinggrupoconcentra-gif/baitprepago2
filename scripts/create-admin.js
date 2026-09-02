@@ -12,39 +12,20 @@
  *   node --env-file=.env.branch scripts/create-admin.js
  */
 
-require('./preview-safety.js');
+const { enforceSafety } = require('./preview-safety.js');
+enforceSafety();
 
 const { createInterface } = require('readline');
 
-const EXPECTED_ENDPOINT = 'ep-little-darkness';
-const EXPECTED_BRANCH_ID = 'br-dark-frost-a54t4r79';
-
 async function createAdmin() {
   console.log('=== Create QA Super Admin ===');
-  console.log(`Expected Neon project: solitary-meadow-63069248`);
-  console.log(`Expected branch: preview-admin-auth (${EXPECTED_BRANCH_ID})`);
-  console.log(`Expected endpoint: ${EXPECTED_ENDPOINT}\n`);
-
+  
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
 
   if (!dbUrl) {
     console.error('❌ DATABASE_URL not set. Aborting.');
     process.exit(1);
   }
-
-  if (!dbUrl.includes(EXPECTED_ENDPOINT)) {
-    console.error(`❌ FAIL CLOSED: DATABASE_URL references wrong endpoint.`);
-    console.error(`   Expected: ${EXPECTED_ENDPOINT}`);
-    console.error(`   Only run against preview-admin-auth (${EXPECTED_BRANCH_ID}).`);
-    process.exit(1);
-  }
-
-  if (dbUrl.includes('a57hzmzw')) {
-    console.error('❌ FAIL CLOSED: DATABASE_URL references Production Neon branch!');
-    process.exit(1);
-  }
-
-  console.log('✅ Endpoint check passed.\n');
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const question = (q) => new Promise(resolve => rl.question(q, resolve));
