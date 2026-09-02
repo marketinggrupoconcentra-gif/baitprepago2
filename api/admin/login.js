@@ -183,7 +183,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
 
   } catch (err) {
-    console.error('Login handler error:', err.message);
+    console.error('ADMIN_LOGIN_HANDLER_FAILED');
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
