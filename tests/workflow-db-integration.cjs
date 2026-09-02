@@ -4,7 +4,7 @@
  * Valida concurrencia, autorizaciones, reglas del catálogo y auditoría usando la API.
  */
 
-require('dotenv').config({ path: process.env.ENV_FILE || '.env.preview' });
+// using --env-file
 const { neon } = require('@neondatabase/serverless');
 
 // Simulate Next.js API handler

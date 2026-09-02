@@ -25,7 +25,7 @@ const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 async function doFetch(path, options = {}) {
   const headers = {
     'x-vercel-protection-bypass': BYPASS_SECRET,
-    'x-vercel-set-bypass-cookie': 'true',
+    'origin': BASE_URL,
     ...options.headers
   };
   if (options.session) {
