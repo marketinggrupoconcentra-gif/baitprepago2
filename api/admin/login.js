@@ -11,12 +11,6 @@ import {
   DUMMY_PASSWORD_HASH
 } from '../../lib/admin-auth.js';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 export default async function handler(req, res) {
   // 1. Security headers
   res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -39,20 +33,9 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // 5. Read and size-limit payload
-  let body = '';
-  for await (const chunk of req) {
-    body += chunk;
-    if (body.length > 2048) {
-      return res.status(413).json({ error: 'Payload too large' });
-    }
-  }
-
-  // 6. Parse JSON
-  let data;
-  try {
-    data = JSON.parse(body);
-  } catch (_e) {
+  // 5 & 6. Read payload
+  const data = req.body;
+  if (!data || typeof data !== 'object') {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
