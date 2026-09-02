@@ -54,8 +54,16 @@ export default async function handler(req, res) {
     // Dates validation
     if (dateFrom && isNaN(Date.parse(dateFrom))) return res.status(400).json({ error: 'Invalid from date' });
     if (dateTo && isNaN(Date.parse(dateTo))) return res.status(400).json({ error: 'Invalid to date' });
-    if (dateFrom && dateTo && new Date(dateFrom) > new Date(dateTo)) {
-      return res.status(400).json({ error: 'Date from must be <= date to' });
+    if (dateFrom && dateTo) {
+      const msFrom = new Date(dateFrom).getTime();
+      const msTo = new Date(dateTo).getTime();
+      if (msFrom > msTo) {
+        return res.status(400).json({ error: 'Date from must be <= date to' });
+      }
+      const days = (msTo - msFrom) / (1000 * 60 * 60 * 24);
+      if (days > 365) {
+        return res.status(400).json({ error: 'Date range cannot exceed 365 days' });
+      }
     }
 
     // Cursor
@@ -104,14 +112,14 @@ export default async function handler(req, res) {
       countQueryStr += ` AND created_at >= $${params.length}::timestamptz`;
     }
     if (dateTo) {
-      params.push(dateTo);
+      params.push(`${dateTo} 23:59:59.999Z`);
       queryStr += ` AND created_at <= $${params.length}::timestamptz`;
       countQueryStr += ` AND created_at <= $${params.length}::timestamptz`;
     }
 
     // Total Count execution
-    const countRes = await sql(countQueryStr, params);
-    const total = parseInt(countRes[0].total, 10);
+    const countRes = await sql.query(countQueryStr, params);
+    const total = parseInt(countRes.rows ? countRes.rows[0].total : countRes[0].total, 10);
 
     // Pagination via Cursor
     if (cursor) {
@@ -125,9 +133,10 @@ export default async function handler(req, res) {
     // Order and Limit
     queryStr += ` ORDER BY created_at DESC, id DESC LIMIT ${limit}`;
 
-    const results = await sql(queryStr, params);
+    const results = await sql.query(queryStr, params);
+    const rows = results.rows || results;
 
-    const items = results.map(row => ({
+    const items = rows.map(row => ({
       id: row.id,
       phoneMasked: maskPhone(row.phone), // Masked!
       source: row.utm_source,

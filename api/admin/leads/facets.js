@@ -27,15 +27,15 @@ export default async function handler(req, res) {
     const sql = getDb();
     
     const [sourcesRes, mediumsRes, campaignsRes] = await Promise.all([
-      sql`SELECT utm_source as value, COUNT(*) as count FROM leads WHERE utm_source IS NOT NULL AND utm_source != '' GROUP BY utm_source ORDER BY count DESC LIMIT 100`,
-      sql`SELECT utm_medium as value, COUNT(*) as count FROM leads WHERE utm_medium IS NOT NULL AND utm_medium != '' GROUP BY utm_medium ORDER BY count DESC LIMIT 100`,
-      sql`SELECT utm_campaign as value, COUNT(*) as count FROM leads WHERE utm_campaign IS NOT NULL AND utm_campaign != '' GROUP BY utm_campaign ORDER BY count DESC LIMIT 100`
+      sql.query(`SELECT utm_source as value, COUNT(*) as count FROM leads WHERE utm_source IS NOT NULL AND utm_source != '' GROUP BY utm_source ORDER BY count DESC LIMIT 100`),
+      sql.query(`SELECT utm_medium as value, COUNT(*) as count FROM leads WHERE utm_medium IS NOT NULL AND utm_medium != '' GROUP BY utm_medium ORDER BY count DESC LIMIT 100`),
+      sql.query(`SELECT utm_campaign as value, COUNT(*) as count FROM leads WHERE utm_campaign IS NOT NULL AND utm_campaign != '' GROUP BY utm_campaign ORDER BY count DESC LIMIT 100`)
     ]);
 
     return res.status(200).json({
-      sources: sourcesRes,
-      mediums: mediumsRes,
-      campaigns: campaignsRes
+      sources: sourcesRes.rows || sourcesRes,
+      mediums: mediumsRes.rows || mediumsRes,
+      campaigns: campaignsRes.rows || campaignsRes
     });
 
   } catch (err) {

@@ -12,7 +12,10 @@
     "test:dashboard-unit": "node tests/dashboard-unit.js",
     "test:dashboard-integration": "node --env-file=.env.branch tests/dashboard-integration.js",
     "test:migration-integration": "node scripts/verify-migration-idempotency.cjs",
-    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit"
+    "test:leads-unit": "node tests/leads-unit.js",
+    "test:leads-integration": "node --env-file=.env.branch tests/leads-integration.js",
+    "test:leads-e2e": "node --env-file=.env.branch tests/leads-e2e.js",
+    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"

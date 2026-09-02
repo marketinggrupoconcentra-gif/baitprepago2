@@ -25,6 +25,12 @@ export default async function handler(req, res) {
     return res.status(415).json({ error: 'Unsupported Media Type' });
   }
 
+  // Size limit (2KB)
+  const contentLength = req.headers['content-length'];
+  if (contentLength && parseInt(contentLength, 10) > 2048) {
+    return res.status(413).json({ error: 'Payload Too Large' });
+  }
+
   try {
     assertSameOrigin(req);
   } catch (err) {
@@ -45,22 +51,24 @@ export default async function handler(req, res) {
     }
 
     const sql = getDb();
-    const results = await sql`
+    const results = await sql.query(`
       SELECT id, phone, created_at, utm_source, utm_medium, utm_campaign
       FROM leads
-      WHERE phone = ${phone}
+      WHERE phone = $1
       ORDER BY created_at DESC
       LIMIT 100
-    `;
+    `, [phone]);
+    
+    const rows = results.rows || results;
 
     // Audit the action BEFORE returning, without exposing the raw phone!
     try {
-      await logAdminAction(user, 'LEAD_PHONE_SEARCH', { resultCount: results.length });
+      await logAdminAction(user, 'LEAD_PHONE_SEARCH', { resultCount: rows.length });
     } catch (err) {
       return res.status(500).json({ error: 'Internal Server Error' });
     }
 
-    const items = results.map(row => ({
+    const items = rows.map(row => ({
       id: row.id,
       phoneMasked: maskPhone(row.phone),
       source: row.utm_source,
@@ -69,7 +77,7 @@ export default async function handler(req, res) {
       createdAt: row.created_at
     }));
 
-    return res.status(200).json({ data: items });
+    return res.status(200).json({ items });
 
   } catch (err) {
     return res.status(500).json({ error: 'Internal Server Error' });

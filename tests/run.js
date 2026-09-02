@@ -116,8 +116,14 @@ assert(!detailJs.includes('user_agent'), 'STAGE 1C: detail.js does not expose us
 assert(!detailJs.includes('fbclid'), 'STAGE 1C: detail.js does not expose fbclid');
 
 const auditJs = fs.existsSync('lib/admin-audit.js') ? fs.readFileSync('lib/admin-audit.js', 'utf8') : '';
-assert(auditJs.includes("['phone', 'ip', 'user_agent', 'ip_address']"), 'STAGE 1C: admin-audit.js strictly forbids raw phone and ip');
+assert(auditJs.includes("['resultCount', 'leadId']"), 'STAGE 1C: admin-audit.js strictly enforces explicit allowlist');
 assert(auditJs.includes('hashIdentity'), 'STAGE 1C: admin-audit.js uses hashIdentity for actor_hash');
+
+const leadsUiJs = fs.existsSync('assets/admin-leads.js') ? fs.readFileSync('assets/admin-leads.js', 'utf8') : '';
+assert(!leadsUiJs.includes('.innerHTML ='), 'STAGE 1C: assets/admin-leads.js has no dynamic innerHTML');
+assert(!leadsUiJs.includes('.insertAdjacentHTML'), 'STAGE 1C: assets/admin-leads.js has no insertAdjacentHTML');
+assert(leadsUiJs.includes('document.createElement'), 'STAGE 1C: assets/admin-leads.js uses createElement');
+assert(leadsUiJs.includes('.textContent ='), 'STAGE 1C: assets/admin-leads.js uses textContent');
 
 console.log(`\nTests finished: ${passed} passed, ${failed} failed.`);
 if (failed > 0) process.exit(1);

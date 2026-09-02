@@ -32,21 +32,23 @@ export default async function handler(req, res) {
 
     const sql = getDb();
     
-    const results = await sql`
+    const results = await sql.query(`
       SELECT 
         id, phone, created_at,
         utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         fb_ad_id, fb_adset_id, fb_campaign_id,
         page_url, referrer
       FROM leads
-      WHERE id = ${id}
-    `;
+      WHERE id = $1
+    `, [id]);
+    
+    const rows = results.rows || results;
 
-    if (results.length === 0) {
+    if (rows.length === 0) {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    const lead = results[0];
+    const lead = rows[0];
 
     const data = {
       id: lead.id,
@@ -64,7 +66,7 @@ export default async function handler(req, res) {
       referrer: sanitizeAdminUrl(lead.referrer)
     };
 
-    return res.status(200).json({ data });
+    return res.status(200).json(data);
 
   } catch (err) {
     return res.status(500).json({ error: 'Internal Server Error' });

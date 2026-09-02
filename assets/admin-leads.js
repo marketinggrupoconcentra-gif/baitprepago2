@@ -7,10 +7,12 @@ let currentCursor = null;
 let currentFilters = {
   source: '',
   medium: '',
-  campaign: ''
+  campaign: '',
+  from: '',
+  to: ''
 };
 let isSearchMode = false; // Indica si estamos viendo resultados de búsqueda
-let revealTimers = {}; // Para el control de 60s al revelar teléfonos
+let revealTimers = {}; // Para el control al revelar teléfonos
 
 const UI = {
   leadsBody: document.getElementById('leadsBody'),
@@ -21,6 +23,8 @@ const UI = {
   filterSource: document.getElementById('filterSource'),
   filterMedium: document.getElementById('filterMedium'),
   filterCampaign: document.getElementById('filterCampaign'),
+  filterFrom: document.getElementById('filterFrom'),
+  filterTo: document.getElementById('filterTo'),
   searchForm: document.getElementById('searchForm'),
   phoneSearch: document.getElementById('phoneSearch'),
   refreshBtn: document.getElementById('refreshBtn'),
@@ -44,7 +48,9 @@ const UI = {
     date: document.getElementById('detailDate'),
     pageUrl: document.getElementById('detailPageUrl'),
     referrer: document.getElementById('detailReferrer'),
-    ua: document.getElementById('detailUA')
+    fbAdId: document.getElementById('detailFbAdId'),
+    fbAdsetId: document.getElementById('detailFbAdsetId'),
+    fbCampaignId: document.getElementById('detailFbCampaignId')
   },
   
   btnRevealPhone: document.getElementById('btnRevealPhone'),
@@ -68,16 +74,27 @@ async function fetchWithAuth(url, options = {}) {
   options.credentials = 'same-origin';
   const res = await fetch(url, options);
   if (res.status === 401) {
-    window.location.href = '/admin/';
+    handleSessionExpired();
     return Promise.reject(new Error('Unauthorized'));
   }
   return res;
 }
 
 /**
+ * Maneja la sesión expirada limpiando PII antes de redirigir.
+ */
+function handleSessionExpired() {
+  resetRevealTimer();
+  UI.leadsBody.textContent = '';
+  window.location.href = '/admin/';
+}
+
+/**
  * Cierra sesión
  */
 async function logout() {
+  resetRevealTimer();
+  UI.leadsBody.textContent = '';
   try {
     await fetch('/api/admin/logout', {
       method: 'POST',
@@ -135,7 +152,9 @@ function setupEventListeners() {
     currentFilters = {
       source: UI.filterSource.value,
       medium: UI.filterMedium.value,
-      campaign: UI.filterCampaign.value
+      campaign: UI.filterCampaign.value,
+      from: UI.filterFrom.value,
+      to: UI.filterTo.value
     };
     UI.phoneSearch.value = ''; // Limpiar búsqueda al usar filtros
     loadLeads(true);
@@ -144,7 +163,7 @@ function setupEventListeners() {
   UI.btnResetFilters.addEventListener('click', () => {
     isSearchMode = false;
     UI.filtersForm.reset();
-    currentFilters = { source: '', medium: '', campaign: '' };
+    currentFilters = { source: '', medium: '', campaign: '', from: '', to: '' };
     UI.phoneSearch.value = '';
     loadLeads(true);
   });
@@ -157,8 +176,9 @@ function setupEventListeners() {
     
     isSearchMode = true;
     UI.filtersForm.reset(); // Limpiar UI de filtros
-    currentFilters = { source: '', medium: '', campaign: '' };
+    currentFilters = { source: '', medium: '', campaign: '', from: '', to: '' };
     
+    UI.phoneSearch.value = ''; // Limpiar campo PII inmediatamente
     await searchPhone(phone);
   });
 
@@ -171,7 +191,9 @@ function setupEventListeners() {
 
   UI.refreshBtn.addEventListener('click', () => {
     if (isSearchMode) {
-      UI.searchForm.dispatchEvent(new Event('submit'));
+      // Salimos del modo búsqueda ya que no conservamos el teléfono
+      isSearchMode = false;
+      loadLeads(true);
     } else {
       loadLeads(true);
     }
@@ -183,6 +205,10 @@ function setupEventListeners() {
   
   // Logout link binding si existe (del admin-core)
   document.getElementById('logoutBtn')?.addEventListener('click', logout);
+  
+  // Limpieza PII al navegar
+  window.addEventListener('beforeunload', resetRevealTimer);
+  window.addEventListener('pagehide', resetRevealTimer);
 }
 
 /**
@@ -196,18 +222,18 @@ async function loadFacets() {
     const { sources, mediums, campaigns } = await res.json();
     
     const populate = (select, data) => {
-      data.forEach(val => {
-        if (!val) return;
+      data.forEach(item => {
+        if (!item || !item.value) return;
         const opt = document.createElement('option');
-        opt.value = val;
-        opt.textContent = val;
+        opt.value = item.value;
+        opt.textContent = `${item.value} (${item.count})`;
         select.appendChild(opt);
       });
     };
     
-    populate(UI.filterSource, sources);
-    populate(UI.filterMedium, mediums);
-    populate(UI.filterCampaign, campaigns);
+    populate(UI.filterSource, sources || []);
+    populate(UI.filterMedium, mediums || []);
+    populate(UI.filterCampaign, campaigns || []);
     
   } catch (err) {
     console.error('Error cargando facetas', err);
@@ -215,15 +241,22 @@ async function loadFacets() {
 }
 
 /**
- * Renderiza la tabla con los leads
+ * Renderiza la tabla con los leads (Prevención XSS)
  */
 function renderTable(leads, append) {
   if (!append) {
-    UI.leadsBody.innerHTML = '';
+    UI.leadsBody.textContent = '';
   }
   
   if (leads.length === 0 && !append) {
-    UI.leadsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem;">No se encontraron leads.</td></tr>';
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.style.textAlign = 'center';
+    td.style.padding = '2rem';
+    td.textContent = 'No se encontraron leads.';
+    tr.appendChild(td);
+    UI.leadsBody.appendChild(tr);
     announce('No se encontraron leads.');
     return;
   }
@@ -235,14 +268,42 @@ function renderTable(leads, append) {
 
   leads.forEach(lead => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${lead.id}</td>
-      <td style="white-space: nowrap;">${formatter.format(new Date(lead.created_at))}</td>
-      <td><strong>${lead.phone}</strong></td>
-      <td><span class="badge ${lead.utm_source ? 'badge-primary' : ''}">${lead.utm_source || '-'}</span></td>
-      <td>${lead.utm_campaign || '-'}</td>
-      <td><button class="btn-ghost btn-sm" onclick="window.openLeadDrawer(${lead.id})">Ver detalle</button></td>
-    `;
+    
+    const tdId = document.createElement('td');
+    tdId.textContent = lead.id;
+    
+    const tdDate = document.createElement('td');
+    tdDate.style.whiteSpace = 'nowrap';
+    tdDate.textContent = formatter.format(new Date(lead.createdAt));
+    
+    const tdPhone = document.createElement('td');
+    const strongPhone = document.createElement('strong');
+    strongPhone.textContent = lead.phoneMasked || '-';
+    tdPhone.appendChild(strongPhone);
+    
+    const tdSource = document.createElement('td');
+    const spanSource = document.createElement('span');
+    spanSource.className = lead.source ? 'badge badge-primary' : 'badge';
+    spanSource.textContent = lead.source || '-';
+    tdSource.appendChild(spanSource);
+    
+    const tdCampaign = document.createElement('td');
+    tdCampaign.textContent = lead.campaign || '-';
+    
+    const tdActions = document.createElement('td');
+    const btnDrawer = document.createElement('button');
+    btnDrawer.className = 'btn-ghost btn-sm';
+    btnDrawer.textContent = 'Ver detalle';
+    btnDrawer.addEventListener('click', () => openLeadDrawer(lead.id));
+    tdActions.appendChild(btnDrawer);
+    
+    tr.appendChild(tdId);
+    tr.appendChild(tdDate);
+    tr.appendChild(tdPhone);
+    tr.appendChild(tdSource);
+    tr.appendChild(tdCampaign);
+    tr.appendChild(tdActions);
+    
     UI.leadsBody.appendChild(tr);
   });
   
@@ -255,15 +316,29 @@ function renderTable(leads, append) {
 async function loadLeads(reset = false) {
   if (reset) {
     currentCursor = null;
-    UI.leadsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem;"><div class="loader-ring" style="width:24px; height:24px;"></div></td></tr>';
+    UI.leadsBody.textContent = '';
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.style.textAlign = 'center';
+    td.style.padding = '2rem';
+    const loader = document.createElement('div');
+    loader.className = 'loader-ring';
+    loader.style.width = '24px';
+    loader.style.height = '24px';
+    td.appendChild(loader);
+    tr.appendChild(td);
+    UI.leadsBody.appendChild(tr);
   }
 
   const params = new URLSearchParams();
   if (currentFilters.source) params.set('source', currentFilters.source);
   if (currentFilters.medium) params.set('medium', currentFilters.medium);
   if (currentFilters.campaign) params.set('campaign', currentFilters.campaign);
+  if (currentFilters.from) params.set('from', currentFilters.from);
+  if (currentFilters.to) params.set('to', currentFilters.to);
   if (currentCursor) params.set('cursor', currentCursor);
-  params.set('limit', '20');
+  params.set('limit', '25'); // Stage 1C limit=25
 
   try {
     const res = await fetchWithAuth(`/api/admin/leads?${params.toString()}`);
@@ -274,24 +349,37 @@ async function loadLeads(reset = false) {
     if (!res.ok) throw new Error('Error al cargar leads');
     
     const json = await res.json();
-    renderTable(json.data || [], !reset);
+    const items = json.items || [];
+    renderTable(items, !reset);
     
-    currentCursor = json.nextCursor;
-    if (currentCursor) {
-      UI.btnLoadMore.style.display = 'inline-flex';
-      UI.paginationStatus.textContent = '';
-    } else {
-      UI.btnLoadMore.style.display = 'none';
-      if ((json.data || []).length > 0) {
-        UI.paginationStatus.textContent = 'No hay más resultados.';
-      } else {
+    if (json.pagination) {
+      currentCursor = json.pagination.nextCursor;
+      if (currentCursor) {
+        UI.btnLoadMore.style.display = 'inline-flex';
         UI.paginationStatus.textContent = '';
+      } else {
+        UI.btnLoadMore.style.display = 'none';
+        if (items.length > 0) {
+          UI.paginationStatus.textContent = \`No hay más resultados (Total: \${json.pagination.total}).\`;
+        } else {
+          UI.paginationStatus.textContent = '';
+        }
       }
     }
     
   } catch (err) {
     console.error(err);
-    if (reset) UI.leadsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Error al cargar leads</td></tr>';
+    if (reset) {
+      UI.leadsBody.textContent = '';
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.style.textAlign = 'center';
+      td.style.color = 'red';
+      td.textContent = 'Error al cargar leads';
+      tr.appendChild(td);
+      UI.leadsBody.appendChild(tr);
+    }
   }
 }
 
@@ -299,7 +387,21 @@ async function loadLeads(reset = false) {
  * Búsqueda de teléfono exacta
  */
 async function searchPhone(phone) {
-  UI.leadsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem;"><div class="loader-ring" style="width:24px; height:24px;"></div> Buscando en auditoría...</td></tr>';
+  UI.leadsBody.textContent = '';
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.colSpan = 6;
+  td.style.textAlign = 'center';
+  td.style.padding = '2rem';
+  const loader = document.createElement('div');
+  loader.className = 'loader-ring';
+  loader.style.width = '24px';
+  loader.style.height = '24px';
+  td.appendChild(loader);
+  td.appendChild(document.createTextNode(' Buscando en auditoría...'));
+  tr.appendChild(td);
+  UI.leadsBody.appendChild(tr);
+  
   UI.btnLoadMore.style.display = 'none';
   UI.paginationStatus.textContent = '';
   
@@ -311,24 +413,40 @@ async function searchPhone(phone) {
     });
     
     if (res.status === 403) {
-      UI.leadsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">No tienes rol SUPER_ADMIN para buscar teléfonos.</td></tr>';
+      UI.leadsBody.textContent = '';
+      const errTr = document.createElement('tr');
+      const errTd = document.createElement('td');
+      errTd.colSpan = 6;
+      errTd.style.textAlign = 'center';
+      errTd.style.color = 'red';
+      errTd.textContent = 'No tienes rol SUPER_ADMIN para buscar teléfonos.';
+      errTr.appendChild(errTd);
+      UI.leadsBody.appendChild(errTr);
       return;
     }
     if (!res.ok) throw new Error('Error en la búsqueda');
     
     const json = await res.json();
-    renderTable(json.data || [], false);
+    renderTable(json.items || [], false);
     
   } catch (err) {
     console.error(err);
-    UI.leadsBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Error en la búsqueda.</td></tr>';
+    UI.leadsBody.textContent = '';
+    const errTr = document.createElement('tr');
+    const errTd = document.createElement('td');
+    errTd.colSpan = 6;
+    errTd.style.textAlign = 'center';
+    errTd.style.color = 'red';
+    errTd.textContent = 'Error en la búsqueda.';
+    errTr.appendChild(errTd);
+    UI.leadsBody.appendChild(errTr);
   }
 }
 
 /**
  * Lógica del Drawer
  */
-window.openLeadDrawer = async function(id) {
+async function openLeadDrawer(id) {
   UI.drawerOverlay.setAttribute('aria-hidden', 'false');
   UI.leadDrawer.setAttribute('aria-hidden', 'false');
   UI.drawerLoader.style.display = 'block';
@@ -341,22 +459,27 @@ window.openLeadDrawer = async function(id) {
     const res = await fetchWithAuth(`/api/admin/leads/detail?id=${id}`);
     if (!res.ok) throw new Error('Error cargando detalle');
     
-    const { data } = await res.json();
+    const data = await res.json(); // Ahora la respuesta es el objeto directamente o data depende de tu api
+    // Asumimos que data es el objeto lead dado que se refactorizó el contracto (veremos en el backend)
     
     UI.drawerFields.id.textContent = `#${data.id}`;
-    UI.drawerFields.phone.textContent = data.phone;
-    UI.drawerFields.source.textContent = data.utm_source || '-';
-    UI.drawerFields.medium.textContent = data.utm_medium || '-';
-    UI.drawerFields.campaign.textContent = data.utm_campaign || '-';
-    UI.drawerFields.term.textContent = data.utm_term || '-';
-    UI.drawerFields.content.textContent = data.utm_content || '-';
+    UI.drawerFields.phone.textContent = data.phoneMasked || '-';
+    UI.drawerFields.source.textContent = data.utmSource || '-';
+    UI.drawerFields.medium.textContent = data.utmMedium || '-';
+    UI.drawerFields.campaign.textContent = data.utmCampaign || '-';
+    UI.drawerFields.term.textContent = data.utmTerm || '-';
+    UI.drawerFields.content.textContent = data.utmContent || '-';
     
     const formatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeStyle: 'medium' });
-    UI.drawerFields.date.textContent = formatter.format(new Date(data.created_at));
+    if (data.createdAt) {
+      UI.drawerFields.date.textContent = formatter.format(new Date(data.createdAt));
+    } else {
+      UI.drawerFields.date.textContent = '-';
+    }
     
-    if (data.page_url && !data.page_url.includes('invalid-protocol')) {
-      UI.drawerFields.pageUrl.href = data.page_url;
-      UI.drawerFields.pageUrl.textContent = data.page_url;
+    if (data.page && !data.page.includes('invalid-protocol')) {
+      UI.drawerFields.pageUrl.href = data.page;
+      UI.drawerFields.pageUrl.textContent = data.page;
       UI.drawerFields.pageUrl.style.pointerEvents = 'auto';
     } else {
       UI.drawerFields.pageUrl.href = '#';
@@ -365,10 +488,18 @@ window.openLeadDrawer = async function(id) {
     }
     
     UI.drawerFields.referrer.textContent = data.referrer || '-';
-    UI.drawerFields.ua.textContent = data.user_agent || '-';
     
-    // Configurar botón reveal
-    UI.btnRevealPhone.onclick = () => revealPhone(data.id, data.phone);
+    // Meta IDs
+    UI.drawerFields.fbAdId.textContent = data.fbAdId || '-';
+    UI.drawerFields.fbAdsetId.textContent = data.fbAdsetId || '-';
+    UI.drawerFields.fbCampaignId.textContent = data.fbCampaignId || '-';
+    
+    // Configurar botón reveal (remove onclick from html previously, use listener safely)
+    const newBtn = UI.btnRevealPhone.cloneNode(true);
+    UI.btnRevealPhone.parentNode.replaceChild(newBtn, UI.btnRevealPhone);
+    UI.btnRevealPhone = newBtn;
+    
+    UI.btnRevealPhone.addEventListener('click', () => revealPhone(data.id, data.phoneMasked));
     UI.btnRevealPhone.style.display = 'inline-flex';
     UI.drawerFields.phone.classList.remove('revealed-phone');
     
@@ -379,7 +510,7 @@ window.openLeadDrawer = async function(id) {
     console.error(err);
     UI.drawerLoader.textContent = 'Error cargando el detalle.';
   }
-};
+}
 
 function closeDrawer() {
   UI.drawerOverlay.setAttribute('aria-hidden', 'true');
@@ -392,12 +523,15 @@ function closeDrawer() {
  */
 function resetRevealTimer() {
   if (revealTimers.interval) clearInterval(revealTimers.interval);
-  if (revealTimers.timeout) clearTimeout(revealTimers.timeout);
   UI.revealTimerWrap.style.display = 'none';
   // Restaurar enmascarado del DOM si es que quedaba algo
   if (!UI.drawerFields.phone.textContent.includes('*')) {
-    // Es un hack, pero para asegurar, si lo cerramos, lo re-enmascaramos
+    // Si no contiene *, volvemos a enmascarar (safe fallback)
     UI.drawerFields.phone.textContent = '******' + UI.drawerFields.phone.textContent.slice(-4);
+  }
+  UI.drawerFields.phone.classList.remove('revealed-phone');
+  if (UI.btnRevealPhone) {
+    UI.btnRevealPhone.style.display = 'inline-flex';
   }
 }
 
@@ -415,38 +549,36 @@ async function revealPhone(id, maskedVal) {
     }
     if (!res.ok) throw new Error('Error al revelar');
     
-    const { phone } = await res.json();
+    const { phone, expiresInSeconds } = await res.json();
+    const duration = expiresInSeconds || 60;
     
     UI.drawerFields.phone.textContent = phone;
     UI.drawerFields.phone.classList.add('revealed-phone');
     UI.btnRevealPhone.style.display = 'none';
     
-    // Iniciar temporizador de 60s
+    // Iniciar temporizador usando timestamp de deadline único
     UI.revealTimerWrap.style.display = 'block';
-    let secondsLeft = 60;
-    UI.revealCountdown.textContent = secondsLeft;
+    const deadline = Date.now() + (duration * 1000);
+    
+    // Initial paint
+    UI.revealCountdown.textContent = duration;
+    
+    if (revealTimers.interval) clearInterval(revealTimers.interval);
     
     revealTimers.interval = setInterval(() => {
-      secondsLeft--;
-      UI.revealCountdown.textContent = secondsLeft;
-      if (secondsLeft <= 0) {
+      const remaining = Math.ceil((deadline - Date.now()) / 1000);
+      
+      if (remaining <= 0) {
         resetRevealTimer();
         UI.drawerFields.phone.textContent = maskedVal;
-        UI.drawerFields.phone.classList.remove('revealed-phone');
-        UI.btnRevealPhone.style.display = 'inline-flex';
+      } else {
+        UI.revealCountdown.textContent = remaining;
       }
     }, 1000);
     
-    revealTimers.timeout = setTimeout(() => {
-      resetRevealTimer();
-      UI.drawerFields.phone.textContent = maskedVal;
-      UI.drawerFields.phone.classList.remove('revealed-phone');
-      UI.btnRevealPhone.style.display = 'inline-flex';
-    }, 60000);
-    
   } catch (err) {
-    console.error('Reveal error:', err);
-    alert('Error al revelar el teléfono.');
+    console.error('Reveal error');
+    // Silent fail outside of generic message, no raw console error
   }
 }
 

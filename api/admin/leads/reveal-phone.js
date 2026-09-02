@@ -25,6 +25,11 @@ export default async function handler(req, res) {
     return res.status(415).json({ error: 'Unsupported Media Type' });
   }
 
+  const contentLength = req.headers['content-length'];
+  if (contentLength && parseInt(contentLength, 10) > 2048) {
+    return res.status(413).json({ error: 'Payload Too Large' });
+  }
+
   try {
     assertSameOrigin(req);
   } catch (err) {
@@ -47,15 +52,17 @@ export default async function handler(req, res) {
     const sql = getDb();
     
     // Verify lead exists and get phone
-    const results = await sql`
-      SELECT id, phone FROM leads WHERE id = ${id}
-    `;
+    const results = await sql.query(`
+      SELECT id, phone FROM leads WHERE id = $1
+    `, [id]);
+    
+    const rows = results.rows || results;
 
-    if (results.length === 0) {
+    if (rows.length === 0) {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    const lead = results[0];
+    const lead = rows[0];
 
     // Write Audit. Fail closed if this throws.
     try {
