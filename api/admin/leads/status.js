@@ -72,11 +72,11 @@ export default async function handler(req, res) {
           status_version = leads.status_version + 1
         FROM current_lead
         WHERE leads.id = current_lead.id
-          AND current_lead.status_version = ${expectedVersion}
+          AND leads.status_version = ${expectedVersion}
           -- Ensure it's not a true NOOP
           AND (
-            current_lead.status IS DISTINCT FROM ${status}
-            OR current_lead.status_reason IS DISTINCT FROM ${normalizedReason}
+            leads.status IS DISTINCT FROM ${status}
+            OR leads.status_reason IS DISTINCT FROM ${normalizedReason}
           )
         RETURNING leads.id, leads.status, leads.status_reason, leads.status_updated_at, leads.status_version
       ),
@@ -120,17 +120,31 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    // CONFLICT
-    if (row.current_version !== expectedVersion) {
+    // CHECK IF IT WAS A NOOP BASED ON SNAPSHOT
+    const isNoop = row.current_version === expectedVersion && 
+                   row.current_status === status && 
+                   row.current_reason === normalizedReason;
+
+    // CONFLICT OR LOST UPDATE
+    if (!row.updated_lead && !isNoop) {
+      // It's a CAS loss! The target row changed since we loaded expectedVersion,
+      // or someone else modified it before the UPDATE executed.
+      // We must fetch the actual current state safely.
+      const freshResult = await sql`
+        SELECT id, status, status_reason, status_updated_at, status_version
+        FROM leads
+        WHERE id = ${id}
+      `;
+      const fresh = freshResult[0];
       return res.status(409).json({
         error: 'Conflict',
-        currentStatus: row.current_status,
-        currentVersion: row.current_version
+        currentStatus: fresh ? fresh.status : row.current_status,
+        currentVersion: fresh ? fresh.status_version : row.current_version
       });
     }
 
     // NOOP
-    if (!row.updated_lead) {
+    if (isNoop) {
       return res.status(200).json({
         changed: false,
         lead: {

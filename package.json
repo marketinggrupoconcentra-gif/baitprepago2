@@ -13,9 +13,11 @@
     "test:migration-integration": "node scripts/verify-migration-idempotency.cjs",
     "test:leads-unit": "node tests/leads-unit.js",
     "test:leads-integration": "node --env-file=.env.branch tests/leads-integration.js",
-    "test:workflow-integration": "node --env-file=.env.branch tests/workflow-db-integration.cjs",
-    "test:browser-e2e": "node --env-file=.env.branch tests/workflow-browser-e2e.js",
-    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit"
+    "test:workflow-unit": "node tests/workflow-unit.js",
+    "test:workflow-db-integration": "node --env-file=.env.preview tests/workflow-db-integration.cjs",
+    "test:workflow-http-integration": "node --env-file=.env.preview tests/workflow-http-integration.js",
+    "test:workflow-browser-e2e": "node --env-file=.env.preview tests/workflow-browser-e2e.js",
+    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"
