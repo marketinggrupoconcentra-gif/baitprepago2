@@ -40,7 +40,7 @@ async function login(email, password) {
   const res = await doFetch('/api/admin/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, NIP: '0000' }) // Assume QA bypass or we need real NIP? Wait, admin login has NO NIP. Admin login is just email/password.
+    body: JSON.stringify({ email, password })
   });
   if (res.status !== 200) {
     throw new Error(`Failed to login with ${email}: ${res.status}`);
