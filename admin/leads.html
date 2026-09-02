@@ -166,6 +166,12 @@
           <h2 class="sr-only" id="filtersHeading">Filtros de lista</h2>
           <form id="filtersForm" class="filters-grid">
             <div class="filter-group">
+              <label for="filterStatus">Estado</label>
+              <select id="filterStatus" name="status">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-group">
               <label for="filterSource">Origen</label>
               <select id="filterSource" name="source">
                 <option value="">Todos</option>
@@ -214,6 +220,7 @@
                     <th scope="col">ID</th>
                     <th scope="col">Fecha</th>
                     <th scope="col">Teléfono</th>
+                    <th scope="col">Estado</th>
                     <th scope="col">Fuente</th>
                     <th scope="col">Campaña</th>
                     <th scope="col">Acciones</th>
@@ -263,6 +270,23 @@
           </div>
           <div id="revealTimerWrap" class="reveal-timer-wrap" style="display:none;">
             <span class="reveal-warning">Número expuesto. Se ocultará en <span id="revealCountdown">60</span>s. (Acción auditada)</span>
+          </div>
+        </div>
+
+        <div class="detail-group">
+          <h3>Workflow</h3>
+          <div class="detail-row"><span class="detail-label">Estado actual:</span> <span class="detail-value"><span id="detailStatusBadge" class="badge"></span></span></div>
+          <div class="detail-row"><span class="detail-label">Razón:</span> <span class="detail-value" id="detailStatusReason"></span></div>
+          <div class="detail-row"><span class="detail-label">Última actualización:</span> <span class="detail-value" id="detailStatusUpdated"></span></div>
+          
+          <div id="statusControlWrap" style="display:none; margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary, #f8fafc); border-radius: 6px;">
+            <h4 style="margin:0 0 0.5rem 0; font-size: 0.875rem;">Cambiar Estado (SUPER_ADMIN)</h4>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <select id="statusSelect" class="search-input"></select>
+              <select id="reasonSelect" class="search-input" style="display:none;"></select>
+              <button id="btnSaveStatus" class="btn-primary" disabled>Guardar Estado</button>
+            </div>
+            <div id="statusError" style="color: var(--danger-color, #dc2626); font-size: 0.875rem; margin-top: 0.5rem; display:none;"></div>
           </div>
         </div>
 

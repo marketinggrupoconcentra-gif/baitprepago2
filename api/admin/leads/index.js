@@ -37,6 +37,7 @@ export default async function handler(req, res) {
     const campaign = url.searchParams.get('campaign');
     const dateFrom = url.searchParams.get('from');
     const dateTo = url.searchParams.get('to');
+    const statusFilter = url.searchParams.get('status');
     
     // Limits
     const limitRaw = url.searchParams.get('limit');
@@ -50,6 +51,7 @@ export default async function handler(req, res) {
     if (source && source.length > 255) return res.status(400).json({ error: 'Filter too long' });
     if (medium && medium.length > 255) return res.status(400).json({ error: 'Filter too long' });
     if (campaign && campaign.length > 255) return res.status(400).json({ error: 'Filter too long' });
+    if (statusFilter && statusFilter.length > 32) return res.status(400).json({ error: 'Invalid status' });
     
     // Dates validation
     if (dateFrom && isNaN(Date.parse(dateFrom))) return res.status(400).json({ error: 'Invalid from date' });
@@ -79,7 +81,7 @@ export default async function handler(req, res) {
 
     // Construct Query dynamically using params
     let queryStr = `
-      SELECT id, phone, utm_source, utm_medium, utm_campaign, created_at
+      SELECT id, phone, utm_source, utm_medium, utm_campaign, created_at, status
       FROM leads
       WHERE 1=1
     `;
@@ -106,6 +108,11 @@ export default async function handler(req, res) {
       queryStr += ` AND utm_campaign = $${params.length}`;
       countQueryStr += ` AND utm_campaign = $${params.length}`;
     }
+    if (statusFilter) {
+      params.push(statusFilter);
+      queryStr += ` AND status = $${params.length}`;
+      countQueryStr += ` AND status = $${params.length}`;
+    }
     if (dateFrom) {
       params.push(dateFrom);
       queryStr += ` AND created_at >= $${params.length}::timestamptz`;
@@ -127,6 +134,10 @@ export default async function handler(req, res) {
       const idxCreated = params.length;
       params.push(cursor.id);
       const idxId = params.length;
+      
+      // If status filter is applied, we don't include status in the cursor logic because status filter reduces the set. 
+      // The cursor logic `(created_at, id)` combined with the `status = $x` filter is sufficient.
+      // If there's no status filter, it's also sufficient. Wait, the query sorts by `created_at DESC, id DESC`, so cursor logic on `created_at, id` is correct.
       queryStr += ` AND (created_at < $${idxCreated}::timestamptz OR (created_at = $${idxCreated}::timestamptz AND id < $${idxId}))`;
     }
 
@@ -142,7 +153,8 @@ export default async function handler(req, res) {
       source: row.utm_source,
       medium: row.utm_medium,
       campaign: row.utm_campaign,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      status: row.status
     }));
 
     let nextCursor = null;

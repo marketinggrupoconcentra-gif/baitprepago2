@@ -5,6 +5,7 @@
 
 let currentCursor = null;
 let currentFilters = {
+  status: '',
   source: '',
   medium: '',
   campaign: '',
@@ -13,6 +14,8 @@ let currentFilters = {
 };
 let isSearchMode = false; // Indica si estamos viendo resultados de búsqueda
 let revealTimers = {}; // Para el control al revelar teléfonos
+let workflowConfig = null; // Guardará la config de status y reasons
+let currentLeadData = null; // Guardará el lead seleccionado actualmente
 
 const UI = {
   leadsBody: document.getElementById('leadsBody'),
@@ -20,6 +23,7 @@ const UI = {
   paginationStatus: document.getElementById('paginationStatus'),
   filtersForm: document.getElementById('filtersForm'),
   btnResetFilters: document.getElementById('btnResetFilters'),
+  filterStatus: document.getElementById('filterStatus'),
   filterSource: document.getElementById('filterSource'),
   filterMedium: document.getElementById('filterMedium'),
   filterCampaign: document.getElementById('filterCampaign'),
@@ -50,12 +54,22 @@ const UI = {
     referrer: document.getElementById('detailReferrer'),
     fbAdId: document.getElementById('detailFbAdId'),
     fbAdsetId: document.getElementById('detailFbAdsetId'),
-    fbCampaignId: document.getElementById('detailFbCampaignId')
+    fbCampaignId: document.getElementById('detailFbCampaignId'),
+    statusBadge: document.getElementById('detailStatusBadge'),
+    statusReason: document.getElementById('detailStatusReason'),
+    statusUpdated: document.getElementById('detailStatusUpdated')
   },
   
   btnRevealPhone: document.getElementById('btnRevealPhone'),
   revealTimerWrap: document.getElementById('revealTimerWrap'),
-  revealCountdown: document.getElementById('revealCountdown')
+  revealCountdown: document.getElementById('revealCountdown'),
+
+  // Workflow Control
+  statusControlWrap: document.getElementById('statusControlWrap'),
+  statusSelect: document.getElementById('statusSelect'),
+  reasonSelect: document.getElementById('reasonSelect'),
+  btnSaveStatus: document.getElementById('btnSaveStatus'),
+  statusError: document.getElementById('statusError')
 };
 
 /**
@@ -122,9 +136,55 @@ async function init() {
   if (userEmail) userEmail.textContent = user.email;
   if (userRole) userRole.textContent = user.role;
 
+  await loadWorkflowConfig();
   await loadFacets();
   await loadLeads(true);
   setupEventListeners();
+}
+
+/**
+ * Carga configuración del Workflow (Status y Reasons)
+ */
+async function loadWorkflowConfig() {
+  try {
+    const res = await fetchWithAuth('/api/admin/leads/workflow');
+    if (res.ok) {
+      workflowConfig = await res.json();
+      
+      // Populate select options in Drawer
+      if (workflowConfig.statuses) {
+        UI.statusSelect.textContent = '';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'Selecciona un estado...';
+        UI.statusSelect.appendChild(defaultOpt);
+        
+        workflowConfig.statuses.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.value;
+          opt.textContent = s.label;
+          UI.statusSelect.appendChild(opt);
+        });
+      }
+      
+      if (workflowConfig.reasons) {
+        UI.reasonSelect.textContent = '';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'Selecciona una razón...';
+        UI.reasonSelect.appendChild(defaultOpt);
+        
+        workflowConfig.reasons.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.value;
+          opt.textContent = r.label;
+          UI.reasonSelect.appendChild(opt);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error cargando workflow config', err);
+  }
 }
 
 /**
@@ -150,6 +210,7 @@ function setupEventListeners() {
     e.preventDefault();
     isSearchMode = false;
     currentFilters = {
+      status: UI.filterStatus.value,
       source: UI.filterSource.value,
       medium: UI.filterMedium.value,
       campaign: UI.filterCampaign.value,
@@ -163,7 +224,7 @@ function setupEventListeners() {
   UI.btnResetFilters.addEventListener('click', () => {
     isSearchMode = false;
     UI.filtersForm.reset();
-    currentFilters = { source: '', medium: '', campaign: '', from: '', to: '' };
+    currentFilters = { status: '', source: '', medium: '', campaign: '', from: '', to: '' };
     UI.phoneSearch.value = '';
     loadLeads(true);
   });
@@ -176,7 +237,7 @@ function setupEventListeners() {
     
     isSearchMode = true;
     UI.filtersForm.reset(); // Limpiar UI de filtros
-    currentFilters = { source: '', medium: '', campaign: '', from: '', to: '' };
+    currentFilters = { status: '', source: '', medium: '', campaign: '', from: '', to: '' };
     
     UI.phoneSearch.value = ''; // Limpiar campo PII inmediatamente
     await searchPhone(phone);
@@ -199,6 +260,21 @@ function setupEventListeners() {
     }
   });
 
+  // Drawer Workflow Controls
+  UI.statusSelect.addEventListener('change', () => {
+    const val = UI.statusSelect.value;
+    if (val === 'REJECTED' || val === 'CANCELLED') {
+      UI.reasonSelect.style.display = 'block';
+    } else {
+      UI.reasonSelect.style.display = 'none';
+      UI.reasonSelect.value = '';
+    }
+    checkStatusFormDirty();
+  });
+
+  UI.reasonSelect.addEventListener('change', checkStatusFormDirty);
+  UI.btnSaveStatus.addEventListener('click', saveStatus);
+
   // Drawer
   UI.btnCloseDrawer.addEventListener('click', closeDrawer);
   UI.drawerOverlay.addEventListener('click', closeDrawer);
@@ -212,6 +288,29 @@ function setupEventListeners() {
 }
 
 /**
+ * Checks if the workflow form should enable the Save button
+ */
+function checkStatusFormDirty() {
+  if (!currentLeadData) return;
+  const newStatus = UI.statusSelect.value;
+  const newReason = UI.reasonSelect.value;
+  
+  if (!newStatus || newStatus === currentLeadData.status) {
+    UI.btnSaveStatus.disabled = true;
+    return;
+  }
+  
+  if (newStatus === 'REJECTED' || newStatus === 'CANCELLED') {
+    if (!newReason) {
+      UI.btnSaveStatus.disabled = true;
+      return;
+    }
+  }
+  
+  UI.btnSaveStatus.disabled = false;
+}
+
+/**
  * Carga facetas para los filtros (dropdowns)
  */
 async function loadFacets() {
@@ -219,18 +318,19 @@ async function loadFacets() {
     const res = await fetchWithAuth('/api/admin/leads/facets');
     if (!res.ok) return;
     
-    const { sources, mediums, campaigns } = await res.json();
+    const { sources, mediums, campaigns, statuses } = await res.json();
     
     const populate = (select, data) => {
       data.forEach(item => {
         if (!item || !item.value) return;
         const opt = document.createElement('option');
         opt.value = item.value;
-        opt.textContent = `${item.value} (${item.count})`;
+        opt.textContent = `${item.label || item.value} (${item.count})`;
         select.appendChild(opt);
       });
     };
     
+    if (statuses) populate(UI.filterStatus, statuses);
     populate(UI.filterSource, sources || []);
     populate(UI.filterMedium, mediums || []);
     populate(UI.filterCampaign, campaigns || []);
@@ -280,6 +380,17 @@ function renderTable(leads, append) {
     const strongPhone = document.createElement('strong');
     strongPhone.textContent = lead.phoneMasked || '-';
     tdPhone.appendChild(strongPhone);
+
+    const tdStatus = document.createElement('td');
+    const spanStatus = document.createElement('span');
+    spanStatus.className = 'badge';
+    if (lead.status === 'NEW') spanStatus.classList.add('badge-primary');
+    else if (lead.status === 'COMPLETED' || lead.status === 'ACTIVATED') spanStatus.style.backgroundColor = '#16a34a'; // green-600
+    else if (lead.status === 'REJECTED' || lead.status === 'CANCELLED') spanStatus.style.backgroundColor = '#dc2626'; // red-600
+    
+    const statusLabel = workflowConfig?.statuses?.find(s => s.value === lead.status)?.label || lead.status || 'NEW';
+    spanStatus.textContent = statusLabel;
+    tdStatus.appendChild(spanStatus);
     
     const tdSource = document.createElement('td');
     const spanSource = document.createElement('span');
@@ -300,6 +411,7 @@ function renderTable(leads, append) {
     tr.appendChild(tdId);
     tr.appendChild(tdDate);
     tr.appendChild(tdPhone);
+    tr.appendChild(tdStatus);
     tr.appendChild(tdSource);
     tr.appendChild(tdCampaign);
     tr.appendChild(tdActions);
@@ -319,7 +431,7 @@ async function loadLeads(reset = false) {
     UI.leadsBody.textContent = '';
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 6;
+    td.colSpan = 7;
     td.style.textAlign = 'center';
     td.style.padding = '2rem';
     const loader = document.createElement('div');
@@ -332,6 +444,7 @@ async function loadLeads(reset = false) {
   }
 
   const params = new URLSearchParams();
+  if (currentFilters.status) params.set('status', currentFilters.status);
   if (currentFilters.source) params.set('source', currentFilters.source);
   if (currentFilters.medium) params.set('medium', currentFilters.medium);
   if (currentFilters.campaign) params.set('campaign', currentFilters.campaign);
@@ -459,8 +572,8 @@ async function openLeadDrawer(id) {
     const res = await fetchWithAuth(`/api/admin/leads/detail?id=${id}`);
     if (!res.ok) throw new Error('Error cargando detalle');
     
-    const data = await res.json(); // Ahora la respuesta es el objeto directamente o data depende de tu api
-    // Asumimos que data es el objeto lead dado que se refactorizó el contracto (veremos en el backend)
+    const data = await res.json(); 
+    currentLeadData = data;
     
     UI.drawerFields.id.textContent = `#${data.id}`;
     UI.drawerFields.phone.textContent = data.phoneMasked || '-';
@@ -477,6 +590,40 @@ async function openLeadDrawer(id) {
       UI.drawerFields.date.textContent = '-';
     }
     
+    // Workflow Rendering
+    const statusLabel = workflowConfig?.statuses?.find(s => s.value === data.status)?.label || data.status || 'NEW';
+    UI.drawerFields.statusBadge.textContent = statusLabel;
+    UI.drawerFields.statusBadge.className = 'badge';
+    if (data.status === 'NEW') UI.drawerFields.statusBadge.classList.add('badge-primary');
+    else if (data.status === 'COMPLETED' || data.status === 'ACTIVATED') UI.drawerFields.statusBadge.style.backgroundColor = '#16a34a';
+    else if (data.status === 'REJECTED' || data.status === 'CANCELLED') UI.drawerFields.statusBadge.style.backgroundColor = '#dc2626';
+
+    const reasonLabel = data.statusReason ? (workflowConfig?.reasons?.find(r => r.value === data.statusReason)?.label || data.statusReason) : '-';
+    UI.drawerFields.statusReason.textContent = reasonLabel;
+
+    if (data.statusUpdatedAt) {
+      UI.drawerFields.statusUpdated.textContent = formatter.format(new Date(data.statusUpdatedAt));
+    } else {
+      UI.drawerFields.statusUpdated.textContent = '-';
+    }
+
+    if (workflowConfig?.canManageStatus) {
+      UI.statusControlWrap.style.display = 'block';
+      UI.statusSelect.value = data.status || 'NEW';
+      UI.reasonSelect.value = data.statusReason || '';
+      
+      if (data.status === 'REJECTED' || data.status === 'CANCELLED') {
+        UI.reasonSelect.style.display = 'block';
+      } else {
+        UI.reasonSelect.style.display = 'none';
+      }
+      
+      UI.statusError.style.display = 'none';
+      UI.btnSaveStatus.disabled = true;
+    } else {
+      UI.statusControlWrap.style.display = 'none';
+    }
+
     if (data.page && !data.page.includes('invalid-protocol')) {
       UI.drawerFields.pageUrl.href = data.page;
       UI.drawerFields.pageUrl.textContent = data.page;
@@ -512,9 +659,78 @@ async function openLeadDrawer(id) {
   }
 }
 
+async function saveStatus() {
+  if (!currentLeadData) return;
+  const newStatus = UI.statusSelect.value;
+  const newReason = UI.reasonSelect.value;
+  
+  UI.btnSaveStatus.disabled = true;
+  UI.btnSaveStatus.textContent = 'Guardando...';
+  UI.statusError.style.display = 'none';
+
+  try {
+    const res = await fetchWithAuth('/api/admin/leads/status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: currentLeadData.id,
+        status: newStatus,
+        reason: (newStatus === 'REJECTED' || newStatus === 'CANCELLED') ? newReason : null,
+        expectedVersion: currentLeadData.statusVersion
+      })
+    });
+    
+    const json = await res.json();
+
+    if (!res.ok) {
+      if (res.status === 409) {
+        throw new Error('Conflicto: El estado fue modificado por otro usuario. Refresca e intenta de nuevo.');
+      }
+      throw new Error(json.error || 'Error al guardar estado.');
+    }
+    
+    // Success: update current lead state to allow consecutive edits
+    currentLeadData.status = json.lead.status;
+    currentLeadData.statusReason = json.lead.statusReason;
+    currentLeadData.statusVersion = json.lead.statusVersion;
+    currentLeadData.statusUpdatedAt = json.lead.statusUpdatedAt;
+    
+    // Refresh the table behind it
+    loadLeads(true);
+    
+    // Update Drawer UI
+    const statusLabel = workflowConfig?.statuses?.find(s => s.value === currentLeadData.status)?.label || currentLeadData.status;
+    UI.drawerFields.statusBadge.textContent = statusLabel;
+    
+    UI.drawerFields.statusBadge.className = 'badge';
+    UI.drawerFields.statusBadge.style.backgroundColor = '';
+    if (currentLeadData.status === 'NEW') UI.drawerFields.statusBadge.classList.add('badge-primary');
+    else if (currentLeadData.status === 'COMPLETED' || currentLeadData.status === 'ACTIVATED') UI.drawerFields.statusBadge.style.backgroundColor = '#16a34a';
+    else if (currentLeadData.status === 'REJECTED' || currentLeadData.status === 'CANCELLED') UI.drawerFields.statusBadge.style.backgroundColor = '#dc2626';
+
+    const reasonLabel = currentLeadData.statusReason ? (workflowConfig?.reasons?.find(r => r.value === currentLeadData.statusReason)?.label || currentLeadData.statusReason) : '-';
+    UI.drawerFields.statusReason.textContent = reasonLabel;
+
+    const formatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeStyle: 'medium' });
+    if (currentLeadData.statusUpdatedAt) {
+      UI.drawerFields.statusUpdated.textContent = formatter.format(new Date(currentLeadData.statusUpdatedAt));
+    }
+    
+    checkStatusFormDirty();
+    
+  } catch (err) {
+    UI.statusError.textContent = err.message;
+    UI.statusError.style.display = 'block';
+  } finally {
+    UI.btnSaveStatus.textContent = 'Guardar Estado';
+    checkStatusFormDirty(); // Restore button disabled state appropriately
+  }
+}
+
 function closeDrawer() {
   UI.drawerOverlay.setAttribute('aria-hidden', 'true');
   UI.leadDrawer.setAttribute('aria-hidden', 'true');
+  currentLeadData = null;
   resetRevealTimer();
 }
 

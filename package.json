@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vercel dev",
     "deploy": "vercel deploy",
     "db:migrate": "node db/migrate.js",
     "db:migrate-admin": "node scripts/migrate-admin.js",

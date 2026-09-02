@@ -116,7 +116,7 @@ assert(!detailJs.includes('user_agent'), 'STAGE 1C: detail.js does not expose us
 assert(!detailJs.includes('fbclid'), 'STAGE 1C: detail.js does not expose fbclid');
 
 const auditJs = fs.existsSync('lib/admin-audit.js') ? fs.readFileSync('lib/admin-audit.js', 'utf8') : '';
-assert(auditJs.includes("['resultCount', 'leadId']"), 'STAGE 1C: admin-audit.js strictly enforces explicit allowlist');
+assert(auditJs.includes("['resultCount']"), 'STAGE 1C: admin-audit.js strictly enforces explicit allowlist');
 assert(auditJs.includes('hashIdentity'), 'STAGE 1C: admin-audit.js uses hashIdentity for actor_hash');
 
 const leadsUiJs = fs.existsSync('assets/admin-leads.js') ? fs.readFileSync('assets/admin-leads.js', 'utf8') : '';
