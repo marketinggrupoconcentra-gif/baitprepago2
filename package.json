@@ -13,13 +13,15 @@
     "test:migration-integration": "node scripts/verify-migration-idempotency.cjs",
     "test:leads-unit": "node tests/leads-unit.js",
     "test:leads-integration": "node --env-file=.env.branch tests/leads-integration.js",
-    "test:leads-e2e": "node --env-file=.env.branch tests/leads-e2e.js",
+    "test:workflow-integration": "node --env-file=.env.branch tests/workflow-db-integration.cjs",
+    "test:browser-e2e": "node --env-file=.env.branch tests/workflow-browser-e2e.js",
     "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"
   },
   "devDependencies": {
+    "playwright": "^1.62.1",
     "vercel": "^37.0.0"
   }
 }

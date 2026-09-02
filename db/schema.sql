@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS leads (
           'REJECTED', 'CANCELLED'
       )
   ),
+  CONSTRAINT leads_status_reason_catalog_check CHECK (
+      status_reason IS NULL OR
+      status_reason IN (
+          'INVALID_DATA', 'DUPLICATE', 'UNREACHABLE', 'CUSTOMER_DECLINED',
+          'SIM_ISSUE', 'ACTIVATION_ISSUE', 'PORTABILITY_REJECTED',
+          'POLICY_REJECTED', 'OTHER_OPERATIONAL'
+      )
+  ),
   CONSTRAINT leads_status_reason_rule CHECK (
       (status IN ('REJECTED', 'CANCELLED') AND status_reason IS NOT NULL) OR
       (status NOT IN ('REJECTED', 'CANCELLED') AND status_reason IS NULL)

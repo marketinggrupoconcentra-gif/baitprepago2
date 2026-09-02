@@ -1,4 +1,4 @@
-import { requireAdminSession } from '../../../lib/admin-auth.js';
+import { requireAdminSession } from '../../../lib/admin-session.js';
 import { STATUS_CATALOG, REASON_CATALOG } from '../../../lib/lead-workflow.js';
 
 export default async function handler(req, res) {
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       canManageStatus
     });
   } catch (err) {
-    console.error('Workflow API Error:', err);
+    console.error('WORKFLOW_API_FAILED');
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

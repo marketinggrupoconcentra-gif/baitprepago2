@@ -1,6 +1,6 @@
 import { getDb } from '../../../lib/db.js';
-import { requireAdminSession } from '../../../lib/admin-auth.js';
-import { logAdminAction } from '../../../lib/admin-audit.js';
+import { requireAdminSession } from '../../../lib/admin-session.js';
+import { assertSameOrigin, hashIdentity } from '../../../lib/admin-auth.js';
 import { validateTransitionPayload } from '../../../lib/lead-workflow.js';
 
 export const config = {
@@ -22,10 +22,11 @@ export default async function handler(req, res) {
     return res.status(415).json({ error: 'Unsupported Media Type' });
   }
 
-  // Same-Origin Check (simple fetch metadata check)
-  const secFetchSite = req.headers['sec-fetch-site'];
-  if (secFetchSite && secFetchSite !== 'same-origin') {
-    return res.status(403).json({ error: 'Forbidden cross-origin request' });
+  // Same-Origin Check (certified helper)
+  try {
+    assertSameOrigin(req);
+  } catch {
+    return res.status(403).json({ error: 'Forbidden' });
   }
 
   try {
@@ -52,111 +53,104 @@ export default async function handler(req, res) {
     }
 
     const sql = getDb();
+    const normalizedReason = reason || null;
+    const actorHash = hashIdentity(`session:${user.sessionId}`);
 
-    // Begin transaction for optimistic locking and audit
-    try {
-      // NOTE: With Neon serverless, standard `sql.begin` is not always stable for transactions.
-      // We will use standard single statements if transaction fails, but we can do a PostgreSQL transaction block if we use array of statements
-      // Or we can just use `sql.transaction` from neondatabase/serverless.
-      // The prompt says: "Usar la transaction API compatible con @neondatabase/serverless ^1.1.0 ... No: sql.begin"
-      
-      const result = await sql.transaction(async (tx) => {
-        // Read current lead
-        const currentLeadRows = await tx`
-          SELECT id, status, status_version 
-          FROM leads 
-          WHERE id = ${id}
-        `;
-        
-        if (currentLeadRows.length === 0) {
-          throw { status: 404, error: 'Lead not found' };
-        }
-        
-        const currentLead = currentLeadRows[0];
-        
-        // Concurrency Check
-        if (currentLead.status_version !== expectedVersion) {
-          throw { 
-            status: 409, 
-            error: 'Conflict', 
-            currentStatus: currentLead.status, 
-            currentVersion: currentLead.status_version 
-          };
-        }
+    // SINGLE STATEMENT ATOMIC CAS
+    const queryResult = await sql`
+      WITH current_lead AS (
+        SELECT id, status, status_reason, status_updated_at, status_version
+        FROM leads
+        WHERE id = ${id}
+      ),
+      update_action AS (
+        UPDATE leads
+        SET 
+          status = ${status},
+          status_reason = ${normalizedReason},
+          status_updated_at = NOW(),
+          status_version = leads.status_version + 1
+        FROM current_lead
+        WHERE leads.id = current_lead.id
+          AND current_lead.status_version = ${expectedVersion}
+          -- Ensure it's not a true NOOP
+          AND (
+            current_lead.status IS DISTINCT FROM ${status}
+            OR current_lead.status_reason IS DISTINCT FROM ${normalizedReason}
+          )
+        RETURNING leads.id, leads.status, leads.status_reason, leads.status_updated_at, leads.status_version
+      ),
+      audit_action AS (
+        INSERT INTO admin_audit_log (admin_user_id, action, actor_hash, metadata)
+        SELECT 
+          ${user.id}, 
+          'LEAD_STATUS_CHANGED', 
+          ${actorHash}, 
+          json_build_object(
+            'leadId', current_lead.id,
+            'fromStatus', current_lead.status,
+            'toStatus', update_action.status,
+            'reasonCode', update_action.status_reason,
+            'fromVersion', current_lead.status_version,
+            'toVersion', update_action.status_version
+          )::jsonb
+        FROM update_action
+        JOIN current_lead ON current_lead.id = update_action.id
+        RETURNING 1
+      )
+      SELECT 
+        (SELECT COUNT(*) FROM current_lead) AS found,
+        (SELECT status_version FROM current_lead) AS current_version,
+        (SELECT status FROM current_lead) AS current_status,
+        (SELECT status_reason FROM current_lead) AS current_reason,
+        (SELECT status_updated_at FROM current_lead) AS current_updated_at,
+        (SELECT json_build_object(
+            'id', id,
+            'status', status,
+            'statusReason', status_reason,
+            'statusUpdatedAt', status_updated_at,
+            'statusVersion', status_version
+        ) FROM update_action) AS updated_lead
+    `;
 
-        // Same Status Check
-        if (currentLead.status === status) {
-          return {
-            changed: false,
-            lead: {
-              id: currentLead.id,
-              status: currentLead.status,
-              statusReason: currentLead.status_reason || null,
-              statusUpdatedAt: currentLead.status_updated_at || new Date().toISOString(),
-              statusVersion: currentLead.status_version
-            }
-          };
-        }
+    const row = queryResult[0];
 
-        // Perform the Update
-        const nextVersion = currentLead.status_version + 1;
-        const normalizedReason = reason || null;
-        
-        const updateRows = await tx`
-          UPDATE leads
-          SET 
-            status = ${status},
-            status_reason = ${normalizedReason},
-            status_updated_at = NOW(),
-            status_version = ${nextVersion}
-          WHERE id = ${id} AND status_version = ${expectedVersion}
-          RETURNING id, status, status_reason, status_updated_at, status_version
-        `;
-
-        if (updateRows.length === 0) {
-          // This would only happen if another transaction snuck in between read and update
-          throw { 
-            status: 409, 
-            error: 'Conflict'
-          };
-        }
-
-        const updatedLead = updateRows[0];
-
-        // Perform Audit in the same transaction
-        await logAdminAction(user, 'LEAD_STATUS_CHANGED', {
-          leadId: id,
-          fromStatus: currentLead.status,
-          toStatus: status,
-          reasonCode: normalizedReason,
-          fromVersion: currentLead.status_version,
-          toVersion: nextVersion
-        }, tx);
-
-        return {
-          changed: true,
-          lead: {
-            id: updatedLead.id,
-            status: updatedLead.status,
-            statusReason: updatedLead.status_reason,
-            statusUpdatedAt: updatedLead.status_updated_at,
-            statusVersion: updatedLead.status_version
-          }
-        };
-      });
-
-      return res.status(200).json(result);
-
-    } catch (txError) {
-      if (txError.status) {
-        return res.status(txError.status).json(txError);
-      }
-      throw txError;
+    // NOT FOUND
+    if (!row || row.found === 0n || row.found === 0) {
+      return res.status(404).json({ error: 'Lead not found' });
     }
 
+    // CONFLICT
+    if (row.current_version !== expectedVersion) {
+      return res.status(409).json({
+        error: 'Conflict',
+        currentStatus: row.current_status,
+        currentVersion: row.current_version
+      });
+    }
+
+    // NOOP
+    if (!row.updated_lead) {
+      return res.status(200).json({
+        changed: false,
+        lead: {
+          id,
+          status: row.current_status,
+          statusReason: row.current_reason,
+          statusUpdatedAt: row.current_updated_at,
+          statusVersion: row.current_version
+        }
+      });
+    }
+
+    // SUCCESS
+    return res.status(200).json({
+      changed: true,
+      lead: row.updated_lead
+    });
+
   } catch (err) {
-    console.error('Status Update API Error:', err);
-    // Explicitly catching audit failures or other errors. 
+    console.error('LEAD_STATUS_UPDATE_FAILED');
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
