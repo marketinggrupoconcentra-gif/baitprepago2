@@ -3,7 +3,7 @@
  * Runner for Phase 1D-A Workflow Migration
  */
 
-require('dotenv').config({ path: '.env.preview' });
+// Removed dotenv to use native node --env-file
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('@neondatabase/serverless');

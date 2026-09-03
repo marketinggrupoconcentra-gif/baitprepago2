@@ -69,7 +69,12 @@ const UI = {
   statusSelect: document.getElementById('statusSelect'),
   reasonSelect: document.getElementById('reasonSelect'),
   btnSaveStatus: document.getElementById('btnSaveStatus'),
-  statusError: document.getElementById('statusError')
+  statusError: document.getElementById('statusError'),
+  
+  // Terminal Confirmation Modal
+  statusConfirmModal: document.getElementById('statusConfirmModal'),
+  btnConfirmStatus: document.getElementById('btnConfirmStatus'),
+  btnCancelStatus: document.getElementById('btnCancelStatus')
 };
 
 /**
@@ -275,6 +280,17 @@ function setupEventListeners() {
   UI.reasonSelect.addEventListener('change', checkStatusFormDirty);
   UI.btnSaveStatus.addEventListener('click', saveStatus);
 
+  // Terminal Modal
+  UI.btnConfirmStatus.addEventListener('click', () => {
+    UI.statusConfirmModal.style.display = 'none';
+    UI.statusConfirmModal.setAttribute('aria-hidden', 'true');
+    executeSaveStatus();
+  });
+  UI.btnCancelStatus.addEventListener('click', () => {
+    UI.statusConfirmModal.style.display = 'none';
+    UI.statusConfirmModal.setAttribute('aria-hidden', 'true');
+  });
+
   // Drawer
   UI.btnCloseDrawer.addEventListener('click', closeDrawer);
   UI.drawerOverlay.addEventListener('click', closeDrawer);
@@ -295,16 +311,20 @@ function checkStatusFormDirty() {
   const newStatus = UI.statusSelect.value;
   const newReason = UI.reasonSelect.value;
   
-  if (!newStatus || newStatus === currentLeadData.status) {
+  const isTerminal = (newStatus === 'REJECTED' || newStatus === 'CANCELLED');
+  const currentReason = currentLeadData.statusReason || null;
+  const selectedReason = newReason || null;
+  
+  // Disable if no change
+  if (newStatus === currentLeadData.status && selectedReason === currentReason) {
     UI.btnSaveStatus.disabled = true;
     return;
   }
   
-  if (newStatus === 'REJECTED' || newStatus === 'CANCELLED') {
-    if (!newReason) {
-      UI.btnSaveStatus.disabled = true;
-      return;
-    }
+  // Terminal status requires a reason
+  if (isTerminal && !selectedReason) {
+    UI.btnSaveStatus.disabled = true;
+    return;
   }
   
   UI.btnSaveStatus.disabled = false;
@@ -368,6 +388,7 @@ function renderTable(leads, append) {
 
   leads.forEach(lead => {
     const tr = document.createElement('tr');
+    tr.setAttribute('data-id', lead.id);
     
     const tdId = document.createElement('td');
     tdId.textContent = lead.id;
@@ -403,7 +424,7 @@ function renderTable(leads, append) {
     
     const tdActions = document.createElement('td');
     const btnDrawer = document.createElement('button');
-    btnDrawer.className = 'btn-ghost btn-sm';
+    btnDrawer.className = 'btn-ghost btn-sm view-lead-btn';
     btnDrawer.textContent = 'Ver detalle';
     btnDrawer.addEventListener('click', () => openLeadDrawer(lead.id));
     tdActions.appendChild(btnDrawer);
@@ -661,12 +682,31 @@ async function openLeadDrawer(id) {
 
 async function saveStatus() {
   if (!currentLeadData) return;
+  
   const newStatus = UI.statusSelect.value;
-  const newReason = UI.reasonSelect.value;
+  const isTerminal = (newStatus === 'REJECTED' || newStatus === 'CANCELLED' || newStatus === 'COMPLETED');
+  
+  // If terminal and status changed, confirm first. If it's just a reason change on same status, no confirmation needed.
+  if (isTerminal && newStatus !== currentLeadData.status) {
+    UI.statusConfirmModal.style.display = 'flex';
+    UI.statusConfirmModal.setAttribute('aria-hidden', 'false');
+    return;
+  }
+  
+  await executeSaveStatus();
+}
+
+async function executeSaveStatus() {
+  const newStatus = UI.statusSelect.value;
+  const isTerminal = (newStatus === 'REJECTED' || newStatus === 'CANCELLED');
+  const newReason = isTerminal ? UI.reasonSelect.value : null; // send null if not terminal
   
   UI.btnSaveStatus.disabled = true;
   UI.btnSaveStatus.textContent = 'Guardando...';
   UI.statusError.style.display = 'none';
+  const conflictMessage = UI.statusError.querySelector('.conflict-message');
+  const errorText = UI.statusError.querySelector('.error-text');
+  if (conflictMessage) conflictMessage.style.display = 'none';
 
   try {
     const res = await fetchWithAuth('/api/admin/leads/status', {
@@ -675,7 +715,7 @@ async function saveStatus() {
       body: JSON.stringify({
         id: currentLeadData.id,
         status: newStatus,
-        reason: (newStatus === 'REJECTED' || newStatus === 'CANCELLED') ? newReason : null,
+        reason: newReason,
         expectedVersion: currentLeadData.statusVersion
       })
     });
@@ -684,7 +724,10 @@ async function saveStatus() {
 
     if (!res.ok) {
       if (res.status === 409) {
-        throw new Error('Conflicto: El estado fue modificado por otro usuario. Refresca e intenta de nuevo.');
+        if (conflictMessage) conflictMessage.style.display = 'block';
+        UI.statusError.style.display = 'block';
+        if (errorText) errorText.textContent = '';
+        throw new Error('Conflicto detectado');
       }
       throw new Error(json.error || 'Error al guardar estado.');
     }
@@ -719,11 +762,17 @@ async function saveStatus() {
     checkStatusFormDirty();
     
   } catch (err) {
-    UI.statusError.textContent = err.message;
-    UI.statusError.style.display = 'block';
+    if (err.message !== 'Conflicto detectado') {
+      if (errorText) {
+        errorText.textContent = err.message;
+      } else {
+        UI.statusError.textContent = err.message;
+      }
+      UI.statusError.style.display = 'block';
+    }
   } finally {
     UI.btnSaveStatus.textContent = 'Guardar Estado';
-    checkStatusFormDirty(); // Restore button disabled state appropriately
+    checkStatusFormDirty();
   }
 }
 

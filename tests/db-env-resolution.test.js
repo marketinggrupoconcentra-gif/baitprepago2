@@ -2,74 +2,51 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-// We need to test lib/db.js without actually connecting to the database
-// so we mock @neondatabase/serverless.
-const Module = require('node:module');
-
 test('DB Env Resolution Precedence', (t) => {
-  const originalEnv = { ...process.env };
-
-  t.afterEach(() => {
-    process.env = { ...originalEnv };
-  });
-
-  const getDbInstance = () => {
-    delete require.cache[require.resolve('../lib/db.js')];
-    const { getDb } = require('../lib/db.js');
-    return getDb;
-  };
+  const { resolveDatabaseUrl } = require('../lib/db.js');
 
   t.test('1. no supported env => throws', () => {
-    delete process.env.DATABASE_URL;
-    delete process.env.POSTGRES_URL;
-    delete process.env.STORAGE_DATABASE_URL;
-    
-    const getDb = getDbInstance();
+    const env = {};
     assert.throws(() => {
-      getDb();
+      resolveDatabaseUrl(env);
     }, /Database connection string is missing \(DATABASE_URL\/POSTGRES_URL\/STORAGE_DATABASE_URL\)/);
   });
 
   t.test('2. DATABASE_URL wins over everything', () => {
-    process.env.DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/db_url';
-    process.env.POSTGRES_URL = 'postgresql://fakeuser:fakepass@host.tld/pg_url';
-    process.env.STORAGE_DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/storage_url';
+    const env = {
+      DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/db_url',
+      POSTGRES_URL: 'postgresql://fakeuser:fakepass@host.tld/pg_url',
+      STORAGE_DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/storage_url'
+    };
     
-    const getDb = getDbInstance();
-    const db = getDb();
-    // neon() returns a function, we just check it didn't throw
-    assert.ok(typeof db === 'function' || typeof db === 'object');
+    const dbUrl = resolveDatabaseUrl(env);
+    assert.strictEqual(dbUrl, 'postgresql://fakeuser:fakepass@host.tld/db_url');
   });
 
   t.test('3. POSTGRES_URL is second fallback', () => {
-    delete process.env.DATABASE_URL;
-    process.env.POSTGRES_URL = 'postgresql://fakeuser:fakepass@host.tld/pg_url';
-    process.env.STORAGE_DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/storage_url';
+    const env = {
+      POSTGRES_URL: 'postgresql://fakeuser:fakepass@host.tld/pg_url',
+      STORAGE_DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/storage_url'
+    };
     
-    const getDb = getDbInstance();
-    const db = getDb();
-    assert.ok(typeof db === 'function' || typeof db === 'object');
+    const dbUrl = resolveDatabaseUrl(env);
+    assert.strictEqual(dbUrl, 'postgresql://fakeuser:fakepass@host.tld/pg_url');
   });
 
   t.test('4. STORAGE_DATABASE_URL is third fallback', () => {
-    delete process.env.DATABASE_URL;
-    delete process.env.POSTGRES_URL;
-    process.env.STORAGE_DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/storage_url';
+    const env = {
+      STORAGE_DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/storage_url'
+    };
     
-    const getDb = getDbInstance();
-    const db = getDb();
-    assert.ok(typeof db === 'function' || typeof db === 'object');
+    const dbUrl = resolveDatabaseUrl(env);
+    assert.strictEqual(dbUrl, 'postgresql://fakeuser:fakepass@host.tld/storage_url');
   });
 
   t.test('5. no secret value is logged', () => {
-    delete process.env.DATABASE_URL;
-    delete process.env.POSTGRES_URL;
-    delete process.env.STORAGE_DATABASE_URL;
-    
-    const getDb = getDbInstance();
+    const env = {};
     let errorMsg = '';
     try {
-      getDb();
+      resolveDatabaseUrl(env);
     } catch (err) {
       errorMsg = err.message;
     }

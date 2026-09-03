@@ -286,7 +286,12 @@
               <select id="reasonSelect" class="search-input" style="display:none;"></select>
               <button id="btnSaveStatus" class="btn-primary" disabled>Guardar Estado</button>
             </div>
-            <div id="statusError" style="color: var(--danger-color, #dc2626); font-size: 0.875rem; margin-top: 0.5rem; display:none;"></div>
+            <div id="statusError" style="color: var(--danger-color, #dc2626); font-size: 0.875rem; margin-top: 0.5rem; display:none;">
+              <span class="error-text"></span>
+              <div class="conflict-message" style="display:none; margin-top: 4px; padding: 6px; background: rgba(220, 38, 38, 0.1); border-radius: 4px;">
+                El lead fue modificado por otro usuario. Por favor, recarga el panel.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -316,6 +321,17 @@
       </div>
     </div>
   </aside>
+  <!-- Modal Confirmación Terminal -->
+  <div id="statusConfirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="statusConfirmTitle" aria-hidden="true" style="display:none;">
+    <div class="modal-content">
+      <h3 id="statusConfirmTitle">Confirmar Acción</h3>
+      <p id="statusConfirmMessage">Estás a punto de mover este lead a un estado terminal. ¿Deseas continuar?</p>
+      <div class="modal-actions">
+        <button id="btnCancelStatus" class="btn-ghost">Cancelar</button>
+        <button id="btnConfirmStatus" class="btn-primary">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/assets/admin-leads.js" type="module"></script>
 </body>
