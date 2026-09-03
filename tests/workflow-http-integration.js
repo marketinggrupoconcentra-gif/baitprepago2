@@ -188,6 +188,3 @@ runTests().catch(err => {
   console.error(err);
   process.exit(1);
 });
-// trigger vercel deployment
-// trigger vercel deployment 2
-// trigger vercel deployment 3
