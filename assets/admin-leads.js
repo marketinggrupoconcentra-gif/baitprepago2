@@ -494,7 +494,7 @@ async function loadLeads(reset = false) {
       } else {
         UI.btnLoadMore.style.display = 'none';
         if (items.length > 0) {
-          UI.paginationStatus.textContent = \`No hay más resultados (Total: \${json.pagination.total}).\`;
+          UI.paginationStatus.textContent = `No hay más resultados (Total: ${json.pagination.total}).`;
         } else {
           UI.paginationStatus.textContent = '';
         }
