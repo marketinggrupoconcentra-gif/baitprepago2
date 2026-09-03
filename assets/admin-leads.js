@@ -74,7 +74,11 @@ const UI = {
   // Terminal Confirmation Modal
   statusConfirmModal: document.getElementById('statusConfirmModal'),
   btnConfirmStatus: document.getElementById('btnConfirmStatus'),
-  btnCancelStatus: document.getElementById('btnCancelStatus')
+  btnCancelStatus: document.getElementById('btnCancelStatus'),
+
+  // App shell
+  app: document.getElementById('app'),
+  appLoader: document.getElementById('appLoader')
 };
 
 /**
@@ -140,6 +144,16 @@ async function init() {
   if (userAvatar && user.email) userAvatar.textContent = user.email.charAt(0).toUpperCase();
   if (userEmail) userEmail.textContent = user.email;
   if (userRole) userRole.textContent = user.role;
+
+  // Show authenticated app, hide auth loader
+  UI.app.style.display = 'flex';
+  UI.app.removeAttribute('aria-hidden');
+  UI.app.classList.add('visible');
+  UI.appLoader.classList.add('hidden');
+
+  setTimeout(() => {
+    UI.appLoader.style.display = 'none';
+  }, 350);
 
   await loadWorkflowConfig();
   await loadFacets();
