@@ -60,6 +60,7 @@ async function runTests() {
   let adminSession;
   let viewerSession;
   let testIds = [];
+  let testFailed = false;
 
   try {
     console.log('--- STARTING WORKFLOW HTTP INTEGRATION TESTS ---');
@@ -166,7 +167,12 @@ async function runTests() {
       const dbLead = await sql`SELECT status, status_version FROM leads WHERE id = ${leadId}`;
       assert(dbLead[0].status_version === 2, `Expected version 2, got ${dbLead[0].status_version}`);
       
-      const audits = await sql`SELECT COUNT(*) as c FROM lead_audit_logs WHERE lead_id = ${leadId.toString()}`;
+      const audits = await sql`
+        SELECT COUNT(*) AS c
+        FROM admin_audit_log
+        WHERE action = 'LEAD_STATUS_CHANGED'
+          AND metadata->>'leadId' = ${leadId.toString()}
+      `;
       assert(parseInt(audits[0].c, 10) === 1, `Expected exactly 1 audit row for lead ${leadId}, got ${audits[0].c}`);
     }
 
@@ -189,7 +195,12 @@ async function runTests() {
     assert(res.status === 200, 'NOOP should return 200');
     data = await res.json();
     assert(data.changed === false, 'NOOP should have changed = false');
-    const auditCheck = await sql`SELECT COUNT(*) as c FROM lead_audit_logs WHERE lead_id = ${noopId.toString()}`;
+    const auditCheck = await sql`
+      SELECT COUNT(*) AS c
+      FROM admin_audit_log
+      WHERE action = 'LEAD_STATUS_CHANGED'
+        AND metadata->>'leadId' = ${noopId.toString()}
+    `;
     assert(parseInt(auditCheck[0].c, 10) === 1, 'NOOP should NOT create a new audit record (remains 1)');
 
     // Test Reason change (NOT a NOOP)
@@ -213,7 +224,16 @@ async function runTests() {
     assert(data.lead.statusVersion === 4, 'Version should increment');
 
     console.log('[+] 7. Testing Audit Log PII Masking...');
-    const auditPIICheck = await sql`SELECT action_metadata FROM lead_audit_logs WHERE lead_id = ${reasonId} AND new_status = 'REJECTED' LIMIT 1`;
+    const auditPIICheck = await sql`
+      SELECT metadata AS action_metadata
+      FROM admin_audit_log
+      WHERE action = 'LEAD_STATUS_CHANGED'
+        AND metadata->>'leadId' = ${reasonId.toString()}
+        AND metadata->>'toStatus' = 'REJECTED'
+      ORDER BY id DESC
+      LIMIT 1
+    `;
+    assert(auditPIICheck.length === 1, 'Expected REJECTED audit row');
     const metadata = auditPIICheck[0].action_metadata;
     assert(!metadata.phone, 'Audit log should NOT contain raw phone');
     assert(!metadata.phoneConfirm, 'Audit log should NOT contain phoneConfirm');
@@ -221,15 +241,19 @@ async function runTests() {
 
     console.log('--- HTTP INTEGRATION TESTS PASSED ---');
   } catch (err) {
+    testFailed = true;
     console.error('--- TEST FAILED ---');
     console.error(err);
-    process.exit(1);
   } finally {
     console.log('[+] Cleaning up RUN_ID:', RUN_ID);
     if (RUN_ID) {
       await sql`DELETE FROM admin_audit_log WHERE metadata->>'leadId' IN (SELECT id::text FROM leads WHERE utm_source = ${RUN_ID})`;
       await sql`DELETE FROM leads WHERE utm_source = ${RUN_ID}`;
     }
+  }
+
+  if (testFailed) {
+    process.exitCode = 1;
   }
 }
 
