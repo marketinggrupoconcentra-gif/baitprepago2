@@ -311,7 +311,35 @@ function setupEventListeners() {
   
   // Logout link binding si existe (del admin-core)
   document.getElementById('logoutBtn')?.addEventListener('click', logout);
-  
+
+  // Mobile sidebar
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+  if (hamburgerBtn && sidebar && sidebarOverlay) {
+    const openSidebar = () => {
+      sidebar.classList.add('open');
+      sidebarOverlay.classList.add('show');
+      hamburgerBtn.setAttribute('aria-expanded', 'true');
+    };
+
+    const closeSidebar = () => {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('show');
+      hamburgerBtn.setAttribute('aria-expanded', 'false');
+    };
+
+    hamburgerBtn.addEventListener('click', openSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && sidebar.classList.contains('open')) {
+        closeSidebar();
+      }
+    });
+  }
+
   // Limpieza PII al navegar
   window.addEventListener('beforeunload', resetRevealTimer);
   window.addEventListener('pagehide', resetRevealTimer);
