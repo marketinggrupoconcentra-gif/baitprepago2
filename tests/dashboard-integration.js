@@ -13,7 +13,7 @@ const PREVIEW_URL          = process.env.PREVIEW_URL          || '';
 const QA_EMAIL             = process.env.QA_ADMIN_EMAIL        || '';
 const QA_PASSWORD          = process.env.QA_ADMIN_PASSWORD     || '';
 const BYPASS_SECRET        = process.env.VERCEL_BYPASS_SECRET  || '';
-const ALLOWED_PREVIEW_EPS  = ['ep-little-darkness', 'ep-sparkling-pond'];
+const ALLOWED_PREVIEW_EPS  = ['ep-little-darkness', 'ep-sparkling-pond', 'ep-jolly-bread'];
 const PRODUCTION_EP        = 'a57hzmzw';
 
 let pass = 0, fail = 0;
