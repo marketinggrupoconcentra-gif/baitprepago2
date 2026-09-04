@@ -1,7 +1,14 @@
 -- ─────────────────────────────────────────────────────────────────
 --  BAIT Prepago 2 — Schema de base de datos
 --  Base de datos: Neon PostgreSQL (Conectada vía Vercel)
+--  Zona horaria de negocio: America/Mexico_City
+--
+--  Los instantes se almacenan como TIMESTAMPTZ. No desplazar timestamps
+--  históricos para "convertirlos" a hora local; la zona se aplica al
+--  interpretar/agrupar/presentar el instante.
 -- ─────────────────────────────────────────────────────────────────
+
+SET TIME ZONE 'America/Mexico_City';
 
 -- Tabla principal de leads del formulario de portabilidad
 CREATE TABLE IF NOT EXISTS leads (

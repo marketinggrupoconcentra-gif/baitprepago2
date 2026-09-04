@@ -18,7 +18,8 @@
     "test:workflow-http-integration": "node --env-file=.env.branch tests/workflow-http-integration.js",
     "test:workflow-browser-e2e": "node --env-file=.env.branch tests/workflow-browser-e2e.js",
     "test:db-env-resolution": "node --test tests/db-env-resolution.test.js",
-    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:db-env-resolution"
+    "test:timezone": "node --test tests/timezone-policy.test.js",
+    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:db-env-resolution && npm run test:timezone"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"

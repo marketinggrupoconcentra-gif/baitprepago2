@@ -7,6 +7,7 @@
  *
  * Returns aggregated lead metrics for the BAIT Prepago admin dashboard.
  * All response fields are explicitly whitelisted — no full-row passthrough.
+ * Calendar ranges are evaluated in America/Mexico_City.
  */
 
 import { getDb } from '../../lib/db.js';
@@ -21,6 +22,7 @@ export const config = {
 // Strict whitelist — convert user input to an internal constant
 const ALLOWED_RANGES = { 7: 7, 14: 14, 30: 30 };
 const DEFAULT_RANGE = 14;
+const BUSINESS_TIME_ZONE = 'America/Mexico_City';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -58,6 +60,7 @@ export default async function handler(req, res) {
     ] = await Promise.all([
 
       // ── KPIs: total, last 24h, last 7d, attribution rate ────────────────
+      // These are intentionally rolling intervals, not calendar-day metrics.
       sql`
         SELECT
           COUNT(*)                                                      AS total,
@@ -74,28 +77,47 @@ export default async function handler(req, res) {
       `,
 
       // ── Daily trend for the selected range ───────────────────────────────
-      // Uses generate_series to guarantee zero-filled days
+      // Uses CDMX civil-day boundaries and zero-fills missing days.
       sql`
-        SELECT
-          gs.day::date                                                   AS date,
-          COALESCE(l.cnt, 0)                                            AS leads
-        FROM generate_series(
-          NOW() - (${range}::int - 1) * INTERVAL '1 day',
-          NOW(),
-          INTERVAL '1 day'
-        ) AS gs(day)
-        LEFT JOIN (
-          SELECT DATE(created_at AT TIME ZONE 'America/Mexico_City') AS d,
-                 COUNT(*)                                              AS cnt
+        WITH bounds AS (
+          SELECT (NOW() AT TIME ZONE ${BUSINESS_TIME_ZONE})::date AS today
+        ),
+        days AS (
+          SELECT generate_series(
+            (SELECT today FROM bounds) - (${range}::int - 1),
+            (SELECT today FROM bounds),
+            INTERVAL '1 day'
+          )::date AS day
+        ),
+        counts AS (
+          SELECT
+            (created_at AT TIME ZONE ${BUSINESS_TIME_ZONE})::date AS day,
+            COUNT(*)                                             AS cnt
           FROM leads
-          WHERE created_at >= NOW() - (${range}::int) * INTERVAL '1 day'
-          GROUP BY d
-        ) l ON gs.day::date = l.d
-        ORDER BY gs.day ASC
+          CROSS JOIN bounds
+          WHERE created_at >= (
+            (bounds.today - (${range}::int - 1))::timestamp
+            AT TIME ZONE ${BUSINESS_TIME_ZONE}
+          )
+            AND created_at < (
+              (bounds.today + 1)::timestamp
+              AT TIME ZONE ${BUSINESS_TIME_ZONE}
+            )
+          GROUP BY day
+        )
+        SELECT
+          TO_CHAR(days.day, 'YYYY-MM-DD') AS date,
+          COALESCE(counts.cnt, 0)         AS leads
+        FROM days
+        LEFT JOIN counts ON counts.day = days.day
+        ORDER BY days.day ASC
       `,
 
-      // ── Top 5 sources ────────────────────────────────────────────────────
+      // ── Top 5 sources over the same selected CDMX calendar range ────────
       sql`
+        WITH bounds AS (
+          SELECT (NOW() AT TIME ZONE ${BUSINESS_TIME_ZONE})::date AS today
+        )
         SELECT
           CASE
             WHEN utm_source IS NULL OR TRIM(utm_source) = ''
@@ -104,20 +126,38 @@ export default async function handler(req, res) {
           END                                                           AS source,
           COUNT(*)                                                      AS cnt
         FROM leads
-        WHERE created_at >= NOW() - (${range}::int) * INTERVAL '1 day'
+        CROSS JOIN bounds
+        WHERE created_at >= (
+          (bounds.today - (${range}::int - 1))::timestamp
+          AT TIME ZONE ${BUSINESS_TIME_ZONE}
+        )
+          AND created_at < (
+            (bounds.today + 1)::timestamp
+            AT TIME ZONE ${BUSINESS_TIME_ZONE}
+          )
         GROUP BY source
         ORDER BY cnt DESC
         LIMIT 6
       `,
 
-      // ── Top 5 campaigns (non-empty) ──────────────────────────────────────
+      // ── Top 5 campaigns over the same selected CDMX calendar range ─────
       sql`
+        WITH bounds AS (
+          SELECT (NOW() AT TIME ZONE ${BUSINESS_TIME_ZONE})::date AS today
+        )
         SELECT
           TRIM(utm_campaign)                                            AS campaign,
           COUNT(*)                                                      AS cnt
         FROM leads
-        WHERE
-          created_at >= NOW() - (${range}::int) * INTERVAL '1 day'
+        CROSS JOIN bounds
+        WHERE created_at >= (
+          (bounds.today - (${range}::int - 1))::timestamp
+          AT TIME ZONE ${BUSINESS_TIME_ZONE}
+        )
+          AND created_at < (
+            (bounds.today + 1)::timestamp
+            AT TIME ZONE ${BUSINESS_TIME_ZONE}
+          )
           AND utm_campaign IS NOT NULL
           AND TRIM(utm_campaign) <> ''
         GROUP BY campaign
@@ -126,6 +166,7 @@ export default async function handler(req, res) {
       `,
 
       // ── Last 10 activity (NO PII) ────────────────────────────────────────
+      // Transport as instants; the admin UI renders them explicitly in CDMX.
       sql`
         SELECT
           created_at                                                    AS created_at,
@@ -159,10 +200,9 @@ export default async function handler(req, res) {
       : 0;
 
     // ── Process trend ─────────────────────────────────────────────────────
+    // SQL already returns a timezone-neutral YYYY-MM-DD calendar label.
     const trend = trendResult.map(row => ({
-      date: row.date instanceof Date
-        ? row.date.toISOString().split('T')[0]
-        : String(row.date).split('T')[0],
+      date: String(row.date),
       leads: Number(row.leads)
     }));
 

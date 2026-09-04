@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const BUSINESS_TIME_ZONE = 'America/Mexico_City';
+
 // Cargar .env.local para obtener DATABASE_URL en entorno local (fuera de Vercel)
 (function loadDevVars() {
   const envPath = path.join(__dirname, '..', '.env.local');
@@ -19,6 +21,19 @@ const path = require('path');
 
 const { neon } = require('@neondatabase/serverless');
 
+async function assertBusinessTimeZone(sql) {
+  const rows = await sql`SELECT current_setting('TimeZone') AS timezone`;
+  const effectiveTimeZone = rows?.[0]?.timezone;
+
+  if (effectiveTimeZone !== BUSINESS_TIME_ZONE) {
+    throw new Error(
+      `Timezone gate failed: expected ${BUSINESS_TIME_ZONE}, received ${effectiveTimeZone || 'unknown'}`
+    );
+  }
+
+  console.log(`✓ TimeZone validada: ${effectiveTimeZone}`);
+}
+
 async function migrate() {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!dbUrl) {
@@ -28,6 +43,10 @@ async function migrate() {
 
   console.log('Conectando a Neon...');
   const sql = neon(dbUrl);
+
+  // Fail closed: migrations must never run under an implicit/incorrect
+  // business timezone. The DB/role default is managed by migration 004.
+  await assertBusinessTimeZone(sql);
 
   console.log('Aplicando esquema de Vercel (Etapa 0B)...');
   
