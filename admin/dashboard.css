@@ -930,3 +930,52 @@ body {
   color: var(--text-secondary);
   padding: 40px 0;
 }
+
+/* ── Modal Confirmation ──────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ease);
+}
+.modal-overlay[style*="display: flex"],
+.modal-overlay[style*="display: block"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.modal-content {
+  background: var(--card-bg);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(20px);
+  transition: transform var(--ease);
+}
+.modal-overlay[style*="display: flex"] .modal-content,
+.modal-overlay[style*="display: block"] .modal-content {
+  transform: translateY(0);
+}
+.modal-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+.modal-content p {
+  margin: 0 0 20px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}

@@ -37,7 +37,8 @@ export default async function handler(req, res) {
         id, phone, created_at,
         utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         fb_ad_id, fb_adset_id, fb_campaign_id,
-        page_url, referrer
+        page_url, referrer,
+        status, status_reason, status_updated_at, status_version
       FROM leads
       WHERE id = $1
     `, [id]);
@@ -63,7 +64,11 @@ export default async function handler(req, res) {
       fbAdsetId: lead.fb_adset_id,
       fbCampaignId: lead.fb_campaign_id,
       page: sanitizeAdminUrl(lead.page_url),
-      referrer: sanitizeAdminUrl(lead.referrer)
+      referrer: sanitizeAdminUrl(lead.referrer),
+      status: lead.status,
+      statusReason: lead.status_reason,
+      statusUpdatedAt: lead.status_updated_at,
+      statusVersion: lead.status_version
     };
 
     return res.status(200).json(data);

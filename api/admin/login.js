@@ -11,12 +11,6 @@ import {
   DUMMY_PASSWORD_HASH
 } from '../../lib/admin-auth.js';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 export default async function handler(req, res) {
   // 1. Security headers
   res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -39,20 +33,9 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // 5. Read and size-limit payload
-  let body = '';
-  for await (const chunk of req) {
-    body += chunk;
-    if (body.length > 2048) {
-      return res.status(413).json({ error: 'Payload too large' });
-    }
-  }
-
-  // 6. Parse JSON
-  let data;
-  try {
-    data = JSON.parse(body);
-  } catch (_e) {
+  // 5 & 6. Read payload
+  const data = req.body;
+  if (!data || typeof data !== 'object') {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
@@ -166,31 +149,33 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // 15. SUCCESS path: create session atomically using sql.transaction()
+    // 15. SUCCESS path: create session and clear limits atomically using CTEs
     const sessionToken = generateSessionToken();
     const tokenHash = hashSessionToken(sessionToken);
 
-    // sql.transaction() sends all queries in a single HTTP request as a BEGIN/COMMIT block
-    await sql.transaction([
-      sql`
+    // 15. SUCCESS path: create session and clear limits atomically using CTEs
+    // CTEs avoid BEGIN/COMMIT block issues with the Neon serverless driver
+    await sql`
+      WITH inserted_session AS (
         INSERT INTO admin_sessions (admin_user_id, token_hash, expires_at)
         VALUES (${user.id}, ${tokenHash}, CURRENT_TIMESTAMP + INTERVAL '8 hours')
-      `,
-      sql`
+        RETURNING id
+      ),
+      deleted_attempts AS (
         DELETE FROM admin_login_attempts
         WHERE kind IN ('IP', 'ACCOUNT')
           AND key_hash IN (${ipHash}, ${accountHash})
-      `,
-      sql`
+        RETURNING id
+      ),
+      inserted_audit AS (
         INSERT INTO admin_audit_log (admin_user_id, action, actor_hash, metadata)
         VALUES (${user.id}, 'LOGIN_SUCCESS', ${accountHash}, ${JSON.stringify({ ua })})
-      `,
-      sql`
-        UPDATE admin_users
-        SET last_login_at = CURRENT_TIMESTAMP
-        WHERE id = ${user.id}
-      `
-    ]);
+        RETURNING id
+      )
+      UPDATE admin_users
+      SET last_login_at = CURRENT_TIMESTAMP
+      WHERE id = ${user.id}
+    `;
 
     // 16. Set session cookie
     res.setHeader('Set-Cookie', serializeSessionCookie(sessionToken));
@@ -198,7 +183,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
 
   } catch (err) {
-    console.error('Login handler error:', err.message);
+    console.error('ADMIN_LOGIN_HANDLER_FAILED');
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
