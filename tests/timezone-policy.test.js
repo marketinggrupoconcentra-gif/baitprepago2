@@ -35,6 +35,15 @@ test('lead API uses explicit CDMX civil-day boundaries', () => {
   assert.doesNotMatch(source, /Date\.parse\(dateTo\)/);
 });
 
+test('dashboard range uses explicit CDMX civil-day boundaries', () => {
+  const source = read('api/admin/overview.js');
+
+  assert.match(source, /const BUSINESS_TIME_ZONE = 'America\/Mexico_City'/);
+  assert.match(source, /NOW\(\) AT TIME ZONE \$\{BUSINESS_TIME_ZONE\}/);
+  assert.match(source, /TO_CHAR\(days\.day, 'YYYY-MM-DD'\)/);
+  assert.match(source, /bounds\.today \+ 1/);
+});
+
 test('admin leads UI renders operational timestamps in CDMX', () => {
   const source = read('assets/admin-leads.js');
 
