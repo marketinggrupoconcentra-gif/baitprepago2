@@ -46,15 +46,17 @@ test('admin leads UI renders operational timestamps in CDMX', () => {
   );
 });
 
-test('database source of truth rejects naive business timestamps', () => {
-  const sqlFiles = [
+test('database DDL source of truth does not declare naive business timestamps', () => {
+  // Migration 004 intentionally contains the text "timestamp without time zone"
+  // as a detection guard, so it is validated separately below rather than by
+  // this declaration-oriented source scan.
+  const ddlFiles = [
     'db/schema.sql',
     'db/migrations/002_admin_auth.sql',
-    'db/migrations/003_lead_workflow.sql',
-    'db/migrations/004_cdmx_timezone_policy.sql'
+    'db/migrations/003_lead_workflow.sql'
   ];
 
-  for (const file of sqlFiles) {
+  for (const file of ddlFiles) {
     const source = read(file);
     assert.doesNotMatch(
       source,
@@ -65,4 +67,11 @@ test('database source of truth rejects naive business timestamps', () => {
 
   const schema = read('db/schema.sql');
   assert.match(schema, /TIMESTAMPTZ/i);
+
+  const policyMigration = read('db/migrations/004_cdmx_timezone_policy.sql');
+  assert.match(policyMigration, /ALTER DATABASE/);
+  assert.match(policyMigration, /ALTER ROLE/);
+  assert.match(policyMigration, /America\/Mexico_City/);
+  assert.match(policyMigration, /timestamp without time zone/i);
+  assert.match(policyMigration, /RAISE EXCEPTION/);
 });
