@@ -3,31 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resumen — BAIT Prepago Admin</title>
+  <title>Usuarios — BAIT Prepago Admin</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self';">
   <link rel="stylesheet" href="/admin/dashboard.css">
+  <link rel="stylesheet" href="/admin/users.css">
 </head>
 <body>
 
-  <!-- Full-screen loader shown until auth verified -->
   <div id="appLoader" role="status" aria-live="polite" aria-label="Verificando sesión">
     <div class="loader-ring"></div>
   </div>
 
-  <!-- Sidebar overlay for mobile -->
   <div id="sidebarOverlay" class="sidebar-overlay" role="presentation"></div>
 
-  <!-- App shell (hidden until auth OK) -->
   <div id="app" aria-hidden="true">
 
     <!-- ── Sidebar ──────────────────────────────────────────────── -->
     <aside class="sidebar" id="sidebar" role="navigation" aria-label="Menú principal">
-
-      <!-- Brand -->
       <div class="sidebar-brand" role="banner">
         <div class="sidebar-brand-logo" aria-hidden="true">
-          <!-- B letter mark -->
           <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <text x="3" y="15" font-size="14" font-weight="900" font-family="Inter,sans-serif">B</text>
           </svg>
@@ -38,13 +33,11 @@
         </div>
       </div>
 
-      <!-- Navigation -->
       <nav class="sidebar-nav" aria-label="Secciones">
-
         <div class="nav-section">
           <span class="nav-section-label">Principal</span>
 
-          <a href="/admin/dashboard" class="nav-item" aria-current="page" id="navResumen">
+          <a href="/admin/dashboard" class="nav-item" id="navResumen">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
               <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -62,30 +55,27 @@
             Leads
           </a>
 
-          <button class="nav-item" aria-disabled="true" tabindex="-1">
+          <a href="/admin/analytics" class="nav-item" id="navAnalytics">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <line x1="18" y1="20" x2="18" y2="10"/>
               <line x1="12" y1="20" x2="12" y2="4"/>
               <line x1="6" y1="20" x2="6" y2="14"/>
             </svg>
             Analítica
-            <span class="nav-badge">Pronto</span>
-          </button>
+          </a>
         </div>
 
         <div class="sidebar-divider" role="separator"></div>
 
         <div class="nav-section">
           <span class="nav-section-label">Administración</span>
-
-<a href="/admin/users" class="nav-item" id="navUsers">
+          <a href="/admin/users" class="nav-item" aria-current="page" id="navUsers">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
             Usuarios
           </a>
-
 <a href="/admin/settings" class="nav-item" id="navSettings">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3"/>
@@ -94,10 +84,8 @@
             Configuración
           </a>
         </div>
-
       </nav>
 
-      <!-- User + logout -->
       <div class="sidebar-footer">
         <div class="user-widget">
           <div class="user-avatar" id="userAvatar" aria-hidden="true">?</div>
@@ -118,8 +106,6 @@
 
     <!-- ── Main area ──────────────────────────────────────────── -->
     <div class="main-area">
-
-      <!-- Topbar -->
       <header class="topbar" role="banner">
         <button id="hamburgerBtn" class="hamburger-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -128,128 +114,119 @@
             <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
-
         <div class="topbar-title-wrap">
-          <h1 class="topbar-title">Resumen</h1>
-          <p class="topbar-sub">Vista general de leads y atribución</p>
+          <h1 class="topbar-title">Usuarios</h1>
+          <p class="topbar-sub">Gestión de cuentas y permisos</p>
         </div>
-
         <div class="topbar-controls">
-          <label for="rangeSelect" class="sr-only">Período</label>
-          <select id="rangeSelect" class="range-select" aria-label="Seleccionar período">
-            <option value="7">Últimos 7 días</option>
-            <option value="14" selected>Últimos 14 días</option>
-            <option value="30">Últimos 30 días</option>
-          </select>
-
-          <button id="refreshBtn" class="btn-refresh" aria-label="Actualizar datos">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-            Actualizar
+          <button id="newUserBtn" class="btn-primary" style="display:none;" aria-label="Crear nuevo usuario">
+            + Nuevo Usuario
           </button>
         </div>
       </header>
 
-      <!-- Scrollable page body -->
       <main class="page-body" id="pageBody">
-
-        <!-- ARIA live for status updates -->
         <div class="sr-only" role="status" aria-live="polite" id="statusLive"></div>
 
-        <!-- ── KPI Cards ─────────────────────────────────────────── -->
-        <section aria-labelledby="kpiHeading">
-          <h2 class="sr-only" id="kpiHeading">Indicadores clave</h2>
-          <div class="kpi-grid" id="kpiGrid">
-            <!-- Populated by JS -->
+        <section class="card">
+          <div class="table-wrap">
+            <table class="data-table" aria-label="Lista de usuarios">
+              <thead>
+                <tr>
+                  <th scope="col">Email</th>
+                  <th scope="col">Rol</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Último Login</th>
+                  <th scope="col" style="text-align:right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody">
+                <!-- Data populated by JS -->
+              </tbody>
+            </table>
           </div>
         </section>
-
-        <!-- ── Charts row ────────────────────────────────────────── -->
-        <div class="two-col">
-          <!-- Trend chart -->
-          <section class="card" aria-labelledby="trendHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="trendHeading">Tendencia de leads</h2>
-                <p class="card-subtitle" id="trendSubtitle">Cargando...</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="chart-wrap" id="trendChartWrap">
-                <div class="chart-skeleton skeleton" aria-hidden="true"></div>
-              </div>
-              <div class="chart-tooltip-wrap" id="chartTooltip" role="tooltip" aria-hidden="true"></div>
-            </div>
-          </section>
-
-          <!-- Sources chart -->
-          <section class="card" aria-labelledby="sourcesHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="sourcesHeading">Fuentes de tráfico</h2>
-                <p class="card-subtitle" id="sourcesSubtitle">Distribución por utm_source</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div id="sourcesList" class="source-list" role="list">
-                <!-- Populated by JS -->
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <!-- ── Bottom row ────────────────────────────────────────── -->
-        <div class="two-col">
-          <!-- Campaigns -->
-          <section class="card" aria-labelledby="campaignsHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="campaignsHeading">Campañas principales</h2>
-                <p class="card-subtitle">Top 5 por volumen de leads</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="campaign-list" id="campaignList" role="list">
-                <!-- Populated by JS -->
-              </div>
-            </div>
-          </section>
-
-          <!-- Recent activity -->
-          <section class="card" aria-labelledby="activityHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="activityHeading">Actividad reciente</h2>
-                <p class="card-subtitle">Últimos 10 registros (sin datos personales)</p>
-              </div>
-            </div>
-            <div class="card-body" style="padding:0 0 0 0;">
-              <div class="activity-table-wrap">
-                <table class="activity-table" id="activityTable" aria-label="Actividad reciente">
-                  <thead>
-                    <tr>
-                      <th scope="col">Fecha y hora</th>
-                      <th scope="col">Fuente</th>
-                      <th scope="col">Campaña</th>
-                    </tr>
-                  </thead>
-                  <tbody id="activityBody">
-                    <!-- Populated by JS -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        </div>
-
       </main>
-    </div><!-- /main-area -->
-  </div><!-- /app -->
+    </div>
+  </div>
 
-  <script src="/admin/dashboard.js" type="module"></script>
+  <!-- Modal: Crear Usuario -->
+  <dialog id="createUserModal" class="modal" aria-labelledby="createUserTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="createUserTitle" class="modal-title">Nuevo Usuario</h2>
+        <button class="btn-close-modal" id="closeCreateModalBtn" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <form id="createUserForm">
+        <div class="modal-body">
+          <div id="createErrorBox" class="alert-error" style="display:none;" role="alert"></div>
+          <div class="form-group">
+            <label for="createEmail">Correo electrónico</label>
+            <input type="email" id="createEmail" required placeholder="admin@baitprepago.mx">
+          </div>
+          <div class="form-group">
+            <label for="createRole">Rol</label>
+            <select id="createRole" required>
+              <option value="VIEWER">Viewer (Solo lectura)</option>
+              <option value="EDITOR">Editor (Puede actualizar leads)</option>
+              <option value="ADMIN">Admin (Acceso a descargas)</option>
+              <option value="SUPER_ADMIN">Super Admin (Acceso total)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="createPassword">Contraseña Inicial</label>
+            <input type="password" id="createPassword" required minlength="8" placeholder="Mínimo 8 caracteres">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="cancelCreateBtn">Cancelar</button>
+          <button type="submit" class="btn-primary" id="submitCreateBtn">Crear Usuario</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Modal: Editar Usuario -->
+  <dialog id="editUserModal" class="modal" aria-labelledby="editUserTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="editUserTitle" class="modal-title">Editar Usuario</h2>
+        <button class="btn-close-modal" id="closeEditModalBtn" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <form id="editUserForm">
+        <input type="hidden" id="editUserId">
+        <div class="modal-body">
+          <div id="editErrorBox" class="alert-error" style="display:none;" role="alert"></div>
+          <div class="form-group">
+            <label>Correo electrónico</label>
+            <input type="email" id="editEmail" disabled class="input-disabled">
+          </div>
+          <div class="form-group">
+            <label for="editRole">Rol</label>
+            <select id="editRole" required>
+              <option value="VIEWER">Viewer (Solo lectura)</option>
+              <option value="EDITOR">Editor (Puede actualizar leads)</option>
+              <option value="ADMIN">Admin (Acceso a descargas)</option>
+              <option value="SUPER_ADMIN">Super Admin (Acceso total)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editActive">Estado</label>
+            <select id="editActive" required>
+              <option value="true">Activo</option>
+              <option value="false">Inactivo (Suspendido)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="cancelEditBtn">Cancelar</button>
+          <button type="submit" class="btn-primary" id="submitEditBtn">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script src="/admin/users.js" type="module"></script>
 </body>
 </html>
-
 

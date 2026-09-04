@@ -3,31 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resumen — BAIT Prepago Admin</title>
+  <title>Configuración — BAIT Prepago Admin</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self';">
   <link rel="stylesheet" href="/admin/dashboard.css">
+  <link rel="stylesheet" href="/admin/settings.css">
 </head>
 <body>
 
-  <!-- Full-screen loader shown until auth verified -->
   <div id="appLoader" role="status" aria-live="polite" aria-label="Verificando sesión">
     <div class="loader-ring"></div>
   </div>
 
-  <!-- Sidebar overlay for mobile -->
   <div id="sidebarOverlay" class="sidebar-overlay" role="presentation"></div>
 
-  <!-- App shell (hidden until auth OK) -->
   <div id="app" aria-hidden="true">
 
     <!-- ── Sidebar ──────────────────────────────────────────────── -->
     <aside class="sidebar" id="sidebar" role="navigation" aria-label="Menú principal">
-
-      <!-- Brand -->
       <div class="sidebar-brand" role="banner">
         <div class="sidebar-brand-logo" aria-hidden="true">
-          <!-- B letter mark -->
           <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <text x="3" y="15" font-size="14" font-weight="900" font-family="Inter,sans-serif">B</text>
           </svg>
@@ -38,13 +33,11 @@
         </div>
       </div>
 
-      <!-- Navigation -->
       <nav class="sidebar-nav" aria-label="Secciones">
-
         <div class="nav-section">
           <span class="nav-section-label">Principal</span>
 
-          <a href="/admin/dashboard" class="nav-item" aria-current="page" id="navResumen">
+          <a href="/admin/dashboard" class="nav-item" id="navResumen">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
               <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -62,31 +55,28 @@
             Leads
           </a>
 
-          <button class="nav-item" aria-disabled="true" tabindex="-1">
+          <a href="/admin/analytics" class="nav-item" id="navAnalytics">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <line x1="18" y1="20" x2="18" y2="10"/>
               <line x1="12" y1="20" x2="12" y2="4"/>
               <line x1="6" y1="20" x2="6" y2="14"/>
             </svg>
             Analítica
-            <span class="nav-badge">Pronto</span>
-          </button>
+          </a>
         </div>
 
         <div class="sidebar-divider" role="separator"></div>
 
         <div class="nav-section">
           <span class="nav-section-label">Administración</span>
-
-<a href="/admin/users" class="nav-item" id="navUsers">
+          <a href="/admin/users" class="nav-item" id="navUsers">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
             Usuarios
           </a>
-
-<a href="/admin/settings" class="nav-item" id="navSettings">
+          <a href="/admin/settings" class="nav-item" aria-current="page" id="navSettings">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -94,10 +84,8 @@
             Configuración
           </a>
         </div>
-
       </nav>
 
-      <!-- User + logout -->
       <div class="sidebar-footer">
         <div class="user-widget">
           <div class="user-avatar" id="userAvatar" aria-hidden="true">?</div>
@@ -118,8 +106,6 @@
 
     <!-- ── Main area ──────────────────────────────────────────── -->
     <div class="main-area">
-
-      <!-- Topbar -->
       <header class="topbar" role="banner">
         <button id="hamburgerBtn" class="hamburger-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -128,128 +114,51 @@
             <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
-
         <div class="topbar-title-wrap">
-          <h1 class="topbar-title">Resumen</h1>
-          <p class="topbar-sub">Vista general de leads y atribución</p>
-        </div>
-
-        <div class="topbar-controls">
-          <label for="rangeSelect" class="sr-only">Período</label>
-          <select id="rangeSelect" class="range-select" aria-label="Seleccionar período">
-            <option value="7">Últimos 7 días</option>
-            <option value="14" selected>Últimos 14 días</option>
-            <option value="30">Últimos 30 días</option>
-          </select>
-
-          <button id="refreshBtn" class="btn-refresh" aria-label="Actualizar datos">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-            Actualizar
-          </button>
+          <h1 class="topbar-title">Configuración</h1>
+          <p class="topbar-sub">Ajustes de cuenta</p>
         </div>
       </header>
 
-      <!-- Scrollable page body -->
       <main class="page-body" id="pageBody">
-
-        <!-- ARIA live for status updates -->
         <div class="sr-only" role="status" aria-live="polite" id="statusLive"></div>
 
-        <!-- ── KPI Cards ─────────────────────────────────────────── -->
-        <section aria-labelledby="kpiHeading">
-          <h2 class="sr-only" id="kpiHeading">Indicadores clave</h2>
-          <div class="kpi-grid" id="kpiGrid">
-            <!-- Populated by JS -->
+        <section class="card settings-card" aria-labelledby="securityHeading">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="securityHeading">Seguridad</h2>
+              <p class="card-subtitle">Cambia tu contraseña. Se cerrarán todas tus sesiones activas.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="passwordForm" class="settings-form">
+              <div id="pwdAlertBox" class="alert-box" style="display:none;" role="alert"></div>
+              
+              <div class="form-group">
+                <label for="currentPassword">Contraseña Actual</label>
+                <input type="password" id="currentPassword" required>
+              </div>
+              
+              <div class="form-group">
+                <label for="newPassword">Nueva Contraseña</label>
+                <input type="password" id="newPassword" required minlength="8" placeholder="Mínimo 8 caracteres">
+              </div>
+
+              <div class="form-group">
+                <label for="confirmPassword">Confirmar Nueva Contraseña</label>
+                <input type="password" id="confirmPassword" required minlength="8">
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-primary" id="submitPwdBtn">Actualizar contraseña</button>
+              </div>
+            </form>
           </div>
         </section>
-
-        <!-- ── Charts row ────────────────────────────────────────── -->
-        <div class="two-col">
-          <!-- Trend chart -->
-          <section class="card" aria-labelledby="trendHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="trendHeading">Tendencia de leads</h2>
-                <p class="card-subtitle" id="trendSubtitle">Cargando...</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="chart-wrap" id="trendChartWrap">
-                <div class="chart-skeleton skeleton" aria-hidden="true"></div>
-              </div>
-              <div class="chart-tooltip-wrap" id="chartTooltip" role="tooltip" aria-hidden="true"></div>
-            </div>
-          </section>
-
-          <!-- Sources chart -->
-          <section class="card" aria-labelledby="sourcesHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="sourcesHeading">Fuentes de tráfico</h2>
-                <p class="card-subtitle" id="sourcesSubtitle">Distribución por utm_source</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div id="sourcesList" class="source-list" role="list">
-                <!-- Populated by JS -->
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <!-- ── Bottom row ────────────────────────────────────────── -->
-        <div class="two-col">
-          <!-- Campaigns -->
-          <section class="card" aria-labelledby="campaignsHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="campaignsHeading">Campañas principales</h2>
-                <p class="card-subtitle">Top 5 por volumen de leads</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="campaign-list" id="campaignList" role="list">
-                <!-- Populated by JS -->
-              </div>
-            </div>
-          </section>
-
-          <!-- Recent activity -->
-          <section class="card" aria-labelledby="activityHeading">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title" id="activityHeading">Actividad reciente</h2>
-                <p class="card-subtitle">Últimos 10 registros (sin datos personales)</p>
-              </div>
-            </div>
-            <div class="card-body" style="padding:0 0 0 0;">
-              <div class="activity-table-wrap">
-                <table class="activity-table" id="activityTable" aria-label="Actividad reciente">
-                  <thead>
-                    <tr>
-                      <th scope="col">Fecha y hora</th>
-                      <th scope="col">Fuente</th>
-                      <th scope="col">Campaña</th>
-                    </tr>
-                  </thead>
-                  <tbody id="activityBody">
-                    <!-- Populated by JS -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        </div>
-
       </main>
-    </div><!-- /main-area -->
-  </div><!-- /app -->
+    </div>
+  </div>
 
-  <script src="/admin/dashboard.js" type="module"></script>
+  <script src="/admin/settings.js" type="module"></script>
 </body>
 </html>
-
-

@@ -3,31 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resumen — BAIT Prepago Admin</title>
+  <title>Analítica — BAIT Prepago Admin</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self';">
   <link rel="stylesheet" href="/admin/dashboard.css">
+  <link rel="stylesheet" href="/admin/analytics.css">
 </head>
 <body>
 
-  <!-- Full-screen loader shown until auth verified -->
   <div id="appLoader" role="status" aria-live="polite" aria-label="Verificando sesión">
     <div class="loader-ring"></div>
   </div>
 
-  <!-- Sidebar overlay for mobile -->
   <div id="sidebarOverlay" class="sidebar-overlay" role="presentation"></div>
 
-  <!-- App shell (hidden until auth OK) -->
   <div id="app" aria-hidden="true">
 
     <!-- ── Sidebar ──────────────────────────────────────────────── -->
     <aside class="sidebar" id="sidebar" role="navigation" aria-label="Menú principal">
-
-      <!-- Brand -->
       <div class="sidebar-brand" role="banner">
         <div class="sidebar-brand-logo" aria-hidden="true">
-          <!-- B letter mark -->
           <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <text x="3" y="15" font-size="14" font-weight="900" font-family="Inter,sans-serif">B</text>
           </svg>
@@ -38,13 +33,11 @@
         </div>
       </div>
 
-      <!-- Navigation -->
       <nav class="sidebar-nav" aria-label="Secciones">
-
         <div class="nav-section">
           <span class="nav-section-label">Principal</span>
 
-          <a href="/admin/dashboard" class="nav-item" aria-current="page" id="navResumen">
+          <a href="/admin/dashboard" class="nav-item" id="navResumen">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
               <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -62,22 +55,20 @@
             Leads
           </a>
 
-          <button class="nav-item" aria-disabled="true" tabindex="-1">
+          <a href="/admin/analytics" class="nav-item" aria-current="page" id="navAnalytics">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <line x1="18" y1="20" x2="18" y2="10"/>
               <line x1="12" y1="20" x2="12" y2="4"/>
               <line x1="6" y1="20" x2="6" y2="14"/>
             </svg>
             Analítica
-            <span class="nav-badge">Pronto</span>
-          </button>
+          </a>
         </div>
 
         <div class="sidebar-divider" role="separator"></div>
 
         <div class="nav-section">
           <span class="nav-section-label">Administración</span>
-
 <a href="/admin/users" class="nav-item" id="navUsers">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -85,7 +76,6 @@
             </svg>
             Usuarios
           </a>
-
 <a href="/admin/settings" class="nav-item" id="navSettings">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3"/>
@@ -94,10 +84,8 @@
             Configuración
           </a>
         </div>
-
       </nav>
 
-      <!-- User + logout -->
       <div class="sidebar-footer">
         <div class="user-widget">
           <div class="user-avatar" id="userAvatar" aria-hidden="true">?</div>
@@ -118,8 +106,6 @@
 
     <!-- ── Main area ──────────────────────────────────────────── -->
     <div class="main-area">
-
-      <!-- Topbar -->
       <header class="topbar" role="banner">
         <button id="hamburgerBtn" class="hamburger-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -128,52 +114,80 @@
             <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
-
         <div class="topbar-title-wrap">
-          <h1 class="topbar-title">Resumen</h1>
-          <p class="topbar-sub">Vista general de leads y atribución</p>
+          <h1 class="topbar-title">Analítica</h1>
+          <p class="topbar-sub">Métricas detalladas y embudos</p>
         </div>
-
         <div class="topbar-controls">
-          <label for="rangeSelect" class="sr-only">Período</label>
-          <select id="rangeSelect" class="range-select" aria-label="Seleccionar período">
-            <option value="7">Últimos 7 días</option>
-            <option value="14" selected>Últimos 14 días</option>
-            <option value="30">Últimos 30 días</option>
-          </select>
-
-          <button id="refreshBtn" class="btn-refresh" aria-label="Actualizar datos">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          <button id="exportCsvBtn" class="btn-refresh" style="display:none;" aria-label="Exportar a CSV">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;margin-right:6px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            Actualizar
+            Exportar CSV
           </button>
         </div>
       </header>
 
-      <!-- Scrollable page body -->
       <main class="page-body" id="pageBody">
-
-        <!-- ARIA live for status updates -->
         <div class="sr-only" role="status" aria-live="polite" id="statusLive"></div>
 
-        <!-- ── KPI Cards ─────────────────────────────────────────── -->
-        <section aria-labelledby="kpiHeading">
-          <h2 class="sr-only" id="kpiHeading">Indicadores clave</h2>
-          <div class="kpi-grid" id="kpiGrid">
-            <!-- Populated by JS -->
-          </div>
+        <!-- Filtros -->
+        <section class="filters-card">
+          <form id="filtersForm" class="filters-grid">
+            <div class="filter-group">
+              <label for="filterFrom">Desde</label>
+              <input type="date" id="filterFrom" name="from">
+            </div>
+            <div class="filter-group">
+              <label for="filterTo">Hasta</label>
+              <input type="date" id="filterTo" name="to">
+            </div>
+            <div class="filter-group">
+              <label for="filterSource">Source</label>
+              <select id="filterSource" name="source">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterMedium">Medium</label>
+              <select id="filterMedium" name="medium">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterCampaign">Campaign</label>
+              <select id="filterCampaign" name="campaign">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterStatus">Estado</label>
+              <select id="filterStatus" name="status">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="filter-actions">
+              <button type="submit" class="btn-primary">Filtrar</button>
+              <button type="button" id="resetFiltersBtn" class="btn-secondary">Limpiar</button>
+            </div>
+          </form>
         </section>
 
-        <!-- ── Charts row ────────────────────────────────────────── -->
+        <!-- Totales -->
+        <section aria-labelledby="kpiHeading">
+          <h2 class="sr-only" id="kpiHeading">Indicadores clave</h2>
+          <div class="kpi-grid" id="kpiGrid"></div>
+        </section>
+
+        <!-- Charts row -->
         <div class="two-col">
-          <!-- Trend chart -->
           <section class="card" aria-labelledby="trendHeading">
             <div class="card-header">
               <div>
-                <h2 class="card-title" id="trendHeading">Tendencia de leads</h2>
-                <p class="card-subtitle" id="trendSubtitle">Cargando...</p>
+                <h2 class="card-title" id="trendHeading">Tendencia de Leads y Conversión</h2>
+                <p class="card-subtitle">Volumen diario</p>
               </div>
             </div>
             <div class="card-body">
@@ -184,71 +198,51 @@
             </div>
           </section>
 
-          <!-- Sources chart -->
-          <section class="card" aria-labelledby="sourcesHeading">
+          <section class="card" aria-labelledby="funnelHeading">
             <div class="card-header">
               <div>
-                <h2 class="card-title" id="sourcesHeading">Fuentes de tráfico</h2>
-                <p class="card-subtitle" id="sourcesSubtitle">Distribución por utm_source</p>
+                <h2 class="card-title" id="funnelHeading">Embudo de Ventas (Estados)</h2>
+                <p class="card-subtitle">Distribución por etapa</p>
               </div>
             </div>
             <div class="card-body">
-              <div id="sourcesList" class="source-list" role="list">
+              <div id="funnelList" class="funnel-list" role="list">
                 <!-- Populated by JS -->
               </div>
             </div>
           </section>
         </div>
 
-        <!-- ── Bottom row ────────────────────────────────────────── -->
+        <!-- Bottom row -->
         <div class="two-col">
-          <!-- Campaigns -->
-          <section class="card" aria-labelledby="campaignsHeading">
+          <section class="card" aria-labelledby="sourcesHeading">
             <div class="card-header">
               <div>
-                <h2 class="card-title" id="campaignsHeading">Campañas principales</h2>
-                <p class="card-subtitle">Top 5 por volumen de leads</p>
+                <h2 class="card-title" id="sourcesHeading">Top 10 Fuentes</h2>
               </div>
             </div>
             <div class="card-body">
-              <div class="campaign-list" id="campaignList" role="list">
-                <!-- Populated by JS -->
-              </div>
+              <div id="sourcesList" class="source-list" role="list"></div>
             </div>
           </section>
 
-          <!-- Recent activity -->
-          <section class="card" aria-labelledby="activityHeading">
+          <section class="card" aria-labelledby="campaignsHeading">
             <div class="card-header">
               <div>
-                <h2 class="card-title" id="activityHeading">Actividad reciente</h2>
-                <p class="card-subtitle">Últimos 10 registros (sin datos personales)</p>
+                <h2 class="card-title" id="campaignsHeading">Top 10 Campañas</h2>
               </div>
             </div>
-            <div class="card-body" style="padding:0 0 0 0;">
-              <div class="activity-table-wrap">
-                <table class="activity-table" id="activityTable" aria-label="Actividad reciente">
-                  <thead>
-                    <tr>
-                      <th scope="col">Fecha y hora</th>
-                      <th scope="col">Fuente</th>
-                      <th scope="col">Campaña</th>
-                    </tr>
-                  </thead>
-                  <tbody id="activityBody">
-                    <!-- Populated by JS -->
-                  </tbody>
-                </table>
-              </div>
+            <div class="card-body">
+              <div class="campaign-list" id="campaignList" role="list"></div>
             </div>
           </section>
         </div>
 
       </main>
-    </div><!-- /main-area -->
-  </div><!-- /app -->
+    </div>
+  </div>
 
-  <script src="/admin/dashboard.js" type="module"></script>
+  <script src="/admin/analytics.js" type="module"></script>
 </body>
 </html>
 

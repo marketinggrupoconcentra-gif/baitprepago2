@@ -13,8 +13,8 @@
 
 require('./preview-safety.js');
 
-const EXPECTED_ENDPOINT = 'ep-little-darkness';
-const EXPECTED_BRANCH_ID = 'br-dark-frost-a54t4r79';
+const EXPECTED_ENDPOINT = process.env.EXPECTED_NEON_ENDPOINT_ID || 'ep-little-darkness';
+const EXPECTED_BRANCH_ID = process.env.EXPECTED_NEON_BRANCH_ID || 'br-dark-frost-a54t4r79';
 
 async function createAdminDirect() {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
