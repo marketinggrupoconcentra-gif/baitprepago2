@@ -1,7 +1,14 @@
 /**
  * assets/admin-leads.js
  * Lógica cliente para el módulo de Leads (Stage 1C).
+ *
+ * Política temporal: todas las fechas operativas se muestran en la zona
+ * de negocio America/Mexico_City, independientemente de la zona horaria
+ * configurada en el navegador del administrador.
  */
+
+const BUSINESS_TIME_ZONE = 'America/Mexico_City';
+const LOCALE = 'es-MX';
 
 let currentCursor = null;
 let currentFilters = {
@@ -423,7 +430,8 @@ function renderTable(leads, append) {
     return;
   }
   
-  const formatter = new Intl.DateTimeFormat('es-MX', { 
+  const formatter = new Intl.DateTimeFormat(LOCALE, {
+    timeZone: BUSINESS_TIME_ZONE,
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
@@ -646,7 +654,11 @@ async function openLeadDrawer(id) {
     UI.drawerFields.term.textContent = data.utmTerm || '-';
     UI.drawerFields.content.textContent = data.utmContent || '-';
     
-    const formatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeStyle: 'medium' });
+    const formatter = new Intl.DateTimeFormat(LOCALE, {
+      timeZone: BUSINESS_TIME_ZONE,
+      dateStyle: 'long',
+      timeStyle: 'medium'
+    });
     if (data.createdAt) {
       UI.drawerFields.date.textContent = formatter.format(new Date(data.createdAt));
     } else {
@@ -796,7 +808,11 @@ async function executeSaveStatus() {
     const reasonLabel = currentLeadData.statusReason ? (workflowConfig?.reasons?.find(r => r.value === currentLeadData.statusReason)?.label || currentLeadData.statusReason) : '-';
     UI.drawerFields.statusReason.textContent = reasonLabel;
 
-    const formatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeStyle: 'medium' });
+    const formatter = new Intl.DateTimeFormat(LOCALE, {
+      timeZone: BUSINESS_TIME_ZONE,
+      dateStyle: 'long',
+      timeStyle: 'medium'
+    });
     if (currentLeadData.statusUpdatedAt) {
       UI.drawerFields.statusUpdated.textContent = formatter.format(new Date(currentLeadData.statusUpdatedAt));
     }
