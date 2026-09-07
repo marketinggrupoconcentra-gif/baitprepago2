@@ -103,9 +103,25 @@ async function run() {
     const expired = await captcha.consumeCaptchaChallenge(sql, challengeId3, answer3);
     assert(expired.ok === false && expired.error === 'captcha_expired', '9. Challenge expirado → captcha_expired (lead no se inserta)');
 
+    // 10. Challenge-creation rate limit against the real QA database.
+    const testIp = `203.0.113.${Math.floor(Math.random() * 254 + 1)}`; // RFC5737 test-net, unique per run
+    const createdIds = [];
+    let blockedAt = null;
+    for (let i = 0; i < captcha.CAPTCHA_CHALLENGE_RATE_LIMIT_MAX + 5; i++) {
+      const check = await captcha.checkCaptchaChallengeRateLimit(sql, testIp);
+      if (!check.allowed) { blockedAt = i; break; }
+      const created = await captcha.createCaptchaChallenge(sql, process.env, check.clientHash);
+      createdIds.push(created.challengeId);
+    }
+    assert(blockedAt === captcha.CAPTCHA_CHALLENGE_RATE_LIMIT_MAX, `10. Rate limit real bloquea exactamente en el intento #${captcha.CAPTCHA_CHALLENGE_RATE_LIMIT_MAX + 1} (429 en el endpoint)`);
+
+    const otherIp = `203.0.113.${Math.floor(Math.random() * 254 + 1)}`;
+    const unaffected = await captcha.checkCaptchaChallengeRateLimit(sql, otherIp);
+    assert(unaffected.allowed === true, '11. Un cliente distinto no es afectado por la ráfaga anterior');
+
     // Cleanup test rows created on the QA branch.
     await pool.query('DELETE FROM leads WHERE phone = $1', [testPhone]);
-    await pool.query('DELETE FROM captcha_challenges WHERE id = ANY($1::text[])', [[challengeId, challengeId2, challengeId3]]);
+    await pool.query('DELETE FROM captcha_challenges WHERE id = ANY($1::text[])', [[challengeId, challengeId2, challengeId3, ...createdIds]]);
 
     console.log(`\nTests finished: ${passed} passed, ${failed} failed.`);
     await pool.end();

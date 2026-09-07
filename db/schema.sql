@@ -87,7 +87,12 @@ CREATE TABLE IF NOT EXISTS captcha_challenges (
   answer_hash   TEXT          NOT NULL,
   expires_at    TIMESTAMPTZ   NOT NULL,
   used_at       TIMESTAMPTZ   NULL,
-  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  -- HMAC-SHA256(CAPTCHA_PEPPER, ip) used only to rate-limit challenge
+  -- creation per client. The raw IP is never stored here.
+  client_hash   TEXT
 );
 
 CREATE INDEX IF NOT EXISTS captcha_challenges_expires_at_idx ON captcha_challenges (expires_at);
+CREATE INDEX IF NOT EXISTS captcha_challenges_client_hash_created_at_idx
+  ON captcha_challenges (client_hash, created_at);

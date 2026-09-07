@@ -10,14 +10,26 @@
  */
 const { chromium } = require('playwright');
 const assert = require('assert');
+const crypto = require('crypto');
+const { Pool } = require('@neondatabase/serverless');
 
-if (!process.env.VERCEL_PREVIEW_URL) {
-  console.error('❌ Required environment variable missing: VERCEL_PREVIEW_URL');
-  process.exit(1);
+const REQUIRED_ENVS = ['VERCEL_PREVIEW_URL', 'DATABASE_URL', 'CAPTCHA_PEPPER'];
+for (const env of REQUIRED_ENVS) {
+  if (!process.env[env]) {
+    console.error(`❌ Required environment variable missing: ${env}`);
+    process.exit(1);
+  }
 }
 
 const BASE_URL = process.env.VERCEL_PREVIEW_URL.replace(/\/$/, '');
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
+
+// A tiny, valid SVG used only to stand in for the CAPTCHA image in the
+// intercepted happy-path response below — its pixels are irrelevant since
+// the test already knows the answer it seeded directly in the QA database.
+const STUB_CAPTCHA_SVG_DATA_URI =
+  'data:image/svg+xml;base64,' +
+  Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="220" height="70"/>').toString('base64');
 
 function todayCDMX() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -70,7 +82,9 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
 
       const phone = '5512340000';
       await fillStep1(page, { phone, nip: '1234' }); // last4 = 0000, no match
-      const hidden = await page.isVisible('#pf-nip-valid-until-field.pf-hidden');
+      // isVisible() on a display:none element is always false regardless of
+      // selector match, so check the actual hidden class instead.
+      const hidden = await page.locator('#pf-nip-valid-until-field').evaluate(el => el.classList.contains('pf-hidden'));
       assert.ok(hidden, 'NIP != last4: el campo de vigencia permanece oculto');
       await ctx.close();
     }
@@ -174,6 +188,102 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       await page.waitForTimeout(300);
       const imgSrcAfter = await page.getAttribute('#pf-captcha-img-el', 'src');
       assert.notStrictEqual(imgSrcAfter, imgSrcBefore, 'Tras error de CAPTCHA se solicita un nuevo challenge');
+
+      await ctx.close();
+    }
+
+    /* ── Scenario: CAPTCHA correcto → lead exitoso (happy path real, QA DB) ──
+     * The browser never learns the answer from /api/captcha/challenge (that
+     * endpoint never reveals it, in Preview exactly as in Production). To
+     * exercise a real successful submission in an E2E test, this test
+     * itself seeds a challenge directly in the QA Neon database with a
+     * known answer/hash (the same thing lib/captcha.js's createCaptchaChallenge
+     * does, minus the plaintext leak), then uses Playwright request
+     * interception to hand that specific challengeId to the page in place
+     * of a real /api/captcha/challenge call. The actual validation that
+     * follows (POST /api/leads) is 100% real against the real backend and
+     * the real QA database — nothing about /api/leads or the CAPTCHA
+     * consumption logic is mocked or bypassed. */
+    {
+      const { hashCaptchaAnswer, consumeCaptchaChallenge } = await import('../lib/captcha.js');
+      const { neon } = await import('@neondatabase/serverless');
+      const sql = neon(process.env.DATABASE_URL);
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+      const challengeId = crypto.randomUUID();
+      const knownAnswer = '927415';
+      const answerHash = hashCaptchaAnswer(process.env.CAPTCHA_PEPPER, challengeId, knownAnswer);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      await sql`INSERT INTO captcha_challenges (id, answer_hash, expires_at) VALUES (${challengeId}, ${answerHash}, ${expiresAt.toISOString()})`;
+
+      const ctx = await newContext(browser);
+      const page = await ctx.newPage();
+
+      // Prevent the final WhatsApp redirect from actually navigating this
+      // Playwright page away from the Preview — WhatsApp's number, message
+      // and destination are untouched; we only stop the browser-level
+      // navigation so the test can keep asserting after submit.
+      await page.route('https://api.whatsapp.com/**', route => route.abort());
+
+      // Hand the page our known challenge instead of a server-generated one.
+      await page.route('**/api/captcha/challenge', route => route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ challengeId, image: STUB_CAPTCHA_SVG_DATA_URI, expiresAt: expiresAt.toISOString() })
+      }));
+
+      const leadResponses = [];
+      page.on('response', res => {
+        if (res.url().includes('/api/leads')) leadResponses.push(res);
+      });
+
+      const phone = '5587650000'; // last4 = 0000, no NIP-validity date needed
+      const email = `QA.E2E.${Date.now()}@Bait.Test`; // mixed case, trimmed to prove normalization
+
+      await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
+      await fillStep1(page, { phone, nip: '1234' });
+      await page.click('#pf-btn-1');
+      await page.waitForTimeout(100);
+      await page.fill('#pf-nombre', 'María');
+      await page.fill('#pf-apellido', 'González');
+      await page.fill('#pf-email', email);
+      await page.click('#pf-btn-2');
+      await page.waitForTimeout(300); // our mocked /api/captcha/challenge resolves
+
+      await page.fill('#pf-captcha-input', knownAnswer);
+      await page.fill('#pf-wa-code', '654321');
+      await page.check('#pf-consent');
+      await page.click('#pf-btn-3');
+      await page.waitForTimeout(700);
+
+      assert.ok(leadResponses.length >= 1, 'Se realizó un POST a /api/leads');
+      const finalStatus = leadResponses[leadResponses.length - 1].status();
+      assert.ok(finalStatus === 200 || finalStatus === 201, `CAPTCHA correcto → /api/leads responde éxito (200/201), obtuvo ${finalStatus}`);
+
+      // Confirm the row landed in the real QA database, with email normalized.
+      const rows = await pool.query('SELECT id, phone, email FROM leads WHERE phone = $1', [phone]);
+      assert.strictEqual(rows.rows.length, 1, 'La fila del lead existe en QA Neon tras el submit real');
+      assert.strictEqual(rows.rows[0].email, email.trim().toLowerCase(), 'El email persistido está normalizado (lowercase/trim)');
+
+      const nipCols = await pool.query(`
+        SELECT count(*)::int AS count FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='leads' AND column_name IN ('nip','nip_valid_until')
+      `);
+      assert.strictEqual(nipCols.rows[0].count, 0, 'NIP / nip_valid_until siguen sin existir como columnas tras un submit real');
+
+      // Confirm the challenge was actually consumed by the real /api/leads path.
+      const challengeRow = await pool.query('SELECT used_at FROM captcha_challenges WHERE id = $1', [challengeId]);
+      assert.ok(challengeRow.rows[0] && challengeRow.rows[0].used_at, 'El challenge quedó marcado como usado por el backend real');
+
+      // Replay with the same challenge/answer → must be rejected.
+      const replay = await consumeCaptchaChallenge(sql, challengeId, knownAnswer);
+      assert.strictEqual(replay.ok, false, 'Replay del challenge ya usado (vía backend real) → rechazado');
+      assert.strictEqual(replay.error, 'captcha_used', 'Replay rechazado específicamente como captcha_used');
+
+      // Cleanup this test's row so QA stays clean.
+      await pool.query('DELETE FROM leads WHERE phone = $1', [phone]);
+      await pool.query('DELETE FROM captcha_challenges WHERE id = $1', [challengeId]);
+      await pool.end();
 
       await ctx.close();
     }

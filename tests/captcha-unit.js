@@ -3,7 +3,10 @@ const {
   hashCaptchaAnswer,
   createCaptchaChallenge,
   consumeCaptchaChallenge,
-  CAPTCHA_ERRORS
+  checkCaptchaChallengeRateLimit,
+  hashClientIdentifier,
+  CAPTCHA_ERRORS,
+  CAPTCHA_CHALLENGE_RATE_LIMIT_MAX
 } = require('../lib/captcha.js');
 
 console.log('Running captcha-unit tests...');
@@ -34,8 +37,11 @@ function makeFakeSql() {
     const text = strings.join('?');
 
     if (text.includes('INSERT INTO captcha_challenges')) {
-      const [id, answerHash, expiresAt] = values;
-      store.set(id, { id, answer_hash: answerHash, expires_at: expiresAt, used_at: null });
+      const [id, answerHash, expiresAt, clientHash] = values;
+      store.set(id, {
+        id, answer_hash: answerHash, expires_at: expiresAt, used_at: null,
+        client_hash: clientHash ?? null, created_at: new Date()
+      });
       return Promise.resolve([]);
     }
 
@@ -43,6 +49,16 @@ function makeFakeSql() {
       const [id] = values;
       const row = store.get(id);
       return Promise.resolve(row ? [{ ...row }] : []);
+    }
+
+    if (text.includes('SELECT count(*)::int AS count') && text.includes('client_hash')) {
+      const [clientHash, windowMinutes] = values;
+      const cutoff = Date.now() - windowMinutes * 60 * 1000;
+      let count = 0;
+      for (const row of store.values()) {
+        if (row.client_hash === clientHash && new Date(row.created_at).getTime() > cutoff) count++;
+      }
+      return Promise.resolve([{ count }]);
     }
 
     if (text.includes('UPDATE captcha_challenges')) {
@@ -170,6 +186,56 @@ async function run() {
     const { sql } = makeFakeSql();
     const result = await consumeCaptchaChallenge(sql, '', '123456', TEST_ENV);
     assert(!result.ok && result.error === CAPTCHA_ERRORS.REQUIRED, 'challengeId ausente → captcha_required');
+  }
+
+  /* ── Challenge-creation rate limiting (abuse control) ── */
+  {
+    const hashA = hashClientIdentifier(TEST_ENV.CAPTCHA_PEPPER, '203.0.113.10');
+    const hashB = hashClientIdentifier(TEST_ENV.CAPTCHA_PEPPER, '203.0.113.99');
+    assert(hashA !== hashB, 'IPs distintas producen client_hash distintos');
+    assert(/^[0-9a-f]{64}$/.test(hashA), 'client_hash es un hash hex, no la IP en texto plano');
+  }
+
+  {
+    // Fail closed: without CAPTCHA_PEPPER the rate limiter must not allow through.
+    const { sql } = makeFakeSql();
+    const result = await checkCaptchaChallengeRateLimit(sql, '203.0.113.10', {});
+    assert(result.allowed === false, 'checkCaptchaChallengeRateLimit falla cerrado sin CAPTCHA_PEPPER');
+  }
+
+  {
+    const { sql } = makeFakeSql();
+    const ip = '198.51.100.20';
+
+    // A human refreshing a handful of times must stay within the limit.
+    for (let i = 0; i < 3; i++) {
+      const check = await checkCaptchaChallengeRateLimit(sql, ip, TEST_ENV);
+      assert(check.allowed === true, `Intento humano #${i + 1} dentro del límite → permitido`);
+      await createCaptchaChallenge(sql, TEST_ENV, check.clientHash);
+    }
+
+    // Drive it up to the limit with scripted bursts and confirm it blocks.
+    let blocked = false;
+    for (let i = 3; i < CAPTCHA_CHALLENGE_RATE_LIMIT_MAX + 5; i++) {
+      const check = await checkCaptchaChallengeRateLimit(sql, ip, TEST_ENV);
+      if (!check.allowed) { blocked = true; break; }
+      await createCaptchaChallenge(sql, TEST_ENV, check.clientHash);
+    }
+    assert(blocked, `Ráfaga automatizada por encima de ${CAPTCHA_CHALLENGE_RATE_LIMIT_MAX} challenges → bloqueada`);
+  }
+
+  {
+    // A different client (different IP → different hash) is unaffected by
+    // another client's burst.
+    const { sql } = makeFakeSql();
+    const abusiveIp = '198.51.100.30';
+    for (let i = 0; i < CAPTCHA_CHALLENGE_RATE_LIMIT_MAX + 2; i++) {
+      const check = await checkCaptchaChallengeRateLimit(sql, abusiveIp, TEST_ENV);
+      if (!check.allowed) break;
+      await createCaptchaChallenge(sql, TEST_ENV, check.clientHash);
+    }
+    const otherClient = await checkCaptchaChallengeRateLimit(sql, '198.51.100.31', TEST_ENV);
+    assert(otherClient.allowed === true, 'El rate limit de un cliente no afecta a un cliente distinto');
   }
 
   console.log(`\nTests finished: ${passed} passed, ${failed} failed.`);

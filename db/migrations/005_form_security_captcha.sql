@@ -12,11 +12,15 @@
 --   HMAC-SHA256 hash computed with the CAPTCHA_PEPPER secret.
 -- - NIP and nip_valid_until are intentionally NOT persisted anywhere in
 --   this migration — they are discarded at the validation layer.
+-- - The fail-closed timezone guard below MUST run before any ALTER/CREATE
+--   and MUST NOT be preceded by `SET TIME ZONE`, which would make the
+--   session appear compliant regardless of the database/role default
+--   established by migration 004 and defeat the guard entirely.
 -- ─────────────────────────────────────────────────────────────────
 
-SET TIME ZONE 'America/Mexico_City';
-
--- Fail closed: abort unless the effective business timezone is CDMX.
+-- Fail closed: abort unless the EFFECTIVE (session-default, not
+-- session-overridden) business timezone is CDMX. This must be the very
+-- first statement in the migration.
 DO $$
 BEGIN
   IF current_setting('TimeZone') <> 'America/Mexico_City' THEN
@@ -42,6 +46,13 @@ CREATE TABLE IF NOT EXISTS captcha_challenges (
 );
 
 CREATE INDEX IF NOT EXISTS captcha_challenges_expires_at_idx ON captcha_challenges (expires_at);
+
+-- client_hash: HMAC-SHA256(CAPTCHA_PEPPER, ip) used only to rate-limit
+-- challenge creation per client. The raw IP is never stored here.
+ALTER TABLE captcha_challenges ADD COLUMN IF NOT EXISTS client_hash TEXT;
+
+CREATE INDEX IF NOT EXISTS captcha_challenges_client_hash_created_at_idx
+  ON captcha_challenges (client_hash, created_at);
 
 -- Guardrail: this migration must never introduce naive timestamps.
 DO $$

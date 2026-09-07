@@ -8,7 +8,8 @@
  */
 
 import { getDb } from '../../lib/db.js';
-import { createCaptchaChallenge } from '../../lib/captcha.js';
+import { assertSameOrigin, getClientIp } from '../../lib/admin-auth.js';
+import { createCaptchaChallenge, checkCaptchaChallengeRateLimit } from '../../lib/captcha.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -22,6 +23,13 @@ export default async function handler(req, res) {
     return res.status(415).json({ error: 'Content-Type must be application/json' });
   }
 
+  // Same-Origin Check (certified helper — see lib/admin-auth.js)
+  try {
+    assertSameOrigin(req);
+  } catch {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   let sql;
   try {
     sql = getDb();
@@ -31,7 +39,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const challenge = await createCaptchaChallenge(sql);
+    const ip = getClientIp(req);
+    const rateLimit = await checkCaptchaChallengeRateLimit(sql, ip);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({ error: 'Too many requests' });
+    }
+
+    const challenge = await createCaptchaChallenge(sql, process.env, rateLimit.clientHash);
     return res.status(201).json(challenge);
   } catch (err) {
     // Fail closed: if CAPTCHA_PEPPER is missing this throws before any DB

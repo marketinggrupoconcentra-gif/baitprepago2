@@ -24,10 +24,12 @@
     "test:nip-conditional": "node tests/nip-conditional-unit.js",
     "test:email-unit": "node tests/email-unit.js",
     "test:captcha-unit": "node tests/captcha-unit.js",
+    "test:captcha-challenge-endpoint-unit": "node tests/captcha-challenge-endpoint-unit.js",
+    "test:migration-005-failclosed": "node --env-file=.env.branch tests/migration-005-failclosed.js",
     "test:privacy-unit": "node tests/privacy-unit.js",
     "test:captcha-lead-integration": "node --env-file=.env.branch tests/captcha-lead-integration.js",
     "test:form-security-browser-e2e": "node --env-file=.env.branch tests/form-security-browser-e2e.js",
-    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:analytics-unit && npm run test:db-env-resolution && npm run test:timezone && npm run test:nip-conditional && npm run test:email-unit && npm run test:captcha-unit && npm run test:privacy-unit"
+    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:analytics-unit && npm run test:db-env-resolution && npm run test:timezone && npm run test:nip-conditional && npm run test:email-unit && npm run test:captcha-unit && npm run test:captcha-challenge-endpoint-unit && npm run test:privacy-unit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"
