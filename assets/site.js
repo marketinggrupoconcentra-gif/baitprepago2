@@ -1,7 +1,27 @@
 (function () {
   'use strict';
 
-  var WHATSAPP_URL = 'https://api.whatsapp.com/send/?phone=5215548268533&text=%C2%A1Hola%21+Quiero+m%C3%A1s+informaci%C3%B3n&type=phone_number&app_absent=0';
+  /* ── CDMX civil-day helpers (never derived from browser/UTC timezone) ── */
+  var BUSINESS_TIME_ZONE = 'America/Mexico_City';
+
+  function todayCDMX() {
+    var parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: BUSINESS_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    var v = {};
+    parts.forEach(function (p) { v[p.type] = p.value; });
+    return v.year + '-' + v.month + '-' + v.day;
+  }
+
+  function addCivilDays(dateOnly, days) {
+    var parts = dateOnly.split('-').map(Number);
+    var ms = Date.UTC(parts[0], parts[1] - 1, parts[2]) + days * 86400000;
+    var d = new Date(ms);
+    var y = d.getUTCFullYear();
+    var m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    var dd = String(d.getUTCDate()).padStart(2, '0');
+    return y + '-' + m + '-' + dd;
+  }
 
   /* ── Scroll / header ── */
   var header = document.querySelector('[data-header]');
@@ -136,13 +156,42 @@
   }
 
   /* ==============================
-     STEP 1 — Phone + NIP + Confirm NIP
+     STEP 1 — Phone + NIP + Confirm NIP + (conditional) NIP validity date
   ============================== */
+  var nipInput          = document.getElementById('pf-nip');
+  var nipValidUntilWrap = document.getElementById('pf-nip-valid-until-field');
+  var nipValidUntilInp  = document.getElementById('pf-nip-valid-until');
+
+  function nipMatchesPhoneLast4() {
+    var phoneVal = document.getElementById('pf-phone').value;
+    return /^\d{10}$/.test(phoneVal) && /^\d{4}$/.test(nipInput.value) &&
+      nipInput.value === phoneVal.slice(-4);
+  }
+
+  function updateNipValidUntilVisibility() {
+    var show = nipMatchesPhoneLast4();
+    if (nipValidUntilWrap) nipValidUntilWrap.classList.toggle('pf-hidden', !show);
+    if (nipValidUntilInp) {
+      nipValidUntilInp.required = show;
+      if (!show) {
+        nipValidUntilInp.value = '';
+        clearErr('pf-nip-valid-until');
+      } else {
+        var today = todayCDMX();
+        nipValidUntilInp.min = today;
+        nipValidUntilInp.max = addCivilDays(today, 5);
+      }
+    }
+  }
+
+  nipInput.addEventListener('input', updateNipValidUntilVisibility);
+  document.getElementById('pf-phone').addEventListener('input', updateNipValidUntilVisibility);
+
   step1.addEventListener('submit', function (e) {
     e.preventDefault();
     var phone      = document.getElementById('pf-phone');
     var confirm    = document.getElementById('pf-phone-confirm');
-    var nip        = document.getElementById('pf-nip');
+    var nip        = nipInput;
     var nipConfirm = document.getElementById('pf-nip-confirm');
     var valid      = true;
 
@@ -166,10 +215,26 @@
       fieldErr('pf-nip-confirm', 'Los NIP no coinciden.'); valid = false;
     } else { clearErr('pf-nip-confirm'); }
 
+    var nipValidUntil = null;
+    if (valid && nipMatchesPhoneLast4()) {
+      var today = todayCDMX();
+      var max   = addCivilDays(today, 5);
+      var val   = nipValidUntilInp.value;
+      if (!val) {
+        fieldErr('pf-nip-valid-until', 'Ingresa la fecha de vigencia del NIP.'); valid = false;
+      } else if (val < today || val > max) {
+        fieldErr('pf-nip-valid-until', 'La vigencia debe estar entre hoy y los próximos 5 días naturales.'); valid = false;
+      } else {
+        clearErr('pf-nip-valid-until');
+        nipValidUntil = val;
+      }
+    }
+
     if (!valid) { step1.querySelector('[aria-invalid="true"]').focus(); return; }
 
-    formData.phone = phone.value;
-    formData.nip   = nip.value;
+    formData.phone         = phone.value;
+    formData.nip           = nip.value;
+    formData.nipValidUntil = nipValidUntil;
     goTo(2);
   });
 
@@ -180,10 +245,13 @@
   /* ==============================
      STEP 2 — Personal data
   ============================== */
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   step2.addEventListener('submit', function (e) {
     e.preventDefault();
     var nombre   = document.getElementById('pf-nombre');
     var apellido = document.getElementById('pf-apellido');
+    var email    = document.getElementById('pf-email');
     var valid    = true;
 
     if (!nombre.value.trim()) {
@@ -194,109 +262,82 @@
       fieldErr('pf-apellido', 'Ingresa tu(s) apellido(s).'); valid = false;
     } else { clearErr('pf-apellido'); }
 
+    var emailVal = email.value.trim();
+    if (!emailVal || /\s/.test(emailVal) || emailVal.length > 254 || !EMAIL_RE.test(emailVal)) {
+      fieldErr('pf-email', 'Ingresa un correo electrónico válido. Aquí recibirás tu cupón BAIT.'); valid = false;
+    } else { clearErr('pf-email'); }
+
     if (!valid) { step2.querySelector('[aria-invalid="true"]').focus(); return; }
 
     formData.nombre   = nombre.value.trim();
     formData.apellido = apellido.value.trim();
+    formData.email    = emailVal.toLowerCase();
 
     /* Update summary in step 3 */
     var summaryPhone = document.getElementById('pf-summary-phone');
     if (summaryPhone) summaryPhone.textContent = formData.phone;
 
     goTo(3);
-    generateCaptcha();
+    requestCaptchaChallenge();
   });
 
   /* ==============================
-     CAPTCHA (canvas-based)
+     CAPTCHA (server-side challenge — backend never exposes the answer)
   ============================== */
-  var captchaCode = '';
+  var captchaChallengeId = null;
+  var captchaImgEl       = document.getElementById('pf-captcha-img-el');
 
-  function generateCaptcha() {
-    var chars  = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    captchaCode = '';
-    for (var i = 0; i < 6; i++) {
-      captchaCode += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    var container = document.getElementById('pf-captcha-img');
-    if (!container) return;
-    container.innerHTML = '';
-
-    var canvas = document.createElement('canvas');
-    canvas.width  = 240;
-    canvas.height = 68;
-    container.appendChild(canvas);
-
-    var ctx = canvas.getContext('2d');
-
-    /* Background */
-    ctx.fillStyle = '#f8f8f4';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    /* Noise lines */
-    for (var n = 0; n < 8; n++) {
-      ctx.beginPath();
-      ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-      ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
-      ctx.strokeStyle = 'rgba(' + [
-        Math.floor(Math.random()*180),
-        Math.floor(Math.random()*180),
-        Math.floor(Math.random()*180)
-      ].join(',') + ',.5)';
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-    }
-
-    /* Dots */
-    for (var d = 0; d < 40; d++) {
-      ctx.beginPath();
-      ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, 1, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,0,0,.15)';
-      ctx.fill();
-    }
-
-    /* Letters */
-    var colors = ['#1a237e','#880e4f','#1b5e20','#e65100','#4a148c','#006064'];
-    var xStep  = canvas.width / (captchaCode.length + 1);
-    for (var c = 0; c < captchaCode.length; c++) {
-      ctx.save();
-      ctx.font = 'bold ' + (24 + Math.random() * 8) + 'px monospace';
-      ctx.fillStyle = colors[c % colors.length];
-      var x = xStep * (c + 1);
-      var y = 40 + (Math.random() * 14 - 7);
-      ctx.translate(x, y);
-      ctx.rotate((Math.random() - 0.5) * 0.5);
-      ctx.fillText(captchaCode[c], 0, 0);
-      ctx.restore();
-    }
-
-    /* Clear captcha input */
+  function requestCaptchaChallenge() {
     var inp = document.getElementById('pf-captcha-input');
     if (inp) inp.value = '';
     showErr('pf-captcha-error', '');
+    captchaChallengeId = null;
+    if (captchaImgEl) captchaImgEl.removeAttribute('src');
+
+    return fetch('/api/captcha/challenge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('captcha_challenge_failed');
+        return res.json();
+      })
+      .then(function (data) {
+        captchaChallengeId = data.challengeId;
+        if (captchaImgEl) captchaImgEl.src = data.image;
+      })
+      .catch(function () {
+        showErr('pf-captcha-error', 'No se pudo generar el código de seguridad. Intenta de nuevo.');
+      });
   }
 
-  /* Click on captcha image or refresh button → regenerate */
+  /* Click on captcha image or refresh button → request a new challenge */
   var captchaImg = document.getElementById('pf-captcha-img');
   var captchaRefresh = document.getElementById('pf-captcha-refresh');
-  if (captchaImg) captchaImg.addEventListener('click', generateCaptcha);
-  if (captchaRefresh) captchaRefresh.addEventListener('click', generateCaptcha);
+  if (captchaImg) captchaImg.addEventListener('click', requestCaptchaChallenge);
+  if (captchaRefresh) captchaRefresh.addEventListener('click', requestCaptchaChallenge);
 
   /* ==============================
      STEP 3 — Confirm & submit
   ============================== */
+  var CAPTCHA_ERROR_MESSAGES = {
+    captcha_required: 'Ingresa el código de seguridad.',
+    captcha_invalid: 'El código no coincide. Intenta de nuevo.',
+    captcha_expired: 'El código expiró. Generamos uno nuevo.',
+    captcha_used: 'Ese código ya fue usado. Generamos uno nuevo.'
+  };
+
   step3.addEventListener('submit', function (e) {
     e.preventDefault();
     var captchaInput = document.getElementById('pf-captcha-input');
     var consent      = document.getElementById('pf-consent');
     var valid        = true;
 
-    /* Captcha */
-    if (!captchaInput.value || captchaInput.value.toUpperCase() !== captchaCode) {
-      showErr('pf-captcha-error', 'El código no coincide. Intenta de nuevo.');
+    /* Captcha (format only — the answer itself is verified server-side) */
+    if (!captchaChallengeId || !/^\d{6}$/.test(captchaInput.value)) {
+      showErr('pf-captcha-error', 'Ingresa los 6 dígitos del código de seguridad.');
       captchaInput.setAttribute('aria-invalid', 'true');
-      generateCaptcha();
       valid = false;
     } else {
       showErr('pf-captcha-error', '');
@@ -318,66 +359,90 @@
 
     var submitBtn = document.getElementById('pf-btn-3');
     if (submitBtn) submitBtn.disabled = true;
-
-    /* Guardar datos para personalización en la página de agradecimiento */
-    try {
-      sessionStorage.setItem('bait_lead_name', formData.nombre || '');
-      sessionStorage.setItem('bait_lead_phone', formData.phone || '');
-    } catch (_) {}
-
     if (status) status.textContent = 'Enviando solicitud…';
 
-    var redirected = false;
-    function goToThankYou() {
-      if (redirected) return;
-      redirected = true;
-      window.location.assign('/gracias/');
-    }
+    var utms = getUtms();
+    var payload = {
+      phone: formData.phone,
+      nip: formData.nip,
+      nip_valid_until: formData.nipValidUntil,
+      nombre: formData.nombre,
+      apellido: formData.apellido,
+      email: formData.email,
+      consent: true,
+      captcha_challenge_id: captchaChallengeId,
+      captcha_answer: captchaInput.value,
+      utm_source: utms.utm_source || null,
+      utm_medium: utms.utm_medium || null,
+      utm_campaign: utms.utm_campaign || null,
+      utm_content: utms.utm_content || null,
+      utm_term: utms.utm_term || null,
+      gclid: utms.gclid || null,
+      fbclid: utms.fbclid || null,
+      fb_ad_id: utms.fb_ad_id || null,
+      fb_adset_id: utms.fb_adset_id || null,
+      fb_campaign_id: utms.fb_campaign_id || null,
+      referrer: document.referrer || null,
+      page_url: window.location.href
+    };
 
-    /* Redirigir a página de agradecimiento con temporizador de seguridad */
-    var safetyTimer = setTimeout(goToThankYou, 2000);
-
-    /* Guardar lead en la base de datos para seguimiento y panel admin */
-    try {
-      var utms = getUtms();
-      var payload = {
-        phone: formData.phone,
-        nip: formData.nip,
-        nombre: formData.nombre,
-        apellido: formData.apellido,
-        consent: true,
-        utm_source: utms.utm_source || null,
-        utm_medium: utms.utm_medium || null,
-        utm_campaign: utms.utm_campaign || null,
-        utm_content: utms.utm_content || null,
-        utm_term: utms.utm_term || null,
-        gclid: utms.gclid || null,
-        fbclid: utms.fbclid || null,
-        fb_ad_id: utms.fb_ad_id || null,
-        fb_adset_id: utms.fb_adset_id || null,
-        fb_campaign_id: utms.fb_campaign_id || null,
-        referrer: document.referrer || null,
-        page_url: window.location.href
-      };
-
-      fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        keepalive: true
-      })
-        .then(function () {
-          clearTimeout(safetyTimer);
-          goToThankYou();
-        })
-        .catch(function () {
-          clearTimeout(safetyTimer);
-          goToThankYou();
+    fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (res) {
+        if (res.ok) return { ok: true, status: res.status };
+        return res.json().catch(function () { return {}; }).then(function (body) {
+          return { ok: false, status: res.status, error: body.error, code: body.code, details: body.details || [] };
         });
-    } catch (_) {
-      clearTimeout(safetyTimer);
-      goToThankYou();
-    }
+      })
+      .then(function (result) {
+        if (submitBtn) submitBtn.disabled = false;
+
+        if (!result.ok) {
+          // Check for duplicate lead (409)
+          if (result.status === 409 && result.error === 'duplicate_lead') {
+            try {
+              sessionStorage.removeItem('bait_lead_name');
+              sessionStorage.removeItem('bait_lead_phone');
+            } catch (_) {}
+            
+            goTo(1);
+            fieldErr('pf-phone', 'Este número ya tiene una solicitud registrada. No es posible registrarlo nuevamente.');
+            var phoneInput = document.getElementById('pf-phone');
+            if (phoneInput) phoneInput.focus();
+            if (status) status.textContent = '';
+            requestCaptchaChallenge();
+            return;
+          }
+
+          var captchaError = result.details.filter(function (code) {
+            return Object.prototype.hasOwnProperty.call(CAPTCHA_ERROR_MESSAGES, code);
+          })[0];
+
+          if (captchaError) {
+            showErr('pf-captcha-error', CAPTCHA_ERROR_MESSAGES[captchaError]);
+            captchaInput.setAttribute('aria-invalid', 'true');
+            requestCaptchaChallenge();
+          } else {
+            if (status) status.textContent = 'No pudimos validar tu solicitud. Revisa tus datos e intenta de nuevo.';
+          }
+          return;
+        }
+
+        /* All good → guardamos data y redirect to Thank You page */
+        try {
+          sessionStorage.setItem('bait_lead_name', formData.nombre || '');
+          sessionStorage.setItem('bait_lead_phone', formData.phone || '');
+        } catch (_) {}
+        
+        window.location.assign('/gracias/');
+      })
+      .catch(function () {
+        if (submitBtn) submitBtn.disabled = false;
+        if (status) status.textContent = 'No pudimos conectar con el servidor. Intenta de nuevo.';
+      });
   });
 
 })();

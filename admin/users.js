@@ -51,6 +51,10 @@ const editActive      = document.getElementById('editActive');
 let isLoading = false;
 let userObj   = null;
 let usersList = [];
+let invitesList = [];
+
+// ── DOM refs for invites
+const invitesBody = document.getElementById('invitesBody');
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function setStatus(msg) {
@@ -117,6 +121,21 @@ async function loadUsers() {
   }
 }
 
+async function loadInvitations() {
+  if (userObj.role !== 'SUPER_ADMIN' && userObj.role !== 'ADMIN') return;
+  invitesBody.innerHTML = `<tr><td colspan="5"><div class="skeleton" style="height:36px;margin:4px 0"></div></td></tr>`;
+  try {
+    const res = await fetch('/api/admin/invitations', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    invitesList = data.invitations || [];
+    renderInvitations();
+  } catch (err) {
+    console.warn('Invites load error:', err.message);
+    invitesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:32px;">Error al cargar invitaciones.</td></tr>`;
+  }
+}
+
 // ── Render ────────────────────────────────────────────────────────────
 function renderUsers() {
   if (usersList.length === 0) {
@@ -169,6 +188,51 @@ function renderUsers() {
   });
 }
 
+function renderInvitations() {
+  if (invitesList.length === 0) {
+    invitesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:32px;">No hay invitaciones pendientes.</td></tr>`;
+    return;
+  }
+
+  const isSuperAdmin = userObj.role === 'SUPER_ADMIN';
+
+  invitesBody.innerHTML = invitesList.map(i => {
+    const badgeClass = String(i.role).toLowerCase();
+    const isPending = i.status === 'PENDING';
+    const statusColor = isPending ? 'var(--bait-blue)' : (i.status === 'ACCEPTED' ? 'var(--status-green)' : 'var(--status-red)');
+    
+    let actionBtn = `<span style="color:var(--text-tertiary);font-size:12px;">—</span>`;
+    if (isPending && (isSuperAdmin || userObj.role === 'ADMIN')) {
+      actionBtn = `<button class="btn-secondary revoke-btn" data-id="${i.id}" style="padding: 4px 8px; font-size: 12px; color: var(--status-red); border-color: var(--status-red);">Revocar</button>`;
+    }
+
+    return `
+      <tr>
+        <td class="user-email-col">${escHtml(i.email)}</td>
+        <td><span class="role-badge ${badgeClass}">${escHtml(i.role)}</span></td>
+        <td style="color: ${statusColor}; font-weight: 600;">${escHtml(i.status)}</td>
+        <td style="color:var(--text-secondary)">${escHtml(fmtDateTime(i.expires_at))}</td>
+        <td style="text-align:right">${actionBtn}</td>
+      </tr>
+    `;
+  }).join('');
+
+  invitesBody.querySelectorAll('.revoke-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Seguro que deseas revocar esta invitación?')) return;
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        await fetch(`/api/admin/invitations?id=${id}`, { method: 'DELETE' });
+        loadInvitations();
+      } catch (err) {
+        alert('Error al revocar');
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
 // ── Modals ────────────────────────────────────────────────────────────
 function openCreateModal() {
   createErrorBox.style.display = 'none';
@@ -197,17 +261,16 @@ function closeEditModal() {
 async function handleCreate(e) {
   e.preventDefault();
   submitCreateBtn.disabled = true;
-  submitCreateBtn.textContent = 'Creando...';
+  submitCreateBtn.textContent = 'Enviando...';
   createErrorBox.style.display = 'none';
 
   const payload = {
     email: document.getElementById('createEmail').value.trim(),
-    role: document.getElementById('createRole').value,
-    password: document.getElementById('createPassword').value
+    role: document.getElementById('createRole').value
   };
 
   try {
-    const res = await fetch('/api/admin/users/create', {
+    const res = await fetch('/api/admin/invitations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -215,17 +278,18 @@ async function handleCreate(e) {
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.error || 'Error al crear usuario');
+      throw new Error(data.error || 'Error al enviar invitación');
     }
 
     closeCreateModal();
-    loadUsers();
+    alert('Invitación enviada exitosamente.');
+    loadInvitations();
   } catch (err) {
     createErrorBox.textContent = err.message;
     createErrorBox.style.display = 'block';
   } finally {
     submitCreateBtn.disabled = false;
-    submitCreateBtn.textContent = 'Crear Usuario';
+    submitCreateBtn.textContent = 'Enviar Invitación';
   }
 }
 
@@ -302,6 +366,7 @@ async function boot() {
   }
 
   await loadUsers();
+  await loadInvitations();
 
   // Listeners
   createUserForm.addEventListener('submit', handleCreate);

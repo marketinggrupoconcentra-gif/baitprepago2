@@ -147,6 +147,13 @@
               <small class="field-error" id="pf-nip-confirm-error" aria-live="polite"></small>
             </div>
 
+            <div class="field pf-hidden" id="pf-nip-valid-until-field">
+              <label for="pf-nip-valid-until">Fecha de vigencia del NIP <span class="req" aria-hidden="true">*</span></label>
+              <div class="input-shell"><i class="ti ti-calendar" aria-hidden="true"></i><input id="pf-nip-valid-until" name="nipValidUntil" type="date" aria-describedby="pf-nip-valid-until-hint pf-nip-valid-until-error"></div>
+              <small class="field-hint" id="pf-nip-valid-until-hint">Como tu NIP coincide con los últimos 4 dígitos de tu número, necesitamos confirmar su fecha de vigencia.</small>
+              <small class="field-error" id="pf-nip-valid-until-error" aria-live="polite"></small>
+            </div>
+
             <button class="button button-yellow pf-btn-next" type="submit" id="pf-btn-1">Continuar <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
           </form>
 
@@ -165,6 +172,13 @@
               <label for="pf-apellido">Apellido(s) <span class="req" aria-hidden="true">*</span></label>
               <div class="input-shell"><i class="ti ti-user" aria-hidden="true"></i><input id="pf-apellido" name="apellido" type="text" autocomplete="family-name" placeholder="Ingresa tu(s) apellido(s)" aria-describedby="pf-apellido-error" required></div>
               <small class="field-error" id="pf-apellido-error" aria-live="polite"></small>
+            </div>
+
+            <div class="field">
+              <label for="pf-email">Correo electrónico <span class="req" aria-hidden="true">*</span></label>
+              <div class="input-shell"><i class="ti ti-mail" aria-hidden="true"></i><input id="pf-email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="tucorreo@ejemplo.com" aria-describedby="pf-email-hint pf-email-error" required></div>
+              <small class="field-hint" id="pf-email-hint">Aquí recibirás tu cupón BAIT.</small>
+              <small class="field-error" id="pf-email-error" aria-live="polite"></small>
             </div>
 
             <div class="pf-btn-row">
@@ -199,21 +213,29 @@
             <div class="field">
               <label>Código de seguridad <span class="req" aria-hidden="true">*</span></label>
               <div class="pf-captcha-row">
-                <div class="pf-captcha-img" id="pf-captcha-img" title="Haz clic para regenerar" role="img" aria-label="Imagen CAPTCHA de texto"></div>
+                <div class="pf-captcha-img" id="pf-captcha-img" title="Haz clic para regenerar" role="img" aria-label="Imagen CAPTCHA de dígitos">
+                  <img id="pf-captcha-img-el" src="" alt="Código de seguridad" width="220" height="70">
+                </div>
                 <button class="pf-captcha-refresh" type="button" id="pf-captcha-refresh" aria-label="Generar nuevo código"><i class="ti ti-refresh" aria-hidden="true"></i></button>
               </div>
               <div class="input-shell">
                 <i class="ti ti-lock" aria-hidden="true"></i>
-                <input id="pf-captcha-input" name="captcha" type="text" autocomplete="off" maxlength="6" placeholder="INGRESA EL CÓDIGO DE LA IMAGEN" aria-describedby="pf-captcha-error" required>
+                <input id="pf-captcha-input" name="captcha" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="INGRESA LOS 6 DÍGITOS" aria-describedby="pf-captcha-error" required>
               </div>
               <small class="field-hint">Click en la imagen o el botón para generar un nuevo código</small>
               <small class="field-error" id="pf-captcha-error" aria-live="polite"></small>
             </div>
 
             <!-- Privacy consent -->
+            <p class="pf-privacy-note">
+              BAIT Prepago trata tus datos personales para gestionar tu solicitud de portabilidad y, con tu correo,
+              enviarte tu cupón BAIT. Puedes consultar el
+              <a href="aviso-de-privacidad/" class="pf-link" target="_blank" rel="noopener noreferrer">Aviso de Privacidad Integral</a>
+              para conocer el detalle completo.
+            </p>
             <label class="consent">
               <input type="checkbox" id="pf-consent" required>
-              <span>He leído y acepto el <a href="#" class="pf-link">Aviso de Privacidad</a> y autorizo el tratamiento de mis datos personales para ser contactado.</span>
+              <span>He leído y acepto el <a href="aviso-de-privacidad/" class="pf-link" target="_blank" rel="noopener noreferrer">Aviso de Privacidad</a> y autorizo el tratamiento de mis datos personales para ser contactado.</span>
             </label>
             <small class="field-error" id="pf-consent-error" aria-live="polite"></small>
 
@@ -390,6 +412,7 @@
         <a href="#beneficios">Beneficios</a>
         <a href="walmart-beneficios/">Walmart Beneficios</a>
         <a href="#preguntas">Preguntas</a>
+        <a href="aviso-de-privacidad/" target="_blank" rel="noopener noreferrer">Aviso de Privacidad</a>
       </div>
       <span class="footer-legal">LID MARKETING 2026</span>
     </div>

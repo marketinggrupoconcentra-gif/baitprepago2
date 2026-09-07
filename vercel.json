@@ -94,5 +94,15 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/outbox",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/reports",
+      "schedule": "0 * * * *"
+    }
   ]
 }
