@@ -5,13 +5,32 @@ import { checkRateLimit } from '../lib/security.js';
 import { parseAttribution } from '../lib/attribution.js';
 import { consumeCaptchaChallenge } from '../lib/captcha.js';
 
-async function handleDuplicateLead(phone, email, attribution, duplicateOfLeadId) {
+function maskName(firstName, lastName) {
+  const maskPart = (value) => {
+    if (!value || typeof value !== 'string') return null;
+    const clean = value.trim();
+    if (!clean) return null;
+    const first = Array.from(clean)[0];
+    return `${first}***`;
+  };
+
+  const parts = [maskPart(firstName), maskPart(lastName)].filter(Boolean);
+  return parts.length ? parts.join(' ') : 'No disponible';
+}
+
+function buildDuplicateMetadata(existingLead) {
+  return {
+    createdAt: existingLead?.created_at || null,
+    registeredName: maskName(existingLead?.first_name, existingLead?.last_name)
+  };
+}
+
+async function handleDuplicateLead(phone, email, attribution, existingLead) {
   let duplicatesSql;
   try {
     duplicatesSql = getDuplicatesDb();
   } catch (err) {
     console.error('[leads] Duplicates DB config missing:', err.message);
-    // Fail-closed
     return { status: 503, json: { error: 'Service temporarily unavailable' } };
   }
 
@@ -23,25 +42,29 @@ async function handleDuplicateLead(phone, email, attribution, duplicateOfLeadId)
         fbclid, fb_ad_id, fb_adset_id, fb_campaign_id,
         ip, user_agent, referrer, page_url
       ) VALUES (
-        ${phone}, ${email}, ${duplicateOfLeadId},
+        ${phone}, ${email}, ${existingLead?.id || null},
         ${attribution.utm_source}, ${attribution.utm_medium}, ${attribution.utm_campaign}, ${attribution.utm_content}, ${attribution.utm_term},
         ${attribution.fbclid}, ${attribution.fb_ad_id}, ${attribution.fb_adset_id}, ${attribution.fb_campaign_id},
         ${attribution.ip}, ${attribution.user_agent}, ${attribution.referrer}, ${attribution.page_url}
       )
     `;
+
     return {
       status: 409,
-      json: { ok: false, error: 'duplicate_lead', code: 'PHONE_ALREADY_REGISTERED' }
+      json: {
+        ok: false,
+        error: 'duplicate_lead',
+        code: 'PHONE_ALREADY_REGISTERED',
+        duplicate: buildDuplicateMetadata(existingLead)
+      }
     };
   } catch (err) {
     console.error('[leads] Duplicates DB Error:', err.message);
-    // Fail closed
     return { status: 503, json: { error: 'Service temporarily unavailable' } };
   }
 }
 
 export default async function handler(req, res) {
-  // CORS and Cache
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (req.method !== 'POST') {
@@ -58,18 +81,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
-  // 1. Validaciones (el código de portabilidad y su fecha de vigencia se validan y se descartan)
   const validation = validateLeadPayload(body);
   if (!validation.valid) {
     return res.status(422).json({ error: 'Invalid payload', details: validation.errors });
   }
 
-  const { phone, email } = validation.data;
-
-  // 2. Attribution
+  const { phone, email, firstName, lastName } = validation.data;
   const attribution = parseAttribution(body, req.headers);
 
-  // 3. Conectar a Neon y aplicar reglas de seguridad
   let sql;
   try {
     sql = getDb();
@@ -79,7 +98,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 3b. CAPTCHA server-side (single use, consumed before insert)
     const captchaResult = await consumeCaptchaChallenge(
       sql,
       body.captcha_challenge_id,
@@ -89,31 +107,31 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: 'Invalid payload', details: [captchaResult.error] });
     }
 
-    // 4. Rate Limiting (consultas a DB)
     const securityCheck = await checkRateLimit(sql, attribution.ip);
-    if (!securityCheck.allowed) {
-      if (securityCheck.reason === 'rate_limit') {
-        return res.status(429).json({ error: 'Too many requests' });
-      }
+    if (!securityCheck.allowed && securityCheck.reason === 'rate_limit') {
+      return res.status(429).json({ error: 'Too many requests' });
     }
 
-    // 5. Pre-check para evitar fallos innecesarios en entornos donde ON CONFLICT no está activo aún,
-    // y para optimizar si el duplicado ya existe.
-    const existing = await sql`SELECT id FROM leads WHERE phone = ${phone} LIMIT 1`;
+    const existing = await sql`
+      SELECT id, created_at, first_name, last_name
+      FROM leads
+      WHERE phone = ${phone}
+      LIMIT 1
+    `;
+
     if (existing.length > 0) {
-      const duplicateRes = await handleDuplicateLead(phone, email, attribution, existing[0].id);
+      const duplicateRes = await handleDuplicateLead(phone, email, attribution, existing[0]);
       return res.status(duplicateRes.status).json(duplicateRes.json);
     }
 
-    // 6. Inserción race-safe
     const inserted = await sql`
       INSERT INTO leads (
-        phone, email,
+        phone, email, first_name, last_name,
         utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         fbclid, fb_ad_id, fb_adset_id, fb_campaign_id,
         ip, user_agent, referrer, page_url
       ) VALUES (
-        ${phone}, ${email},
+        ${phone}, ${email}, ${firstName}, ${lastName},
         ${attribution.utm_source}, ${attribution.utm_medium}, ${attribution.utm_campaign}, ${attribution.utm_content}, ${attribution.utm_term},
         ${attribution.fbclid}, ${attribution.fb_ad_id}, ${attribution.fb_adset_id}, ${attribution.fb_campaign_id},
         ${attribution.ip}, ${attribution.user_agent}, ${attribution.referrer}, ${attribution.page_url}
@@ -123,16 +141,19 @@ export default async function handler(req, res) {
     `;
 
     if (inserted.length === 0) {
-      // Duplicado concurrente detectado
-      const concurrentExisting = await sql`SELECT id FROM leads WHERE phone = ${phone} LIMIT 1`;
-      const duplicateRes = await handleDuplicateLead(phone, email, attribution, concurrentExisting[0]?.id || null);
+      const concurrentExisting = await sql`
+        SELECT id, created_at, first_name, last_name
+        FROM leads
+        WHERE phone = ${phone}
+        LIMIT 1
+      `;
+      const duplicateRes = await handleDuplicateLead(phone, email, attribution, concurrentExisting[0] || null);
       return res.status(duplicateRes.status).json(duplicateRes.json);
     }
 
     return res.status(201).json({ ok: true, saved: true });
   } catch (err) {
     console.error('[leads] DB Error:', err.message);
-    // Soft fail to not leak internal DB errors
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
