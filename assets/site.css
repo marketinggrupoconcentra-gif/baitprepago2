@@ -3155,37 +3155,6 @@ em {
   color: var(--black);
 }
 
-/* WA code button */
-.pf-wa-code-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-  margin-bottom: 6px;
-  padding: 12px 22px;
-  background: transparent;
-  border: 2px solid rgba(0,0,0,.22);
-  border-radius: 999px;
-  font-size: 13.5px;
-  font-weight: 800;
-  cursor: pointer;
-  color: var(--black);
-  transition: border-color var(--ease), background var(--ease), transform var(--ease);
-  width: 100%;
-  justify-content: center;
-}
-
-.pf-wa-code-btn i {
-  font-size: 18px;
-  color: #19a957;
-}
-
-.pf-wa-code-btn:hover {
-  border-color: #19a957;
-  background: rgba(25,169,87,.06);
-  transform: translateY(-2px);
-}
-
 /* Privacy link */
 .pf-link {
   color: var(--blue);
@@ -3475,5 +3444,363 @@ em {
 
   .portability-form.hero-form {
     padding-inline: 17px;
+  }
+}
+
+/* ============================================================
+   THANK YOU PAGE (PÁGINA DE AGRADECIMIENTO)
+   ============================================================ */
+.ty-page {
+  background: #f8f7ef;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ty-header {
+  padding: 16px 0;
+  background: rgba(248, 247, 239, .94);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(0, 0, 0, .06);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.ty-header-shell {
+  width: min(calc(100% - 40px), var(--shell));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ty-hero {
+  flex: 1;
+  padding: clamp(36px, 5vw, 64px) 0 clamp(48px, 6vw, 80px);
+}
+
+.ty-shell {
+  width: min(calc(100% - 32px), 780px);
+  margin: 0 auto;
+}
+
+.ty-card-main {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: clamp(22px, 4.5vw, 44px);
+  box-shadow: 0 16px 45px rgba(24, 20, 0, .07);
+  border: 1px solid rgba(0, 0, 0, .06);
+  text-align: center;
+}
+
+.ty-icon-wrap {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 38px;
+  box-shadow: 0 12px 28px rgba(16, 185, 129, .32);
+  animation: ty-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes ty-pop {
+  0% { transform: scale(0.35); opacity: 0; }
+  70% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.ty-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 113, 220, .08);
+  color: var(--blue);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+
+.ty-title {
+  font-size: clamp(22px, 5vw, 34px);
+  font-weight: 900;
+  letter-spacing: -.5px;
+  line-height: 1.2;
+  color: var(--black);
+  margin-bottom: 10px;
+}
+
+.ty-subtitle {
+  font-size: clamp(15px, 2vw, 17px);
+  color: #4b5563;
+  line-height: 1.55;
+  max-width: 580px;
+  margin: 0 auto 24px;
+}
+
+.ty-notice-box {
+  background: linear-gradient(135deg, rgba(255, 212, 0, .2) 0%, rgba(255, 212, 0, .08) 100%);
+  border: 1.5px solid rgba(247, 185, 0, .5);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.ty-notice-icon {
+  font-size: 26px;
+  color: #b45309;
+  flex-shrink: 0;
+}
+
+.ty-notice-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2937;
+}
+
+.ty-notice-text strong {
+  color: var(--black);
+}
+
+/* Plan recap card */
+.ty-plan-recap {
+  background: var(--black);
+  color: var(--white);
+  border-radius: var(--radius-sm);
+  padding: 22px 24px;
+  margin-bottom: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  text-align: left;
+}
+
+.ty-plan-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ty-plan-badge {
+  background: var(--yellow);
+  color: var(--black);
+  font-weight: 900;
+  font-size: 22px;
+  line-height: 1;
+  padding: 10px 14px;
+  border-radius: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ty-plan-badge span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .5px;
+}
+
+.ty-plan-details h4 {
+  margin: 0 0 4px;
+  font-size: 16.5px;
+  font-weight: 800;
+  color: var(--white);
+}
+
+.ty-plan-details p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, .78);
+}
+
+.ty-plan-price {
+  text-align: right;
+}
+
+.ty-plan-price .amount {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--yellow);
+  line-height: 1;
+}
+
+.ty-plan-price .term {
+  font-size: 12px;
+  color: rgba(255, 255, 255, .7);
+  display: block;
+  margin-top: 3px;
+}
+
+/* Steps section */
+.ty-steps-heading {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: #6b7280;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.ty-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 30px;
+  text-align: left;
+}
+
+.ty-step-item {
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, .06);
+  border-radius: var(--radius-sm);
+  padding: 18px 15px;
+  transition: transform var(--ease), border-color var(--ease);
+}
+
+.ty-step-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 113, 220, .3);
+}
+
+.ty-step-num {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 800;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.ty-step-item h5 {
+  margin: 0 0 5px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--black);
+}
+
+.ty-step-item p {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+/* CTA Box */
+.ty-cta-box {
+  background: #f3f4f6;
+  border-radius: var(--radius-sm);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.ty-cta-box p {
+  margin: 0;
+  font-size: 14px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.ty-btn-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Walmart perks banner */
+.ty-walmart-card {
+  margin-top: 24px;
+  background: linear-gradient(135deg, #0071dc 0%, #0052b4 100%);
+  color: var(--white);
+  border-radius: var(--radius-sm);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+
+.ty-walmart-card-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ty-walmart-icon {
+  width: 42px;
+  height: 42px;
+  background: var(--white);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+}
+
+.ty-walmart-card-left h5 {
+  margin: 0 0 2px;
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.ty-walmart-card-left p {
+  margin: 0;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, .82);
+}
+
+.ty-walmart-card a {
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  flex-shrink: 0;
+}
+
+@media (max-width: 680px) {
+  .ty-steps-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .ty-plan-recap {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ty-plan-price {
+    text-align: left;
+  }
+  .ty-btn-group .button {
+    width: 100%;
+  }
+  .ty-walmart-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
