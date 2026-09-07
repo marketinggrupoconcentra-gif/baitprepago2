@@ -184,6 +184,16 @@ const urlWithBothEndpoints = `postgresql://u:p@${QA_ENDPOINT_ID}.${PRODUCTION_EN
 assertFailClosed(qaEnv({ DATABASE_URL: urlWithBothEndpoints }),
   'URL contains PRODUCTION_ENDPOINT_ID → FAIL CLOSED');
 
+// 15. DUPLICATES_DATABASE_URL contains Production endpoint
+console.log('─ Test 15: DUPLICATES_DATABASE_URL pointing to Production endpoint → FAIL CLOSED');
+assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: PROD_DB_URL }),
+  'Production DUPLICATES_DATABASE_URL → FAIL CLOSED');
+
+// 16. DUPLICATES_DATABASE_URL contains QA endpoint
+console.log('─ Test 16: DUPLICATES_DATABASE_URL pointing to QA endpoint → PASS');
+assertPass(qaEnv({ DUPLICATES_DATABASE_URL: QA_DB_URL }),
+  'QA DUPLICATES_DATABASE_URL → PASS');
+
 // ─── Parity test: resolveDbUrl mirrors lib/db.js resolution ─────────────────
 console.log('─ Test 15: resolveDbUrl parity with lib/db.js');
 

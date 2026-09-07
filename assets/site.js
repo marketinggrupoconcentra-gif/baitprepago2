@@ -361,12 +361,6 @@
     if (submitBtn) submitBtn.disabled = true;
     if (status) status.textContent = 'Enviando solicitud…';
 
-    /* Guardar datos para personalización en la página de agradecimiento */
-    try {
-      sessionStorage.setItem('bait_lead_name', formData.nombre || '');
-      sessionStorage.setItem('bait_lead_phone', formData.phone || '');
-    } catch (_) {}
-
     var utms = getUtms();
     var payload = {
       phone: formData.phone,
@@ -398,15 +392,31 @@
       body: JSON.stringify(payload)
     })
       .then(function (res) {
-        if (res.ok) return { ok: true };
+        if (res.ok) return { ok: true, status: res.status };
         return res.json().catch(function () { return {}; }).then(function (body) {
-          return { ok: false, details: (body && body.details) || [] };
+          return { ok: false, status: res.status, error: body.error, code: body.code, details: body.details || [] };
         });
       })
       .then(function (result) {
         if (submitBtn) submitBtn.disabled = false;
 
         if (!result.ok) {
+          // Check for duplicate lead (409)
+          if (result.status === 409 && result.error === 'duplicate_lead') {
+            try {
+              sessionStorage.removeItem('bait_lead_name');
+              sessionStorage.removeItem('bait_lead_phone');
+            } catch (_) {}
+            
+            goTo(1);
+            fieldErr('pf-phone', 'Este número ya tiene una solicitud registrada. No es posible registrarlo nuevamente.');
+            var phoneInput = document.getElementById('pf-phone');
+            if (phoneInput) phoneInput.focus();
+            if (status) status.textContent = '';
+            requestCaptchaChallenge();
+            return;
+          }
+
           var captchaError = result.details.filter(function (code) {
             return Object.prototype.hasOwnProperty.call(CAPTCHA_ERROR_MESSAGES, code);
           })[0];
@@ -421,7 +431,12 @@
           return;
         }
 
-        /* All good → redirect to Thank You page */
+        /* All good → guardamos data y redirect to Thank You page */
+        try {
+          sessionStorage.setItem('bait_lead_name', formData.nombre || '');
+          sessionStorage.setItem('bait_lead_phone', formData.phone || '');
+        } catch (_) {}
+        
         window.location.assign('/gracias/');
       })
       .catch(function () {

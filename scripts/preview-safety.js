@@ -137,6 +137,20 @@ function enforceSafety(env) {
     process.exit(1);
   }
 
+  // ── 10. Check DUPLICATES_DATABASE_URL if present ──────────────────────────
+  const dupUrl = env.DUPLICATES_DATABASE_URL;
+  if (dupUrl) {
+    if (dupUrl.includes(PRODUCTION_ENDPOINT_ID) || dupUrl.includes(PRODUCTION_BRANCH_ID)) {
+      console.error(
+        `❌ FAIL CLOSED: DUPLICATES_DATABASE_URL contiene identificadores de Producción. ` +
+        'Preview NO puede conectarse a Producción para la BDD secundaria.'
+      );
+      process.exit(1);
+    }
+  } else if (VERCEL_ENV === 'preview') {
+    console.warn('⚠️  WARNING: DUPLICATES_DATABASE_URL no está configurada. La inserción de duplicados fallará.');
+  }
+
   // ── All checks passed ─────────────────────────────────────────────────────
   console.log(`✅ Preview Safety OK`);
   console.log(`   VERCEL_ENV:              ${VERCEL_ENV}`);
@@ -146,6 +160,7 @@ function enforceSafety(env) {
   console.log(`   Production branch match: NO`);
   console.log(`   Production endpoint match: NO`);
   console.log(`   Storage fallback possible: ${effectiveSource === 'STORAGE_DATABASE_URL' ? 'YES ⚠️' : 'NO'}`);
+  console.log(`   Duplicates DB URL set:   ${dupUrl ? 'YES' : 'NO ⚠️'}`);
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
