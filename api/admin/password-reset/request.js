@@ -120,29 +120,31 @@ export default async function handler(req, res) {
       await verifyPassword('dummy_request', DUMMY_PASSWORD_HASH);
     }
 
-    if (user && user.active) {
+      if (user && user.active) {
       // 9. Create recovery token
       const token = generateSessionToken(); // 32 bytes hex
       const tokenHash = hashSessionToken(token); // sha256 hex
 
-      // Insert token
-      await sql`
-        INSERT INTO admin_password_resets (admin_user_id, token_hash, expires_at)
-        VALUES (${user.id}, ${tokenHash}, CURRENT_TIMESTAMP + INTERVAL '30 minutes')
-      `;
-
-      // 10. Queue email
-      const publicUrl = process.env.PUBLIC_URL || `https://${req.headers.host}`;
+      const publicUrl = process.env.APP_BASE_URL || `https://${req.headers.host}`;
       const resetUrl = `${publicUrl}/admin/reset-password.html#token=${token}`;
       
       const emailData = renderPasswordResetEmail(resetUrl);
 
-      await enqueueEmail({
-        recipient: normalizedEmail,
-        subject: emailData.subject,
-        html_body: emailData.html,
-        text_body: emailData.text,
-        template_type: emailData.type
+      // Atomic persistence and email enqueuing
+      await sql.begin(async (tx) => {
+        // Insert token
+        await tx`
+          INSERT INTO admin_password_resets (admin_user_id, token_hash, expires_at)
+          VALUES (${user.id}, ${tokenHash}, CURRENT_TIMESTAMP + INTERVAL '30 minutes')
+        `;
+
+        await enqueueEmail({
+          recipient: normalizedEmail,
+          subject: emailData.subject,
+          html_body: emailData.html,
+          text_body: emailData.text,
+          template_type: emailData.type
+        }, tx);
       });
     }
 

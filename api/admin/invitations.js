@@ -1,12 +1,18 @@
 const { neon } = require('@neondatabase/serverless');
-const { requireAdminAuth } = require('../../lib/admin-auth');
+const { requireAdminSession } = require('../../lib/admin-session.js');
 const { enqueueEmail } = require('../../lib/email');
 const { renderInvitationEmail } = require('../../lib/email-templates');
 const crypto = require('crypto');
 
 module.exports = async function handler(req, res) {
-  const admin = await requireAdminAuth(req, res, { roles: ['SUPER_ADMIN', 'ADMIN'] });
+  // Use centralized guard (validates cookie, origin, RBAC via requireAdminSession)
+  const admin = await requireAdminSession(req, res);
   if (!admin) return;
+
+  // Additional RBAC
+  if (!['SUPER_ADMIN', 'ADMIN'].includes(admin.role)) {
+    return res.status(403).json({ error: 'No tienes permisos suficientes' });
+  }
 
   const sql = neon(process.env.DATABASE_URL);
 
@@ -41,28 +47,37 @@ module.exports = async function handler(req, res) {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Persist
-    const result = await sql`
-      INSERT INTO admin_invitations (token_hash, email, role, created_by, expires_at)
-      VALUES (${tokenHash}, ${email}, ${role}, ${admin.id}, NOW() + INTERVAL '24 hours')
-      ON CONFLICT (email, role, status) DO UPDATE 
-        SET token_hash = ${tokenHash}, expires_at = NOW() + INTERVAL '24 hours'
-      RETURNING id, expires_at
-    `;
-
-    // Queue email
-    const publicUrl = process.env.PUBLIC_URL || `https://${req.headers.host}`;
-    const inviteUrl = `${publicUrl}/admin/accept-invite.html?token=${token}`;
+    const publicUrl = process.env.APP_BASE_URL || `https://${req.headers.host}`;
+    const inviteUrl = `${publicUrl}/admin/accept-invite.html#token=${token}`;
     
     const emailData = renderInvitationEmail(inviteUrl, role);
 
-    await enqueueEmail({
-      recipient: email,
-      subject: emailData.subject,
-      html_body: emailData.html,
-      text_body: emailData.text,
-      template_type: emailData.type
-    });
+    // Persist and queue email atomically
+    const idempotencyKey = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const { encryptPayload } = require('../../lib/email');
+    const encHtml = encryptPayload(emailData.html);
+    const encText = encryptPayload(emailData.text);
+
+    try {
+      await sql`
+        WITH new_invitation AS (
+          INSERT INTO admin_invitations (token_hash, email, role, created_by, expires_at)
+          VALUES (${tokenHash}, ${email}, ${role}, ${admin.id}, NOW() + INTERVAL '24 hours')
+          ON CONFLICT (email, role, status) DO UPDATE 
+            SET token_hash = ${tokenHash}, expires_at = NOW() + INTERVAL '24 hours'
+          RETURNING id
+        )
+        INSERT INTO email_outbox (
+          idempotency_key, recipient, subject, html_body, text_body, template_type, status
+        ) VALUES (
+          ${idempotencyKey}, ${email}, ${emailData.subject}, ${encHtml}, 
+          ${encText}, ${emailData.type}, 'QUEUED'
+        )
+      `;
+    } catch (err) {
+      console.error('Error in invitation transaction:', err);
+      return res.status(500).json({ error: 'Error al procesar la invitación' });
+    }
 
     return res.status(201).json({ success: true, message: 'Invitación creada y encolada' });
   }

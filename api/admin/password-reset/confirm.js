@@ -72,7 +72,17 @@ export default async function handler(req, res) {
       // ignore
     }
 
+    // Send notification (EmailData generation)
+    const mxDateOptions = { timeZone: 'America/Mexico_City', dateStyle: 'full', timeStyle: 'long' };
+    const dateString = new Intl.DateTimeFormat('es-MX', mxDateOptions).format(new Date());
+    const emailData = renderPasswordChangedEmail(dateString);
+
     // Atomic transaction using CTEs
+    const idempotencyKey = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const { encryptPayload } = require('../../../lib/email');
+    const encHtml = encryptPayload(emailData.html);
+    const encText = encryptPayload(emailData.text);
+
     await sql`
       WITH updated_reset AS (
         UPDATE admin_password_resets
@@ -98,24 +108,19 @@ export default async function handler(req, res) {
         DELETE FROM admin_sessions
         WHERE admin_user_id = ${reset.admin_user_id}
         RETURNING id
+      ),
+      audit_log AS (
+        INSERT INTO admin_audit_log (admin_user_id, action, actor_hash, metadata)
+        VALUES (${reset.admin_user_id}, 'PASSWORD_RESET_SUCCESS', ${accountHash}, ${JSON.stringify({ ua })})
+        RETURNING id
       )
-      INSERT INTO admin_audit_log (admin_user_id, action, actor_hash, metadata)
-      VALUES (${reset.admin_user_id}, 'PASSWORD_RESET_SUCCESS', ${accountHash}, ${JSON.stringify({ ua })})
+      INSERT INTO email_outbox (
+        idempotency_key, recipient, subject, html_body, text_body, template_type, status
+      ) VALUES (
+        ${idempotencyKey}, ${reset.email}, ${emailData.subject}, ${encHtml}, 
+        ${encText}, ${emailData.type}, 'QUEUED'
+      )
     `;
-
-    // Send notification
-    const mxDateOptions = { timeZone: 'America/Mexico_City', dateStyle: 'full', timeStyle: 'long' };
-    const dateString = new Intl.DateTimeFormat('es-MX', mxDateOptions).format(new Date());
-
-    const emailData = renderPasswordChangedEmail(dateString);
-
-    await enqueueEmail({
-      recipient: reset.email,
-      subject: emailData.subject,
-      html_body: emailData.html,
-      text_body: emailData.text,
-      template_type: emailData.type
-    });
 
     return res.status(200).json({ ok: true });
 

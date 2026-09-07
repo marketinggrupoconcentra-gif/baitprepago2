@@ -1,9 +1,6 @@
 const { neon } = require('@neondatabase/serverless');
 const crypto = require('crypto');
-// We import bcrypt from admin-auth or directly, but wait...
-// admin-auth handles bcrypt. Let's see how it generates hashes.
-// Or we just use standard bcrypt since it should be installed.
-const bcrypt = require('bcryptjs');
+const { hashPassword } = require('../../../lib/admin-auth.js');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -40,7 +37,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Create user
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await hashPassword(password);
   
   try {
     const newUsers = await sql`

@@ -1,8 +1,6 @@
 (function () {
   'use strict';
 
-  var WHATSAPP_URL = 'https://api.whatsapp.com/send/?phone=5215548268533&text=%C2%A1Hola%21+Quiero+m%C3%A1s+informaci%C3%B3n&type=phone_number&app_absent=0';
-
   /* ── CDMX civil-day helpers (never derived from browser/UTC timezone) ── */
   var BUSINESS_TIME_ZONE = 'America/Mexico_City';
 
