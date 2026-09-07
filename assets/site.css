@@ -3147,37 +3147,6 @@ em {
   color: var(--black);
 }
 
-/* WA code button */
-.pf-wa-code-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-  margin-bottom: 6px;
-  padding: 12px 22px;
-  background: transparent;
-  border: 2px solid rgba(0,0,0,.22);
-  border-radius: 999px;
-  font-size: 13.5px;
-  font-weight: 800;
-  cursor: pointer;
-  color: var(--black);
-  transition: border-color var(--ease), background var(--ease), transform var(--ease);
-  width: 100%;
-  justify-content: center;
-}
-
-.pf-wa-code-btn i {
-  font-size: 18px;
-  color: #19a957;
-}
-
-.pf-wa-code-btn:hover {
-  border-color: #19a957;
-  background: rgba(25,169,87,.06);
-  transform: translateY(-2px);
-}
-
 /* Privacy link */
 .pf-link {
   color: var(--blue);

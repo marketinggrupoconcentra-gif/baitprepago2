@@ -283,22 +283,12 @@
   if (captchaImg) captchaImg.addEventListener('click', generateCaptcha);
   if (captchaRefresh) captchaRefresh.addEventListener('click', generateCaptcha);
 
-  /* ── "Get code via WhatsApp" button ── */
-  var getWaCodeBtn = document.getElementById('pf-get-wa-code');
-  if (getWaCodeBtn) {
-    getWaCodeBtn.addEventListener('click', function () {
-      var msg = encodeURIComponent('¡Hola! Necesito mi código de verificación para portar el número ' + (formData.phone || ''));
-      window.open('https://api.whatsapp.com/send/?phone=5215548268533&text=' + msg + '&type=phone_number&app_absent=0', '_blank');
-    });
-  }
-
   /* ==============================
      STEP 3 — Confirm & submit
   ============================== */
   step3.addEventListener('submit', function (e) {
     e.preventDefault();
     var captchaInput = document.getElementById('pf-captcha-input');
-    var waCode       = document.getElementById('pf-wa-code');
     var consent      = document.getElementById('pf-consent');
     var valid        = true;
 
@@ -313,16 +303,6 @@
       captchaInput.setAttribute('aria-invalid', 'false');
     }
 
-    /* WA verification code */
-    if (!/^\d{6}$/.test(waCode.value)) {
-      showErr('pf-wa-code-error', 'Ingresa el código de 6 dígitos.');
-      waCode.setAttribute('aria-invalid', 'true');
-      valid = false;
-    } else {
-      showErr('pf-wa-code-error', '');
-      waCode.setAttribute('aria-invalid', 'false');
-    }
-
     /* Consent */
     var consentErr = document.getElementById('pf-consent-error');
     if (!consent.checked) {
@@ -335,6 +315,9 @@
     }
 
     if (!valid) return;
+
+    var submitBtn = document.getElementById('pf-btn-3');
+    if (submitBtn) submitBtn.disabled = true;
 
     /* Guardar lead en la base de datos para seguimiento y panel admin */
     try {
@@ -371,9 +354,7 @@
     var msg = encodeURIComponent(
       '¡Hola! Quiero continuar mi portabilidad.\n' +
       'Número a portar: ' + formData.phone + '\n' +
-      'NIP: ' + formData.nip + '\n' +
-      'Nombre: ' + formData.nombre + ' ' + formData.apellido + '\n' +
-      'Código verificación: ' + waCode.value
+      'Nombre: ' + formData.nombre + ' ' + formData.apellido
     );
     if (status) status.textContent = 'Datos validados. Abriendo WhatsApp para continuar…';
     window.location.assign('https://api.whatsapp.com/send/?phone=5215548268533&text=' + msg + '&type=phone_number&app_absent=0');
