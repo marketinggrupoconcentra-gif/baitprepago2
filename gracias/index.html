@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080808">
+  <meta name="description" content="¡Gracias por tu solicitud de portabilidad BAIT Pospago! Nos pondremos en contacto contigo en breve para activar tu línea.">
+  <meta name="robots" content="noindex, follow">
+  <title>¡Gracias por tu solicitud! | BAIT Pospago</title>
+  <link rel="icon" href="../assets/images/bait-logo-official.png" type="image/png">
+  <style>
+    @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --yellow: #FFCC00;
+      --yellow-dim: rgba(255, 204, 0, .12);
+      --yellow-glow: rgba(255, 204, 0, .28);
+      --bg: #080808;
+      --bg2: #101010;
+      --bg3: #161616;
+      --border: rgba(255, 255, 255, .08);
+      --border-light: rgba(255, 255, 255, .14);
+      --text: #ffffff;
+      --text-muted: #999999;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --ease: .22s cubic-bezier(.4, 0, .2, 1);
+      --content-max: 920px;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+      overflow-x: hidden;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 65% 50% at 50% -10%, rgba(255, 204, 0, .14) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 30% at 85% 100%, rgba(255, 204, 0, .06) 0%, transparent 60%);
+      background-attachment: fixed;
+    }
+
+    /* ── HEADER ── */
+    .ty-header {
+      width: 100%;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 8, 8, .85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .ty-header-shell {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .ty-logo-link {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .ty-logo-img {
+      height: 38px;
+      width: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .ty-btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border-light);
+      background: rgba(255, 255, 255, .05);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background var(--ease), border-color var(--ease), transform var(--ease);
+    }
+
+    .ty-btn-back:hover {
+      background: rgba(255, 255, 255, .12);
+      border-color: rgba(255, 255, 255, .3);
+      transform: translateY(-1px);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .ty-main {
+      flex: 1;
+      padding: 40px 20px 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .ty-container {
+      width: 100%;
+      max-width: var(--content-max);
+    }
+
+    .ty-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(24px, 5vw, 44px);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, .6);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ty-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--yellow), transparent);
+    }
+
+    .ty-icon-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--yellow-dim);
+      border: 2px solid var(--yellow);
+      display: grid;
+      place-items: center;
+      margin: 0 auto 20px;
+      color: var(--yellow);
+      font-size: 34px;
+      box-shadow: 0 0 28px var(--yellow-glow);
+      animation: icon-pulse 2.4s infinite ease-in-out;
+    }
+
+    @keyframes icon-pulse {
+      0%, 100% {
+        box-shadow: 0 0 20px var(--yellow-glow);
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 36px rgba(255, 204, 0, .45);
+        transform: scale(1.04);
+      }
+    }
+
+    .ty-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 auto 12px;
+      padding: 4px 14px;
+      border-radius: 999px;
+      background: rgba(255, 204, 0, .1);
+      border: 1px solid rgba(255, 204, 0, .3);
+      color: var(--yellow);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      text-align: center;
+      width: fit-content;
+    }
+
+    .ty-kicker-wrap {
+      text-align: center;
+    }
+
+    .ty-title {
+      font-size: clamp(24px, 4.5vw, 36px);
+      font-weight: 900;
+      line-height: 1.2;
+      text-align: center;
+      letter-spacing: -.5px;
+      margin-bottom: 12px;
+    }
+
+    .ty-title span.name {
+      color: var(--yellow);
+    }
+
+    .ty-subtitle {
+      font-size: clamp(14px, 2vw, 16px);
+      color: #ccc;
+      line-height: 1.55;
+      text-align: center;
+      max-width: 620px;
+      margin: 0 auto 28px;
+    }
+
+    /* ── NOTICE BOX ── */
+    .ty-notice-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(255, 204, 0, .14) 0%, rgba(255, 204, 0, .05) 100%);
+      border: 1px solid rgba(255, 204, 0, .35);
+      margin-bottom: 30px;
+    }
+
+    .ty-notice-icon {
+      font-size: 28px;
+      color: var(--yellow);
+      flex: 0 0 auto;
+    }
+
+    .ty-notice-text {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: #f1f1f1;
+    }
+
+    .ty-notice-text strong {
+      color: #fff;
+      font-weight: 800;
+    }
+
+    /* ── RECAP CARD ── */
+    .ty-recap {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 32px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .ty-recap-gb {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      border: 1px solid rgba(255, 204, 0, .4);
+      border-radius: 12px;
+      padding: 10px 18px;
+      min-width: 86px;
+    }
+
+    .ty-recap-gb .number {
+      font-size: 32px;
+      font-weight: 950;
+      line-height: 1;
+      color: var(--yellow);
+    }
+
+    .ty-recap-gb .unit {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .5px;
+      color: #fff;
+    }
+
+    .ty-recap-details h3 {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 5px;
+      color: #fff;
+    }
+
+    .ty-recap-details p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .ty-recap-details p strong {
+      color: #ddd;
+    }
+
+    .ty-recap-price {
+      text-align: right;
+    }
+
+    .ty-recap-price .price {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .ty-recap-price .period {
+      font-size: 11px;
+      color: var(--yellow);
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    /* ── STEPS SECTION ── */
+    .ty-section-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .ty-section-title i {
+      color: var(--yellow);
+      font-size: 18px;
+    }
+
+    .ty-steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    .ty-step {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color var(--ease), transform var(--ease);
+    }
+
+    .ty-step:hover {
+      border-color: rgba(255, 204, 0, .3);
+      transform: translateY(-2px);
+    }
+
+    .ty-step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--yellow);
+      color: #000;
+      font-size: 13px;
+      font-weight: 900;
+      display: grid;
+      place-items: center;
+    }
+
+    .ty-step h4 {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .ty-step p {
+      font-size: 12px;
+      color: #aaa;
+      line-height: 1.45;
+    }
+
+    /* ── CTA BOX ── */
+    .ty-cta-box {
+      background: #0d0d0d;
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 14px;
+      padding: 22px 20px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .ty-cta-box p {
+      font-size: 13.5px;
+      color: #ccc;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .ty-btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .ty-btn {
+      min-height: 48px;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform var(--ease), filter var(--ease), box-shadow var(--ease);
+    }
+
+    .ty-btn-wa {
+      background: #25D366;
+      color: #052e16;
+      border: none;
+      box-shadow: 0 8px 20px rgba(37, 211, 102, .25);
+    }
+
+    .ty-btn-wa:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.05);
+      box-shadow: 0 12px 26px rgba(37, 211, 102, .38);
+    }
+
+    .ty-btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-light);
+      color: #fff;
+    }
+
+    .ty-btn-outline:hover {
+      background: rgba(255, 255, 255, .08);
+      border-color: rgba(255, 255, 255, .25);
+      transform: translateY(-2px);
+    }
+
+    /* ── PARTNERS STRIP ── */
+    .ty-partners {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(14px, 3vw, 32px);
+      padding: 18px 20px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .ty-partners-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-weight: 700;
+    }
+
+    .ty-store-badge {
+      height: 24px;
+      width: auto;
+      object-fit: contain;
+      filter: grayscale(1) brightness(1.2);
+      opacity: .75;
+      transition: opacity var(--ease), filter var(--ease);
+    }
+
+    .ty-store-badge:hover {
+      opacity: 1;
+      filter: none;
+    }
+
+    /* ── FOOTER ── */
+    .ty-footer {
+      border-top: 1px solid var(--border);
+      padding: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: #666;
+      background: var(--bg);
+    }
+
+    /* ── FLOATING WHATSAPP ── */
+    .ty-wa-float {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #25D366;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 28px;
+      box-shadow: 0 8px 24px rgba(37, 211, 102, .45);
+      z-index: 999;
+      text-decoration: none;
+      transition: transform var(--ease);
+    }
+
+    .ty-wa-float:hover {
+      transform: scale(1.08);
+    }
+
+    @media (max-width: 768px) {
+      .ty-recap {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+      .ty-recap-gb {
+        margin: 0 auto;
+      }
+      .ty-recap-price {
+        text-align: center;
+      }
+      .ty-steps-grid {
+        grid-template-columns: 1fr;
+      }
+      .ty-btn-group {
+        flex-direction: column;
+      }
+      .ty-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <header class="ty-header">
+    <div class="ty-header-shell">
+      <a class="ty-logo-link" href="../" aria-label="BAIT Pospago - Volver al inicio">
+        <img class="ty-logo-img" src="../assets/images/bait-logo-header.png" alt="BAIT" onerror="this.src='../assets/images/bait-logo-official.png'">
+      </a>
+      <a class="ty-btn-back" href="../">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i> Volver al inicio
+      </a>
+    </div>
+  </header>
+
+  <!-- ══ MAIN ══ -->
+  <main class="ty-main">
+    <div class="ty-container">
+      <div class="ty-card">
+
+        <!-- Icono de éxito -->
+        <div class="ty-icon-wrap" aria-hidden="true">
+          <i class="ti ti-check"></i>
+        </div>
+
+        <div class="ty-kicker-wrap">
+          <span class="ty-kicker">
+            <i class="ti ti-sparkles" aria-hidden="true"></i> Solicitud de portabilidad recibida
+          </span>
+        </div>
+
+        <h1 class="ty-title">
+          ¡Gracias por tu preferencia<span id="ty-customer-name"></span>!
+        </h1>
+
+        <p class="ty-subtitle">
+          Hemos recibido tu solicitud de portabilidad exitosamente. Tu trámite para disfrutar de la mejor cobertura y beneficios de BAIT Pospago está en marcha.
+        </p>
+
+        <!-- Aviso de contacto -->
+        <div class="ty-notice-box">
+          <i class="ti ti-headset ty-notice-icon" aria-hidden="true"></i>
+          <div class="ty-notice-text">
+            <strong>Nos pondremos en contacto contigo a la brevedad</strong> por llamada o WhatsApp al número registrado <span id="ty-customer-dn" style="color:var(--yellow); font-weight:700;"></span> para confirmar tu información y coordinar la activación de tu chip BAIT.
+          </div>
+        </div>
+
+        <!-- Resumen de la oferta pospago -->
+        <div class="ty-recap" aria-label="Resumen del plan contratado">
+          <div class="ty-recap-gb">
+            <span class="number">38</span>
+            <span class="unit">GIGAS</span>
+          </div>
+          <div class="ty-recap-details">
+            <h3>Plan BAIT Pospago</h3>
+            <p>
+              <strong>Redes sociales ilimitadas</strong> (WhatsApp, Telegram, FB, Messenger, X, IG, Snapchat)<br>
+              Incluye <strong>Membresía Sam's Club gratis</strong> durante 12 meses · Sin plazos forzosos
+            </p>
+          </div>
+          <div class="ty-recap-price">
+            <div class="price">$199 <small style="font-size:13px; font-weight:700; color:#aaa;">MXN</small></div>
+            <div class="period">Mensuales recurrentes</div>
+          </div>
+        </div>
+
+        <!-- Pasos siguientes -->
+        <div class="ty-section-title">
+          <i class="ti ti-list-check" aria-hidden="true"></i> ¿Qué sigue ahora?
+        </div>
+        <div class="ty-steps-grid">
+          <div class="ty-step">
+            <span class="ty-step-num">1</span>
+            <h4>Contacto de un asesor</h4>
+            <p>Un ejecutivo se comunicará contigo para validar los detalles de tu línea y resolver cualquier inquietud.</p>
+          </div>
+          <div class="ty-step">
+            <span class="ty-step-num">2</span>
+            <h4>Recibe o recoge tu SIM</h4>
+            <p>Adquiere tu SIM BAIT por solo $95 en Walmart, Sam's Club o Bodega Aurrerá, o coordina la entrega con el asesor.</p>
+          </div>
+          <div class="ty-step">
+            <span class="ty-step-num">3</span>
+            <h4>Activa y disfruta</h4>
+            <p>Una vez completada la portabilidad, inserta tu SIM y navega de inmediato con tus 38 GB y Sam's Club incluido.</p>
+          </div>
+        </div>
+
+        <!-- CTA de contacto prioritario -->
+        <div class="ty-cta-box">
+          <p>
+            <i class="ti ti-clock-bolt" aria-hidden="true" style="color:var(--yellow);"></i>
+            ¿Deseas atención inmediata o tienes preguntas urgentes sobre tu trámite?
+          </p>
+          <div class="ty-btn-group">
+            <a class="ty-btn ty-btn-wa"
+              href="https://api.whatsapp.com/send/?phone=525549547446&amp;text=%C2%A1Hola%21+Acabo+de+registrar+mi+solicitud+de+portabilidad+pospago+en+la+p%C3%A1gina+y+me+gustar%C3%ADa+darle+seguimiento+inmediato&amp;type=phone_number&amp;app_absent=0"
+              target="_blank" rel="noopener noreferrer">
+              <i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Hablar con un asesor por WhatsApp
+            </a>
+            <a class="ty-btn ty-btn-outline" href="../">
+              Volver a la página principal <i class="ti ti-arrow-right" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Tiendas asociadas -->
+        <div class="ty-partners">
+          <span class="ty-partners-label">Disponible en:</span>
+          <img class="ty-store-badge" src="../assets/images/logo-walmart.png" alt="Walmart" onerror="this.style.display='none'">
+          <img class="ty-store-badge" src="../assets/images/logo-sams-club.png" alt="Sam's Club" onerror="this.style.display='none'">
+          <img class="ty-store-badge" src="../assets/images/logo-bodega-aurrera.png" alt="Bodega Aurrerá" onerror="this.style.display='none'">
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="ty-footer">
+    <p>Términos y condiciones · LID MARKETING 2026</p>
+  </footer>
+
+  <!-- ══ FLOATING WHATSAPP ══ -->
+  <a class="ty-wa-float"
+    href="https://api.whatsapp.com/send/?phone=525549547446&amp;text=%C2%A1Hola%21+Acabo+de+registrar+mi+solicitud+de+portabilidad+pospago+en+la+p%C3%A1gina+y+me+gustar%C3%ADa+darle+seguimiento+inmediato&amp;type=phone_number&amp;app_absent=0"
+    target="_blank" rel="noopener noreferrer" aria-label="Contactar por WhatsApp">
+    <i class="ti ti-brand-whatsapp"></i>
+  </a>
+
+  <!-- ══ SCRIPT PERSONALIZACIÓN ══ -->
+  <script>
+    (function () {
+      try {
+        var name = sessionStorage.getItem('bait_lead_name');
+        if (name && name.trim()) {
+          var nameSpan = document.getElementById('ty-customer-name');
+          if (nameSpan) {
+            nameSpan.textContent = ', ' + name.trim();
+          }
+        }
+        var dn = sessionStorage.getItem('bait_lead_dn');
+        if (dn && dn.trim()) {
+          var dnSpan = document.getElementById('ty-customer-dn');
+          if (dnSpan) {
+            dnSpan.textContent = '(' + dn.trim() + ') ';
+          }
+        }
+      } catch (_) {}
+    })();
+  </script>
+
+</body>
+
+</html>

@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#080808">
   <title>BAIT Pospago | Porta tu número</title>
+  <link rel="icon" href="assets/images/bait-logo-official.png" type="image/png">
   <style>
     @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 
@@ -63,6 +64,18 @@
 
     button {
       font: inherit;
+    }
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
     }
 
     /* ── WRAP ── */
@@ -887,12 +900,31 @@
 
     .lp-sams-badge {
       background: #fff;
-      width: 92px;
-      height: 92px;
-      border-radius: 18px;
-      object-fit: cover;
+      width: clamp(76px, 8vw, 130px);
+      height: clamp(76px, 8vw, 130px);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
-      box-shadow: 0 12px 28px rgba(0, 0, 0, .2);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .22);
+      padding: clamp(8px, 1vw, 14px);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .lp-sams-badge-img {
+      width: 82%;
+      height: 82%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+      transition: transform .3s ease;
+    }
+
+    .lp-sams:hover .lp-sams-badge-img {
+      transform: scale(1.06);
     }
 
     .lp-sams-text {
@@ -1429,9 +1461,9 @@
       }
 
       .lp-sams-badge {
-        width: clamp(100px, 8vw, 190px);
-        height: clamp(100px, 8vw, 190px);
-        font-size: clamp(15px, 1.2vw, 29px);
+        width: clamp(110px, 8.5vw, 180px);
+        height: clamp(110px, 8.5vw, 180px);
+        padding: clamp(12px, 1.1vw, 20px);
         box-shadow: 0 16px 38px rgba(0, 0, 0, .25);
       }
 
@@ -1506,6 +1538,10 @@
         flex-direction: column;
         text-align: center;
         min-height: unset;
+      }
+
+      .lp-sams-badge {
+        margin: 0 auto;
       }
 
       .lp-cta-group {
@@ -1621,6 +1657,734 @@
         transform: none;
       }
     }
+
+    /* ═══════════════════ BRAND LAYER + PORTABILITY WIZARD ═══════════════════ */
+    .lp-hero {
+      grid-template-columns: minmax(330px, 470px) minmax(250px, 340px) minmax(360px, 440px);
+      gap: clamp(18px, 2vw, 44px);
+      max-width: 1440px;
+    }
+
+    .lp-model {
+      isolation: isolate;
+    }
+
+    .lp-header-logo {
+      display: none;
+      width: clamp(210px, 24vw, 300px);
+      margin: 0 auto 2px;
+    }
+
+    .lp-header-logo img,
+    .lp-brand-layer img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .lp-brand-layer {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      top: -118px;
+      width: clamp(255px, 20vw, 330px);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .lp-model img.lp-model-person {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center bottom;
+      display: block;
+      mask-image: linear-gradient(180deg, #000 80%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent 100%);
+      animation: model-in .7s .1s both;
+    }
+
+    .lp-form-mini {
+      width: 100%;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .7);
+      border-top: 4px solid var(--yellow);
+      border-radius: 22px;
+      background: #fff;
+      color: #171717;
+      box-shadow: 0 26px 80px rgba(0, 0, 0, .58), 0 0 0 1px rgba(255, 204, 0, .08);
+    }
+
+    .lp-form-shell {
+      padding: clamp(18px, 2vw, 28px);
+    }
+
+    .lp-form-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #151515;
+      color: var(--yellow);
+      font-size: 8px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .lp-form-badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--yellow);
+      box-shadow: 0 0 0 3px rgba(255, 204, 0, .14);
+    }
+
+    .lp-progress-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: #6f6f6f;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .75px;
+      text-transform: uppercase;
+    }
+
+    .lp-progress {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .lp-progress span {
+      height: 3px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: #e7e7e7;
+      transition: background .25s ease, transform .25s ease;
+    }
+
+    .lp-progress span.active {
+      background: var(--yellow);
+    }
+
+    .lp-progress span.current {
+      transform: scaleY(1.65);
+    }
+
+    .lp-form-step[hidden],
+    .lp-form-success[hidden] {
+      display: none;
+    }
+
+    .lp-form-step.is-entering {
+      animation: step-in .28s ease both;
+    }
+
+    @keyframes step-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .lp-step-title {
+      margin: 0 0 3px;
+      color: #101010;
+      font-size: clamp(18px, 1.45vw, 23px);
+      line-height: 1.15;
+      font-weight: 900;
+      letter-spacing: -.5px;
+      text-align: left;
+    }
+
+    .lp-step-subtitle {
+      margin: 0 0 17px;
+      color: #6f6f6f;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .lp-field,
+    .lp-checkbox-field {
+      margin-bottom: 12px;
+    }
+
+    .lp-field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .lp-label {
+      display: block;
+      margin-bottom: 5px;
+      color: #242424;
+      font-size: 11px;
+      line-height: 1.3;
+      font-weight: 800;
+    }
+
+    .lp-required {
+      color: #a33c08;
+    }
+
+    .lp-input-wrap {
+      position: relative;
+    }
+
+    .lp-input-icon {
+      position: absolute;
+      top: 50%;
+      left: 13px;
+      z-index: 1;
+      transform: translateY(-50%);
+      color: #9a9a9a;
+      font-size: 17px;
+      pointer-events: none;
+    }
+
+    .lp-control {
+      display: block;
+      width: 100%;
+      min-height: 48px;
+      padding: 11px 13px;
+      border: 1.5px solid #e5e5e5;
+      border-radius: 11px;
+      outline: none;
+      background: #fafafa;
+      color: #131313;
+      font: inherit;
+      font-size: 13px;
+      line-height: 1.2;
+      transition: border-color .22s ease, box-shadow .22s ease, background .22s ease;
+    }
+
+    .lp-input-wrap .lp-control {
+      padding-left: 41px;
+    }
+
+    .lp-control::placeholder {
+      color: #9b9b9b;
+      opacity: 1;
+    }
+
+    .lp-control:hover {
+      border-color: #c9c9c9;
+      background: #fff;
+    }
+
+    .lp-control:focus-visible {
+      border-color: #c99f00;
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(255, 204, 0, .16);
+    }
+
+    .lp-control[aria-invalid="true"] {
+      border-color: #bc2f2f;
+      background: #fffafa;
+      box-shadow: 0 0 0 3px rgba(188, 47, 47, .09);
+    }
+
+    select.lp-control {
+      cursor: pointer;
+    }
+
+    .lp-help {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      margin: 7px 0 0;
+      padding: 9px 10px;
+      border: 1px solid rgba(207, 157, 0, .18);
+      border-radius: 9px;
+      background: #fff9e7;
+      color: #705e31;
+      font-size: 9.5px;
+      line-height: 1.45;
+    }
+
+    .lp-help a {
+      color: #664e00;
+      font-weight: 900;
+    }
+
+    .lp-error {
+      min-height: 0;
+      margin: 5px 0 0;
+      color: #a51e1e;
+      font-size: 10px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .lp-error:empty {
+      display: none;
+    }
+
+    .lp-form-alert {
+      margin-bottom: 13px;
+      padding: 10px 11px;
+      border: 1px solid #f1c1c1;
+      border-radius: 9px;
+      background: #fff2f2;
+      color: #861919;
+      font-size: 10.5px;
+      line-height: 1.4;
+      font-weight: 700;
+    }
+
+    .lp-form-alert[hidden] {
+      display: none;
+    }
+
+    .lp-form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      width: 100%;
+      align-items: stretch;
+    }
+
+    .lp-form-actions .lp-btn {
+      width: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .lp-form-mini button.lp-btn {
+      min-height: 50px;
+      margin: 0;
+      padding: 12px 14px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      background: var(--yellow);
+      color: #111;
+      font-size: 11px;
+      line-height: 1.15;
+      font-weight: 900;
+      letter-spacing: .45px;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(255, 204, 0, .23);
+      transition: transform .24s ease, box-shadow .24s ease, filter .24s ease;
+    }
+
+    .lp-form-mini button.lp-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      filter: brightness(1.04);
+      box-shadow: 0 12px 24px rgba(255, 204, 0, .32);
+    }
+
+    .lp-form-mini button.lp-btn:focus-visible {
+      outline: 3px solid rgba(201, 159, 0, .35);
+      outline-offset: 2px;
+    }
+
+    .lp-form-mini button.lp-btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .lp-form-mini button.lp-btn-secondary {
+      flex: 0 0 auto;
+      width: auto;
+      min-width: 95px;
+      padding-inline: 14px;
+      border-color: #dedede;
+      background: #fff;
+      color: #252525;
+      box-shadow: none;
+      white-space: nowrap;
+    }
+
+    .lp-form-mini button.lp-btn-secondary:hover:not(:disabled) {
+      border-color: #bdbdbd;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .08);
+    }
+
+    .lp-form-actions .lp-btn:not(.lp-btn-secondary) {
+      flex: 1 1 auto;
+      width: auto;
+      min-width: 0;
+    }
+
+    .lp-summary-box {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      background: #fafafa;
+    }
+
+    .lp-summary-icon {
+      display: grid;
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--yellow);
+      color: #111;
+      font-size: 19px;
+    }
+
+    .lp-summary-label {
+      color: #777;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: .65px;
+      text-transform: uppercase;
+    }
+
+    .lp-summary-number {
+      margin-top: 1px;
+      color: #111;
+      font-size: 18px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 900;
+      letter-spacing: .35px;
+    }
+
+    .lp-offer-card {
+      position: relative;
+      margin-bottom: 13px;
+      padding: 13px 14px 12px;
+      overflow: hidden;
+      border-radius: 13px;
+      background: #111;
+      color: #fff;
+    }
+
+    .lp-offer-card::after {
+      content: "";
+      position: absolute;
+      right: -28px;
+      top: -38px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255, 204, 0, .13);
+      filter: blur(6px);
+    }
+
+    .lp-offer-badge {
+      color: var(--yellow);
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+    }
+
+    .lp-offer-gb {
+      position: relative;
+      z-index: 1;
+      margin: 2px 0 4px;
+      color: var(--yellow);
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: -1px;
+    }
+
+    .lp-offer-gb small {
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .lp-offer-card ul {
+      display: grid;
+      gap: 3px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: #d7d7d7;
+      font-size: 9px;
+      line-height: 1.35;
+    }
+
+    .lp-offer-card li::before {
+      content: "✓";
+      margin-right: 6px;
+      color: var(--yellow);
+      font-weight: 900;
+    }
+
+    .lp-otp-row,
+    .lp-captcha-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .lp-form-mini button.lp-inline-btn {
+      width: auto;
+      min-height: 48px;
+      white-space: nowrap;
+      padding-inline: 12px;
+      font-size: 9px;
+    }
+
+    .lp-captcha-box {
+      margin-bottom: 13px;
+      padding: 11px;
+      border: 1px solid #e4e4e4;
+      border-radius: 12px;
+      background: #f8f8f8;
+    }
+
+    .lp-captcha-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .lp-captcha-title {
+      color: #282828;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .lp-form-mini button.lp-captcha-refresh {
+      width: 34px;
+      min-height: 34px;
+      margin: 0;
+      padding: 0;
+      border: 1px solid #d9d9d9;
+      border-radius: 9px;
+      background: #fff;
+      color: #333;
+      box-shadow: none;
+    }
+
+    .lp-captcha-challenge {
+      display: grid;
+      min-height: 46px;
+      margin-bottom: 8px;
+      place-items: center;
+      overflow: hidden;
+      border: 1px dashed #bcbcbc;
+      border-radius: 9px;
+      background:
+        repeating-linear-gradient(118deg, transparent 0 12px, rgba(0, 0, 0, .035) 12px 13px),
+        linear-gradient(135deg, #fff, #f0f0f0);
+      color: #1d1d1d;
+      font-size: 20px;
+      font-weight: 950;
+      letter-spacing: 4px;
+      user-select: none;
+    }
+
+    .lp-captcha-status {
+      margin: 7px 0 0;
+      color: #6c6c6c;
+      font-size: 9px;
+      line-height: 1.35;
+    }
+
+    .lp-captcha-status.is-valid {
+      color: #087143;
+      font-weight: 800;
+    }
+
+    .lp-checkbox-label {
+      display: grid;
+      grid-template-columns: 19px 1fr;
+      gap: 8px;
+      align-items: start;
+      color: #4f4f4f;
+      font-size: 9px;
+      line-height: 1.42;
+      cursor: pointer;
+    }
+
+    .lp-checkbox-label input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: #d2a900;
+    }
+
+    .lp-checkbox-label a {
+      color: #4d3d00;
+      font-weight: 900;
+    }
+
+    .lp-privacy-note {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #777;
+      font-size: 8.5px;
+      line-height: 1.35;
+    }
+
+    .lp-form-success {
+      padding: clamp(30px, 4vw, 52px) clamp(20px, 3vw, 34px);
+      text-align: center;
+    }
+
+    .lp-success-icon {
+      display: grid;
+      width: 66px;
+      height: 66px;
+      margin: 0 auto 17px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--yellow);
+      color: #111;
+      font-size: 34px;
+      box-shadow: 0 12px 32px rgba(255, 204, 0, .3);
+    }
+
+    .lp-form-success h3 {
+      margin-bottom: 8px;
+      color: #111;
+      font-size: 25px;
+      font-weight: 950;
+      letter-spacing: -.6px;
+    }
+
+    .lp-form-success p {
+      margin: 0 auto 16px;
+      max-width: 330px;
+      color: #5f5f5f;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .lp-success-next {
+      margin: 0 0 18px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #f7f7f7;
+      color: #444;
+      font-size: 10px;
+      line-height: 1.5;
+      text-align: left;
+    }
+
+    .lp-success-next strong {
+      color: #111;
+    }
+
+    @media (max-width: 1180px) {
+      .lp-hero {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        padding: 22px 16px 0;
+        min-height: unset;
+      }
+
+      .lp-offer {
+        order: 1;
+      }
+
+      .lp-model {
+        order: 2;
+        height: 330px;
+      }
+
+      .lp-form-mini {
+        order: 3;
+        width: 100%;
+        max-width: 640px;
+        margin: 0 auto 24px;
+      }
+
+      .lp-brand-layer {
+        display: none;
+      }
+
+      .lp-header-logo {
+        display: block;
+        width: clamp(210px, 42vw, 290px);
+      }
+    }
+
+    @media (max-width: 520px) {
+      .lp-model {
+        height: 265px;
+      }
+
+      .lp-form-mini {
+        z-index: 10000;
+      }
+
+      .lp-form-shell {
+        padding: 18px 14px 16px;
+      }
+
+      .lp-field-grid,
+      .lp-otp-row,
+      .lp-captcha-row {
+        grid-template-columns: 1fr;
+      }
+
+      .lp-control,
+      .lp-form-mini button.lp-btn {
+        min-height: 52px;
+      }
+
+      .lp-form-mini button.lp-inline-btn {
+        width: 100%;
+      }
+
+      .lp-progress-meta {
+        font-size: 8px;
+      }
+
+      .lp-form-actions {
+        flex-direction: column-reverse;
+        gap: 8px;
+      }
+
+      .lp-form-actions .lp-btn,
+      .lp-form-mini button.lp-btn-secondary {
+        width: 100%;
+        flex: 1 1 auto;
+      }
+    }
+
+    @media (max-width: 340px) {
+      .lp-form-shell {
+        padding-inline: 11px;
+      }
+
+      .lp-step-title {
+        font-size: 17px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lp-form-step.is-entering {
+        animation: none;
+      }
+    }
   </style>
 </head>
 
@@ -1640,6 +2404,9 @@
 
       <!-- COL 1: OFERTA -->
       <div class="lp-offer">
+        <div class="lp-header-logo">
+          <img src="assets/images/bait-logo-header.png" alt="BAIT" width="1100" height="600" decoding="async">
+        </div>
         <h2 class="lp-promo-title">POSPAGO</h2>
         <p class="lp-promo-subtitle">es un plan con libertad total.</p>
 
@@ -1731,21 +2498,267 @@
 
       <!-- COL 2: MODELO (imagen al centro) -->
       <div class="lp-model">
+        <div class="lp-brand-layer">
+          <img src="assets/images/bait-logo-header.png" alt="BAIT" width="1100" height="600" decoding="async">
+        </div>
 
-        <img src="assets/images/faisy-bait.png"
+        <img class="lp-model-person" src="assets/images/faisy-bait.png" fetchpriority="high" decoding="async"
           onerror="this.src='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAGTAUwDASIAAhEBAxEB/8QAHQAAAQUBAQEBAAAAAAAAAAAAAAMEBQYHAggBCf/EAE4QAAEDAwIDBQMIBwYDBwMFAAEAAgMEBRESIQYxQQcTIlFhFHGBCBUWMlWRobEjQlKTwdHSYnKSlOHwJTOCFyRTorLC8TRDlTVEY6Pi/8QAGwEBAAIDAQEAAAAAAAAAAAAAAAEDAgQFBgf/xAA0EQACAQMCAwUGBgMBAQAAAAAAAQIDBBEhMQUSQRMUIlGRBlJTYXGBMqGxwdHwI0LhFfH/2gAMAwEAAhEDEQA/APGSEIQAhCEAIQhACEIQAhCEAIQhACEIQAvoBJwBkpWip5aushpIGl8s0jY2NHMeccAfeV624F7PLDwrb6fuaKKargsBmqpWhz3O5nT+yM+S1rm6jQSb6m3a2k7mTS0SPMNk4O4mvJb7DZ6pzHHaR7NDP8TsBXm29ilymiHtt5pqaY/qMhdIB8dl6Nk0O2LMHOEzq448hzWlrvPzXMlxKpL8KwdaHCqUV4nk8l8b8G3fhSr7usa2anccR1MYOh3oc7g+h/FVtewrxb6O60jqC408U9NMMObIM/8Ax71gHaT2aV3D0klfa9dbbNROwzJCP7Q6j1+9b1teKp4ZaM593YSpeKGq/QzxCV9nn/8ABk/wlfDDM3nE8e9pW8c4TQvpBBwRuviAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIU7wpwlf8AieVzLPb5Jo4yBJM4hsUefNx2B9OaiUlFZZMYuTwkXD5OHDxvPH7K+WLXT2uMzkkbCQ7M/HJ/6V6m7h2hoGdlnPZTY28B8LPt5ZDVXOomMtTIwkMzjDWjbUQB6DmVL3G71VWSDO6Rg20RbMz5HH8yvP3k+3q5WyPT2FLsKWHuyy11XQQeGSUFw2LGeIg/BQ1Vd6aPZjWtzzL3ZP8AhCgXid4Je8N/sjcD+H4JExwxtzpBI/aOfzVEaaRtObY9qruTp0PjbzxhgH+qZyXWqf4RLUf+YJvPM0ZDQ0Y8k2Ex3e9+w6ZViikVuTHRq6k7a5f8X+qQfUzj6wkI96TfK13MhGsEYB2WWDEaXCCirxiutVNVN85YWvP3kKr3bs94cr2E0okt8p5OiOpoPq0n8iFcmygHSD0XEjGncjDuhGyshVnDZlVSjCp+JZMP4k4HvdmY6fuhWUrec0AJ0/3m8x7+XqqwvTDZHxjxAPbjmBv8R/L7lS+NuBaC8RyV9oZHS15Gru24Ecx/Jp9R8fNb9G8zpP1OZccOa8VP0MbQlaunnpKmSmqYnwzROLXseMFpHQhJLfOWCEIQAhCEAIQhACEIQAhCEAIQhACEIQAhCEAIQhACEIQAhCEAIQhAC7hjkmlZDDG6SR7g1jGjJcTyAHUrljXPeGMaXOccAAbkr0v2L9nVLwnb4+Ir/CyS9Ss1wxPPhpWkdfJ2OZ6cgqa9eNGOWbFtbyrz5UV/s27FoooILvxpnU7Doraw7+gkI3/6R8T0WqGppaSlZRW2njjiiOlsULQxjB7xsPcBlFRUSVchdO9zY+e2xd/IenXr5Jq+aKKPSMNAGAAuHVrTqvMj0VG3p0ViKG8h1Pd3z9RJzoGzR8OvxykpaqNrSzYbfcmlTUtzkNAwmEsveP5nBWCRbkdz1QHI5PTPVMpJ3eItHPplcu0ftZTKStgMphjeZZP2Iml5+5uVlGLb0DXmLmR7hg8kmXO9Al6a2Xyr3p7JWBvR0pbGD8Cc/gnLuF+I9Or2Wlb6OnP8GrPlHI3siOcXkZyF9bJpbgfflI3G28T0TS42lszR/wCFPk/iAoL6QwRVPs9wjmoJs4xO3A+8bLNQbWhVKSi/FoWaOQNGrPLzRJKXBR8c7JI2uY4OaeRByClGzBuDzwVhgnJIQvJ2JwunQktMkOz/ANnoT/NNY5twQCE8pn+MYKh6Eoo/bBw/DcLEziWki01dNiOsa0fWZnAcR5g7e4+ix9eoaukilfLRztBhr4HRvbjlkEH8wvM90pJLfc6qhmGJKeZ8Tve0kfwXUsqvNHlfQ4vEqPJNTXX9RshCFunNBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhdwxvllZFGMve4NaPMlAbB8nDgyK4V8nFt0iDqOgfimYRnXN+1/07Y9T6LcKysdUOMsgJhY7Ow2cQen9kdPM7+SirLbIuHeFbZw9SeF0ULQ9wG5eRl7vv1EfBOKuTREIo9gBgD0Xn7iq6tRy6dD09rRVGmo9eo2rZzkFp2/JRUzy45Ll3UEkEEkeWEzld4dIP4KtIvbyfJnt36lRHt76u4/NlppXV9aebWnDI/7zunu5qJ4pvMj7jFw/bXkVU5AlkbzYDyA9T+C3rsh4FobDaonBjS8jU95+s4+eVdyKKTl1FNupJqOyIHhLsmqbhE2fiOtdOXYPs0OWRD0PV3xK0q1cGWm1wNhpaOCBjeQYwBXC307A0aAOWy+10LWgE81OG0WRkoywivz2qDuhoYAfcoettzdJOOXJXZ0LHR6jsNOVXrnPEw9Pd5quccGzSqZKbVW8OJ8G/kVTeOeDKO826QOp2uc0fWxu1Xfie+2uz0/fV1TGxzvqR5ySoK18ZWe6ymmgNRHJIcYfEdJ+KQUo+JEVZwmuVnlytdduDLy6ny3Z9NqPgd9Vw8x5FXez3GG5UjKunOWO5g82nqFMdtfDjZapzY2gtlGqF/TO/VZp2fTzUl3qLXOSMgnSejguhOMatLnW6OBFyoV+yf4XsaPES5yk7c3EjXOGfLdRtONgSR96fQay8afhhaEtjoLclq85fTP5aZMfe0rzfxrO2p4wvE7PqvrZSPdrK33ievba7S6rqDpFPG6c+8Aho+LiAvNkry+Rz3HLnEkn1W9YQ3kcvis9YxOUIQukcgEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBTHBEbJeMbNHIAWOroQfdrCh06tNW6hulLWs+tTzMlHvaQf4KGsomLw0z2CT3t3nf8A+GwAD3//AAmd0cDkh2nHNL0tQyaQVUDhJFVwtnjcORBAI/BwTK6Bzjk/Febxg9YtVlERI4uOcHdM7rO2it1RWSYDYY3Px7gnj/A7SAUA8eiR/CVwbHuRFnbyyMqyCzJIwm3GLZS+yTVcOOGVVS/XLLKXEnqf9le3eHIgbazLcNAAP3Lwb2V1zqPiZsjX6dLmu+Gd17NFdcKqa2UVA9rYpIhM55zy2xlbl5D/ACI1+G1f8bXXJdX3ahoR+mrKeH++8BNZb/S1LS2GqhlB5aXAqpcajs/tNIariSehiqntyXyOw9xx0A3Wf2/iXg91d7TY7wNWRpDg4MfjoteTwtDpUo5lqbHcbsY7Syo3DOT8fcsq4svt1qLlJSWyZnjGWk74WoWeOC7cNtc0GNszNQb13WOcV8PXRvFPsNHUNpG1DC1kzgTp33+KwUurNjCw0hnngSxvFfxhfW191P8A+3bmTB9wTm28b8CXarbb6Zpp5ZXAQl8JYQeY3UgOyzhmlpYqi4URq6lgyJ3zgEnqSB7z5p5Q8MUpjMVJZ4KanOP0hjznHLB2PT3LKU4Y3bZRCjVzqlj8xpxNYKiu4Zmp3PBqKckQHGcho5n374Kr2ux2azcNwX91spK+edzXVrJgS+ONzi1xaRy3Wu2WkMWaZ2HMxjYYVWuIttku1dRV9NDLbp2PbI0jD4mP5kemSfcVMJPlwZ04wjXTksmW1lL7NcailHKOQtb6jp+GFK2iDfU4eFoySV3d6FzuIp2ZGmNsYdIdmlojb4yegI3VA7Qu0aloqaSx8MyiaTGmetH1c+TPP3qYU5VXhGhc1YW7bZF9tPEkdTP8zUriXaw+pOeQGdDPeN3H1I8lmK6ke6R7nvcXOcSXEnJJ81yuxSpqnFRR5utVdWbkwQhCsKgQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgPQPYbxOLjwo21Syk1tq2a083wEnBHnpyR/hV5rnvew7DB3yvKvD94r7FdYblbpjFPEfg4dWkdQVv3A3Htn4ip46VzxTVpb4qd53z10H9YfiPJcm7tpKTnHY7djdxlFU5PVExIzSMtTGsiZPBJDIMskaWuHoQpergIGpoDmnkQcqMkYWg7HC0kdEzfgTge+Tca1NPSR6oaTD3vOMPaSdIHrsfuXrG2U9VT8HU9dSRmS4i3iKIEZy7G23vWTcKMknraiGI4ma1tQzHPMTs/kXL0BYGtFsbCSNTXuBB9+f4rYq1pVY69CKFtCglOL0eTG6XspoLjQyXbjS4Pq7pUjvJI5Nizn4Rg5A9ApOwcCWhs8fslngit0LvAJog8vd0wHZ6YWxx2u3zsxUwse0cmaQG593VRvFV1obDQuqHRtMg8MMTQN3cgAFXJzcdXobdCNNT8Mctj6mibEWNjGkYwAOgVZ4xtommMjY/EDnPr5qfsAqvYoTXPaaqQa5Mcmk74HoOST4klp42lkkdgdhyUcmYlsHipgqHDF8tXeSUVU3u6priMTNOHY6tJ2Kss88b4iQGgEdFR+Jaixx2WfvqtoqQwvhYAA7X0x1wq9ZuLJqaNjamR09MRsS7xM/mFCgy5yi9zSbc+N9wDnbNH5eqpPaha5K2/wU0b2NbV05Y7U/SHaXtOM+eMqYtdwZIJJaeVrwYS5rmnOds/koG9yzXyqsFVRsY6pDpA3LgNWMHGT5jKtgtMGjUbjUUvoYV8pa43m38Tx2JtU+K3S0ccmiPbvRkgBx/WwGgY5bLG1oXb1xTRcT8aB9uc59LRQCma9xzrcHFziD5ZOB7lnq69GPLTSweXvqnaXE5J51BCEK01AQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAQhCAEIQgBCEIAX1jnMeHscWuByCDghfEIC88Ldp3EFmibT1DmXGmbybOfEB5av55V/tnabwpc42trmz26U89bdTfvCwdC16lrTnq0bVK8q09E8o9O8P3q2R3KmuVnvFDUvikyGCduXjq0g74IyPivQtBXtfWxCOPTBW0rKiEg56DIPrv+C/N1es/k18Suqexg0sldGa+z3ItpWyO3DHYcGn+yS5wWrUtVTWUzo217KtLka+Z6DNX3cZLj6hZhd6z6QceU9PLIfZqN3ePGdtWdgro6dtztHtdG7LZY9YGeR6j4HZed7XeLtDxjcjNMadvtjmOcebQNh/NaihzNnZp1uSOUtWbtxzW8SUcUBsktvDHHx+0Z1DHlhUi/cX3QUhinooH1bQdTY5Dpdjnz3+H4pG2XakvV2jtzK66XOua1rgI4HRh2/PUeY6bK6UvBlyfPLVUPBT2zvi1CSomG/Mbb4yrFTz0Drcj8UkjBY6u/wB4cZ6WlldmQiVz25JyfyTW/Mq7cWQVl4p4nyN1MgZJreB6jmtz4i4cg4YtrLvxje6S3Nnjc6OkjI1l+AWhrRu7ywFmtZYWcScRyXilon09sgc7uBKMPlGdnEYyAcDY+SvacVl6GtBwrS5YNv59BbsZulS65Vtun1ObA2OZpPLS4kHbyIHL3r5eKiem4Vvk3tHcNoGVYpwx5BGGPbnPTOwTq39xZ+J6l8YDXmljjcBtjBP81SO0CrqZeFLtDE12XR1ErttyzvWA7fEnPksKPimYXjdOk4+WTAzzXxCF1Ty4IQhACEIQAhCEAIQhACEIQAhCEAIQhACEIQAhCEAIQhACEIQAhCEAIQhACEIQAhCEAJxT1tXT088NPUzRRzaR7M5puRBwTrxvyTVHQq8my+QQu+vfYz/ALcM3J5+RvL8/MPwyJBO+lf/AJjKnDh6mQ8/Pn1Ux5sTxeLhOlpC4ngRFq7vaXq3OmbV/wAPi7Pw8FaXrPj+l7AJ8t8/v4PXxn6+J3iRfCPfQH8KkcxcVcS5LTxSeu47/h+nfIAr5W4P8FfmFb6PiSttvcVDqwO0auZf2/V4WeGr8r3uJ5fSLJI3y1FHjz+LzpVT7t/RKAbWp0CxqaBKGflsT9Iu8+B6JEvnNvD8eHtpHjwnNfgF4AWRBV1cHZN0G2vHvkqGPb4u4OjlQfeyJsWMBT+QrHF/jOh78cPZf3i6Aez6tyL6BkhITELSxZGE8Y5z+8sFmNvDKWPwj1XGc4PJg8u6Y0KPMCNlbdRWOpFvyJpZJzRGjSIwAGwIcMpPLyUcmHIbz8/Wkr8nBCo5+JmdFK/Iy6wRwIrvZNZbdQrK3zpxF6X3xIycPVSY8s8z7gpY9nJq1U+0F6xOmcsLfwkmu0NpMWcZG8wtbEvUKKSwNScNB7xSt/8FAuvbLU1HOHbWQzuFpW02RzWHYIFB9ohjOhInJp8DTFJ+hpDnDPPmF1Ec47NS+OL3Z+mlbqlJEZSWaYgT8RYrxJ/iJF7ZsKgQXLtj3sfKNmLRRaH4XKr3sGeBM+OCQc4G7n/PNL0o5OOGJzmQVF6XzTDpJ2WGq1ojm/bxnDbWB9G4nctW8j0n3KmaIhLuyqeV8FqVeJ4f3+Y4RbA1aYC9Hb70F7CdrWQA7CRaOC4Z6L6cN8DMx0+TPYJiq06ueg8WGm6OL/ePN8JM6L2yrm/tIKy7v+f8tH3p/X+0lQwY4PMWVK04bj9CQwK7tt5tDtmjy0o2RZWKOLoVYVHKjvqNPo7VaO5xj/RyPJTjf8AnLKZIjbGCGjkdTfcUUe6XBN0qE9JqZdIhh5OHlsKW5ImGNlJ3v8ROC7lh9OkbKCTIxbISz5BjbS+aC7Vlx65a3KMobE+Y1Q6X5W7+UxEDdLBmthkPEKmHNH0r2EI1J5IWl6kafo2HYyhKVfWAAH7yhgQOA6MVEFKSlxojH/x4UN5dxRnaW7L9c7nB+iQiJqzjW4uILEPMKeuzCFEAaMtL/0JtxOL68vWnKhipMnHtOqV0nMCY4Ww1XaXa7ynSqyA2yNYZWnZmbLckDfO6RcIDBjz6JDBn8C6L6PSnRJg+i8u4bMjKkcdiJONOiOCNu70pxTPdnXPmPNKr1QtNUFGq5Q4nkJ6BB28d2KQU7/AAEKbfVe5C/M5dydXabM7/snDHJBBN/qCfQGnJYBu//Z'"
           alt="Modelo Bait" />
       </div>
 
       <!-- COL 3: FORMULARIO -->
       <div class="lp-form-mini lp-form-pulse" id="lp-form">
-        <div class="step">Paso 1 de 3</div>
-        <div class="ttl">Cámbiate ahora</div>
-        <div class="sttl">Toma menos de 2 minutos</div>
-        <div class="lp-fake-input"><i class="ti ti-phone"></i>Número a portar</div>
-        <div class="lp-fake-input"><i class="ti ti-phone-check"></i>Confirmar número</div>
-        <div class="lp-fake-input"><i class="ti ti-key"></i>NIP (SMS al 051)</div>
-        <button>Continuar →</button>
+        <div class="lp-form-shell" id="lp-form-shell">
+          <span class="lp-form-badge">Solo nuevos usuarios</span>
+
+          <div class="lp-progress-meta">
+            <span id="lp-step-meta">Paso 1 de 3 · Portabilidad</span>
+            <span id="lp-step-percent">33%</span>
+          </div>
+          <div class="lp-progress" role="progressbar" aria-label="Progreso de la solicitud" aria-valuemin="1"
+            aria-valuemax="3" aria-valuenow="1" id="lp-progress">
+            <span class="active current" aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+          </div>
+
+          <div class="lp-form-alert" id="lp-form-alert" role="alert" hidden></div>
+          <div class="sr-only" id="lp-form-live" aria-live="polite"></div>
+
+          <form id="lp-portability-form" novalidate>
+            <section class="lp-form-step" data-step="1" aria-labelledby="lp-step-title-1">
+              <h2 class="lp-step-title" id="lp-step-title-1" tabindex="-1">Datos de portabilidad</h2>
+              <p class="lp-step-subtitle">Empezamos con la información de tu número actual.</p>
+
+              <div class="lp-field">
+                <label class="lp-label" for="portability_dn">Número a portar <span class="lp-required">*</span></label>
+                <div class="lp-input-wrap">
+                  <i class="ti ti-phone lp-input-icon" aria-hidden="true"></i>
+                  <input class="lp-control" id="portability_dn" name="dn" type="tel" inputmode="numeric"
+                    autocomplete="tel" pattern="[0-9]*" maxlength="10" placeholder="10 dígitos" required
+                    aria-describedby="portability_dn-error">
+                </div>
+                <p class="lp-error" id="portability_dn-error"></p>
+              </div>
+
+              <div class="lp-field">
+                <label class="lp-label" for="portability_dn_confirm">Confirma tu número <span
+                    class="lp-required">*</span></label>
+                <div class="lp-input-wrap">
+                  <i class="ti ti-phone-check lp-input-icon" aria-hidden="true"></i>
+                  <input class="lp-control" id="portability_dn_confirm" name="dn_confirm" type="tel" inputmode="numeric"
+                    autocomplete="off" pattern="[0-9]*" maxlength="10" placeholder="Repite los 10 dígitos" required
+                    aria-describedby="portability_dn_confirm-error">
+                </div>
+                <p class="lp-error" id="portability_dn_confirm-error"></p>
+              </div>
+
+              <div class="lp-field">
+                <label class="lp-label" for="portability_nip">NIP de portabilidad <span
+                    class="lp-required">*</span></label>
+                <div class="lp-input-wrap">
+                  <i class="ti ti-key lp-input-icon" aria-hidden="true"></i>
+                  <input class="lp-control" id="portability_nip" name="nip" type="password" inputmode="numeric"
+                    autocomplete="new-password" maxlength="4" placeholder="4 dígitos" required
+                    aria-describedby="portability_nip-error portability-nip-help">
+                </div>
+                <p class="lp-error" id="portability_nip-error"></p>
+                <p class="lp-help" id="portability-nip-help"><i class="ti ti-message-2"
+                    aria-hidden="true"></i><span>Envía
+                    un SMS con la palabra <strong>NIP</strong> al <a href="sms:051">051</a> desde el número que vas a
+                    portar. Recibirás un código de 4 dígitos.</span></p>
+              </div>
+
+              <div class="lp-field">
+                <label class="lp-label" for="portability_nip_confirm">Confirma tu NIP <span
+                    class="lp-required">*</span></label>
+                <div class="lp-input-wrap">
+                  <i class="ti ti-lock-check lp-input-icon" aria-hidden="true"></i>
+                  <input class="lp-control" id="portability_nip_confirm" name="nip_confirm" type="password"
+                    inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="Repite tu NIP" required
+                    aria-describedby="portability_nip_confirm-error">
+                </div>
+                <p class="lp-error" id="portability_nip_confirm-error"></p>
+              </div>
+
+              <div class="lp-form-actions">
+                <button class="lp-btn" type="button" data-next="2">Continuar <i class="ti ti-arrow-right"
+                    aria-hidden="true"></i></button>
+              </div>
+            </section>
+
+            <section class="lp-form-step" data-step="2" aria-labelledby="lp-step-title-2" hidden>
+              <h2 class="lp-step-title" id="lp-step-title-2" tabindex="-1">Tus datos personales</h2>
+              <p class="lp-step-subtitle">Necesitamos esta información para activar tu línea.</p>
+
+              <div class="lp-field">
+                <label class="lp-label" for="portability_name">Nombre(s) <span class="lp-required">*</span></label>
+                <input class="lp-control" id="portability_name" name="name" type="text" autocomplete="given-name"
+                  placeholder="Como aparece en tu INE" required aria-describedby="portability_name-error">
+                <p class="lp-error" id="portability_name-error"></p>
+              </div>
+
+              <div class="lp-field">
+                <label class="lp-label" for="portability_lastname">Apellido(s) <span
+                    class="lp-required">*</span></label>
+                <input class="lp-control" id="portability_lastname" name="lastname" type="text"
+                  autocomplete="family-name" placeholder="Apellido paterno y materno" required
+                  aria-describedby="portability_lastname-error">
+                <p class="lp-error" id="portability_lastname-error"></p>
+              </div>
+
+              <div class="lp-field">
+                <label class="lp-label" for="portability_email">Email <span class="lp-required">*</span></label>
+                <input class="lp-control" id="portability_email" name="email" type="email" autocomplete="email"
+                  placeholder="ejemplo@correo.com" required aria-describedby="portability_email-error">
+                <p class="lp-error" id="portability_email-error"></p>
+              </div>
+
+              <div class="lp-field-grid">
+                <div class="lp-field">
+                  <label class="lp-label" for="portability_birthdate">Fecha de nacimiento <span
+                      class="lp-required">*</span></label>
+                  <input class="lp-control" id="portability_birthdate" name="birthdate" type="date" autocomplete="bday"
+                    required aria-describedby="portability_birthdate-error">
+                  <p class="lp-error" id="portability_birthdate-error"></p>
+                </div>
+
+                <div class="lp-field">
+                  <label class="lp-label" for="portability_state">Estado <span class="lp-required">*</span></label>
+                  <select class="lp-control" id="portability_state" name="state" autocomplete="address-level1" required
+                    aria-describedby="portability_state-error">
+                    <option value="">Selecciona…</option>
+                    <option value="1">Aguascalientes</option>
+                    <option value="2">Baja California</option>
+                    <option value="3">Baja California Sur</option>
+                    <option value="4">Campeche</option>
+                    <option value="5">Coahuila</option>
+                    <option value="6">Colima</option>
+                    <option value="7">Chiapas</option>
+                    <option value="8">Chihuahua</option>
+                    <option value="9">Ciudad de México</option>
+                    <option value="10">Durango</option>
+                    <option value="11">Guanajuato</option>
+                    <option value="12">Guerrero</option>
+                    <option value="13">Hidalgo</option>
+                    <option value="14">Jalisco</option>
+                    <option value="15">México</option>
+                    <option value="16">Michoacán</option>
+                    <option value="17">Morelos</option>
+                    <option value="18">Nayarit</option>
+                    <option value="19">Nuevo León</option>
+                    <option value="20">Oaxaca</option>
+                    <option value="21">Puebla</option>
+                    <option value="22">Querétaro</option>
+                    <option value="23">Quintana Roo</option>
+                    <option value="24">San Luis Potosí</option>
+                    <option value="25">Sinaloa</option>
+                    <option value="26">Sonora</option>
+                    <option value="27">Tabasco</option>
+                    <option value="28">Tamaulipas</option>
+                    <option value="29">Tlaxcala</option>
+                    <option value="30">Veracruz</option>
+                    <option value="31">Yucatán</option>
+                    <option value="32">Zacatecas</option>
+                  </select>
+                  <p class="lp-error" id="portability_state-error"></p>
+                </div>
+              </div>
+
+              <div class="lp-form-actions">
+                <button class="lp-btn lp-btn-secondary" type="button" data-prev="1"><i class="ti ti-arrow-left"
+                    aria-hidden="true"></i> Atrás</button>
+                <button class="lp-btn" type="button" data-next="3">Continuar <i class="ti ti-arrow-right"
+                    aria-hidden="true"></i></button>
+              </div>
+            </section>
+
+            <section class="lp-form-step" data-step="3" aria-labelledby="lp-step-title-3" hidden>
+              <h2 class="lp-step-title" id="lp-step-title-3" tabindex="-1">Confirma y envía</h2>
+              <p class="lp-step-subtitle">Revisa el número y obtén todos los beneficios.</p>
+
+              <div class="lp-summary-box">
+                <span class="lp-summary-icon"><i class="ti ti-phone" aria-hidden="true"></i></span>
+                <div>
+                  <div class="lp-summary-label">Número a portar</div>
+                  <div class="lp-summary-number" id="lp-summary-dn">—</div>
+                </div>
+              </div>
+
+              <div class="lp-offer-card">
+                <span class="lp-offer-badge">Esto es lo que te llevas</span>
+                <div class="lp-offer-gb">38<small> GB</small></div>
+                <ul>
+                  <li><strong>Redes sociales ilimitadas</strong> incluidas</li>
+                  <li>Membresía <strong>Sam's Club gratis</strong></li>
+                  <li>Durante <strong>12 meses</strong></li>
+                </ul>
+              </div>
+
+              <div class="lp-captcha-box" id="lp-captcha-box">
+                <div class="lp-captcha-head">
+                  <span class="lp-captcha-title">Verificación de seguridad <span class="lp-required">*</span></span>
+                  <button class="lp-captcha-refresh" type="button" id="lp-captcha-refresh"
+                    aria-label="Generar otro reto de seguridad"><i class="ti ti-refresh"
+                      aria-hidden="true"></i></button>
+                </div>
+                <div class="lp-captcha-challenge" id="lp-captcha-challenge" role="img" aria-label="Reto de seguridad">
+                </div>
+                <div class="lp-captcha-row">
+                  <label class="sr-only" for="portability_captcha">Resultado del reto de seguridad</label>
+                  <input class="lp-control" id="portability_captcha" name="captcha" type="text" inputmode="numeric"
+                    autocomplete="off" maxlength="3" placeholder="Escribe el resultado"
+                    aria-describedby="portability_captcha-error lp-captcha-status">
+                  <button class="lp-btn lp-btn-secondary lp-inline-btn" type="button"
+                    id="lp-captcha-verify">Verificar</button>
+                </div>
+                <p class="lp-error" id="portability_captcha-error"></p>
+                <p class="lp-captcha-status" id="lp-captcha-status">El reto expira en 2:00 minutos.</p>
+              </div>
+
+              <div class="lp-checkbox-field">
+                <label class="lp-checkbox-label" for="portability_acepta_contratacion">
+                  <input type="checkbox" id="portability_acepta_contratacion" name="acepta_contratacion" required
+                    aria-describedby="portability_acepta_contratacion-error">
+                  <span>Acepto la <strong>contratación de mi plan pospago Bait</strong> y autorizo iniciar el proceso de
+                    portabilidad con los datos que capturé en este formulario.</span>
+                </label>
+                <p class="lp-error" id="portability_acepta_contratacion-error"></p>
+              </div>
+
+              <div class="lp-checkbox-field">
+                <label class="lp-checkbox-label" for="portability_acepta_aviso_privacidad">
+                  <input type="checkbox" id="portability_acepta_aviso_privacidad" name="acepta_aviso_privacidad"
+                    required aria-describedby="portability_acepta_aviso_privacidad-error">
+                  <span>He leído y acepto el <a
+                      href="https://www.walmartmexico.com/content/dam/walmart-mexico/documents/aviso-de-privacidad/aviso-de-privacidad-unificado/Aviso%20de%20Privacidad%20Unificado%20240524_VF.pdf"
+                      target="_blank" rel="noopener noreferrer">Aviso de Privacidad</a> y autorizo el tratamiento de
+                    mis datos personales para ser contactado.</span>
+                </label>
+                <p class="lp-error" id="portability_acepta_aviso_privacidad-error"></p>
+              </div>
+
+              <p class="lp-privacy-note"><i class="ti ti-shield-lock" aria-hidden="true"></i> Tus datos están
+                protegidos. No compartiremos tu información.</p>
+
+              <div class="lp-form-actions">
+                <button class="lp-btn lp-btn-secondary" type="button" data-prev="2"><i class="ti ti-arrow-left"
+                    aria-hidden="true"></i> Atrás</button>
+                <button class="lp-btn" type="submit" id="lp-submit-form">Acepto y contrato mi plan pospago</button>
+              </div>
+            </section>
+          </form>
+        </div>
+
+        <section class="lp-form-success" id="lp-form-success" aria-labelledby="lp-success-title" hidden>
+          <div class="lp-success-icon"><i class="ti ti-check" aria-hidden="true"></i></div>
+          <h3 id="lp-success-title" tabindex="-1">¡Gracias!</h3>
+          <p>Recibimos tu solicitud de portabilidad. Conserva tu línea actual activa mientras procesamos el cambio.</p>
+          <div class="lp-success-next"><strong>Siguiente paso:</strong> espera las indicaciones de activación y no
+            insertes tu nueva SIM hasta recibir la confirmación correspondiente.</div>
+          <button class="lp-btn" type="button" id="lp-new-request">Registrar otra solicitud</button>
+        </section>
       </div>
 
     </div><!-- /hero -->
@@ -1781,17 +2794,16 @@
         <div class="lp-card">
           <div class="ic"><i class="ti ti-wifi"></i></div>
           <div class="t">38 GB de datos</div>
-          <div class="d">+20 GB extra los primeros 3 meses</div>
         </div>
         <div class="lp-card">
           <div class="ic"><i class="ti ti-brand-instagram"></i></div>
           <div class="t">Redes ilimitadas</div>
-          <div class="d">WhatsApp, FB, IG, TikTok sin gastar datos</div>
+          <div class="d">WhatsApp, FB, IG, Telegram sin gastar datos</div>
         </div>
         <div class="lp-card">
           <div class="ic"><i class="ti ti-phone"></i></div>
           <div class="t">Llamadas y SMS</div>
-          <div class="d">Ilimitados en MX, EE.UU. y Canadá</div>
+          <div class="d">Incluidas dentro en MX, EE.UU. y Canadá</div>
         </div>
       </div>
     </div>
@@ -1802,11 +2814,12 @@
       <span class="lp-tag">Exclusivo</span>
       <h2 class="lp-h2">Llévate la membresía Sam's Club gratis</h2>
       <div class="lp-sams">
-        <img class="lp-sams-badge" src="assets/images/sams-logo.jpg" alt="Sam's Club"
-          onerror="this.style.visibility='hidden'">
+        <div class="lp-sams-badge">
+          <img src="assets/images/sams-logo-bonus.png" alt="Sam's Club" class="lp-sams-badge-img">
+        </div>
         <div class="lp-sams-text">
           <h4>Membresía Socio gratis por 1 año</h4>
-          <p>Valor real <span class="val">$750 MXN</span>. Precios de mayoreo, gasolinería, farmacia y más.</p>
+          <p>Valor real <span class="val">$600 MXN</span>. Precios de mayoreo, gasolinería, farmacia y más.</p>
         </div>
         <a class="lp-sams-cta"
           href="https://api.whatsapp.com/send/?phone=525549547446&amp;text&amp;type=phone_number&amp;app_absent=0"
@@ -1820,7 +2833,7 @@
       <div class="lp-combo">
         <div class="lp-combo-block">
           <div class="head"><i class="ti ti-shield-check"></i><span class="t">Cobertura nacional</span></div>
-          <p class="lp-combo-cov-text">Operamos sobre <strong>red Bait</strong> con <strong>98% de
+          <p class="lp-combo-cov-text">Operamos sobre <strong>red Altan</strong> con <strong>98% de
               cobertura</strong>
             y 4G LTE en todas las ciudades.</p>
         </div>
@@ -1837,7 +2850,7 @@
             </div>
             <div class="lp-combo-step">
               <div class="num">3</div>
-              <div class="txt">Recoge tu SIM<small>Walmart, Bodega o Sam's</small></div>
+              <div class="txt">Recoge tu SIM<small>Walmart, Bodega Aurrerá</small></div>
             </div>
           </div>
         </div>
@@ -1875,7 +2888,7 @@
           <div class="ic"><i class="ti ti-gift"></i></div>
           <div class="body">
             <div class="t">Sam's Club gratis incluido</div>
-            <div class="d">Ahorra <strong>$750 al año</strong> solo por cambiarte.</div>
+            <div class="d">Ahorra <strong>$600 al año</strong> solo por cambiarte.</div>
           </div>
         </div>
       </div>
@@ -1887,26 +2900,26 @@
       <span class="lp-tag">Preguntas frecuentes</span>
       <h2 class="lp-h2">Todo lo que necesitas saber para unirte a Bait</h2>
       <div class="lp-faq-grid">
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">¿Qué es la portabilidad?</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">Trae tu número a Bait sin costo y consérvalo.</div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">¿Cómo hago la portabilidad?</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">Regístrate, recibe tu cupón, recoge tu SIM, espera 24 horas, activa tu línea,
             instala
             la app Mi BAIT y listo.</div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">¿Me quedaré sin línea?</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">Sí. Durante la noche se lleva a cabo el proceso de portabilidad y, al día
             siguiente,
             se realiza el reemplazo para que vuelvas a tener línea.</div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">Beneficios principales</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">
             <ul>
@@ -1918,35 +2931,35 @@
           </div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">¿Hay plazo forzoso?</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">No. En Bait no hay plazo forzoso.</div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">Cobertura</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">Tenemos cobertura nacional. Consulta la disponibilidad en tu zona en <a
               href="https://mibait.com/cobertura" target="_blank" rel="noopener">mibait.com/cobertura</a>.</div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">¿Dónde pago mi factura?</span><i class="ti ti-plus"></i></summary>
-          <div class="lp-faq-answer">Puedes pagar en Walmart, Bodega Aurrerá y Sam’s Club, o en línea desde <a
-              href="https://mibait.com" target="_blank" rel="noopener">MiBait.com</a>.</div>
+          <div class="lp-faq-answer">Puedes pagar desde la app movíl de Bait, en Walmart, Bodega Aurrerá y Sam’s Club, o
+            en línea desde <a href="https://mibait.com" target="_blank" rel="noopener">MiBait.com</a>.</div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">Redes sociales incluidas</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">WhatsApp, Facebook, Instagram, X, Messenger, Snapchat y Telegram ilimitados.</div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">Atención a clientes</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer"><strong>800 288 2248</strong> · <strong>*282</strong> desde BAIT · <a
               href="mailto:soporte@mibait.com">soporte@mibait.com</a></div>
         </details>
 
-        <details class="lp-faq-item">
+        <details class="lp-faq-item" name="faq-accordion">
           <summary><span class="q">¿Cómo unirse a Bait?</span><i class="ti ti-plus"></i></summary>
           <div class="lp-faq-answer">Envíanos tu número por mensaje directo o regístrate en esta landing page.</div>
         </details>
@@ -1998,7 +3011,24 @@
       }, { threshold: 0.12 });
       els.forEach(function (el) { io.observe(el); });
     })();
+
+    /* FAQ Accordion: solo una pregunta abierta a la vez */
+    (function () {
+      var faqItems = document.querySelectorAll('.lp-faq-item');
+      faqItems.forEach(function (item) {
+        item.addEventListener('toggle', function () {
+          if (this.open) {
+            faqItems.forEach(function (other) {
+              if (other !== item && other.open) {
+                other.open = false;
+              }
+            });
+          }
+        });
+      });
+    })();
   </script>
+  <script src="assets/js/bait-form.js"></script>
 </body>
 
 </html>
