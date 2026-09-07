@@ -6,6 +6,7 @@
     "deploy": "vercel deploy",
     "db:migrate": "node db/migrate.js",
     "db:migrate-admin": "node scripts/migrate-admin.js",
+    "db:migrate-005": "node scripts/migrate-005.js",
     "test:foundation": "node tests/run.js",
     "test:auth": "node tests/admin-auth.js",
     "test:dashboard-unit": "node tests/dashboard-unit.js",
@@ -20,7 +21,13 @@
     "test:db-env-resolution": "node --test tests/db-env-resolution.test.js",
     "test:timezone": "node --test tests/timezone-policy.test.js",
     "test:analytics-unit": "node tests/analytics-unit.js",
-    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:analytics-unit && npm run test:db-env-resolution && npm run test:timezone"
+    "test:nip-conditional": "node tests/nip-conditional-unit.js",
+    "test:email-unit": "node tests/email-unit.js",
+    "test:captcha-unit": "node tests/captcha-unit.js",
+    "test:privacy-unit": "node tests/privacy-unit.js",
+    "test:captcha-lead-integration": "node --env-file=.env.branch tests/captcha-lead-integration.js",
+    "test:form-security-browser-e2e": "node --env-file=.env.branch tests/form-security-browser-e2e.js",
+    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:analytics-unit && npm run test:db-env-resolution && npm run test:timezone && npm run test:nip-conditional && npm run test:email-unit && npm run test:captcha-unit && npm run test:privacy-unit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"

@@ -48,7 +48,14 @@
 
 ## Seguridad y Privacidad
 
-- **NIP**: No se persiste en la base de datos por normativa de seguridad.
+- **NIP**: No se persiste en la base de datos por normativa de seguridad. Si coincide con los últimos 4 dígitos del
+  teléfono, se exige una fecha de vigencia (hoy..hoy+5 días, CDMX) que tampoco se persiste.
+- **Email**: se captura para el envío futuro del cupón BAIT (Stage 1I). Requerido para leads nuevos; `NULL` en leads
+  históricos.
+- **CAPTCHA**: generado y validado 100% en el servidor (`api/captcha/challenge.js`, `lib/captcha.js`). Solo se
+  persiste un hash HMAC-SHA256 de la respuesta (`CAPTCHA_PEPPER`), nunca el texto plano; cada challenge es de un solo uso.
+- **Aviso de Privacidad**: página estática en `/aviso-de-privacidad/`. Contenido legal pendiente de datos reales —
+  ver `docs/legal/privacy-required-inputs.md`.
 - **Preview Safety**: Los despliegues preview (rama no principal) o locales no deben afectar la base de datos de producción.
 
 ## UTMs y Atribución

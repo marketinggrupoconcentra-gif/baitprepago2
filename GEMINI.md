@@ -27,12 +27,22 @@ El NIP (Número de Identificación Personal) que el usuario recibe por SMS es **
 
 ## 4. Arquitectura de Leads
 
-- **Frontend**: `index.html` (página estática) + `assets/site.js` (validaciones visuales, captura de UTMs, fetch a `/api/leads`).
+- **Frontend**: `index.html` (página estática) + `assets/site.js` (validaciones visuales, captura de UTMs, fetch a `/api/leads` y `/api/captcha/challenge`).
 - **Backend (API)**: `api/leads.js` (recibe POST de leads).
-  - *Validación (`lib/validation.js`)*: Verifica payload, limpia entradas y omite NIP.
+  - *Validación (`lib/validation.js`)*: Verifica payload, limpia entradas, valida email y omite NIP/fecha de vigencia del NIP.
+  - *CAPTCHA (`lib/captcha.js`, `api/captcha/challenge.js`)*: Challenge servidor-cliente con hash HMAC-SHA256 (`CAPTCHA_PEPPER`); un solo uso, sin exponer nunca la respuesta al frontend. Fail closed si `CAPTCHA_PEPPER` falta.
   - *Seguridad (`lib/security.js`)*: Valida Rate Limiting e Idempotencia consultando a la DB.
   - *Atribución (`lib/attribution.js`)*: Captura UTMs y metadatos (ej. GCLID).
 - **Base de Datos**: `db/schema.sql` y `db/migrate.js` para crear y mantener la estructura en Neon.
+
+### 4.1 Stage 1H — NIP condicional, email, privacidad y CAPTCHA
+
+- El NIP sigue sin persistirse. Si el NIP capturado coincide con los últimos 4 dígitos del teléfono a portar, el
+  formulario exige y valida (server-side, en `lib/validation.js` + `lib/cdmx-date.js`) una fecha de vigencia del NIP
+  dentro de la ventana `hoy..hoy+5` días naturales en `America/Mexico_City`. Esa fecha tampoco se persiste.
+- `leads.email` captura el correo para el envío futuro del cupón BAIT (Stage 1I, no implementado en esta etapa).
+- El Aviso de Privacidad vive en `/aviso-de-privacidad/` (página estática, sin JS). Su contenido legal (razón social,
+  domicilio, contacto ARCO) está pendiente — ver `docs/legal/privacy-required-inputs.md`.
 
 ## 5. Política Temporal Canónica — CDMX
 

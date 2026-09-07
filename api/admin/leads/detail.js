@@ -33,8 +33,8 @@ export default async function handler(req, res) {
     const sql = getDb();
     
     const results = await sql.query(`
-      SELECT 
-        id, phone, created_at,
+      SELECT
+        id, phone, email, created_at,
         utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         fb_ad_id, fb_adset_id, fb_campaign_id,
         page_url, referrer,
@@ -55,6 +55,7 @@ export default async function handler(req, res) {
       id: lead.id,
       createdAt: lead.created_at,
       phoneMasked: maskPhone(lead.phone),
+      email: lead.email || null,
       utmSource: lead.utm_source,
       utmMedium: lead.utm_medium,
       utmCampaign: lead.utm_campaign,
