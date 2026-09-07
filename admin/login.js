@@ -18,14 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = '/admin/dashboard';
       } else {
         // Show shell if not authenticated
-        loginShell.style.opacity = '1';
-        loginShell.style.pointerEvents = 'auto';
+        loginShell.classList.remove('login-shell-pending');
       }
     })
     .catch(() => {
       // Fallback, show shell if check fails
-      loginShell.style.opacity = '1';
-      loginShell.style.pointerEvents = 'auto';
+      loginShell.classList.remove('login-shell-pending');
     });
 
   // Toggle password visibility
@@ -38,9 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Forgot password mock
-  if (forgotPasswordBtn) {
+  const recoveryMessage = document.getElementById('recoveryMessage');
+  if (forgotPasswordBtn && recoveryMessage) {
     forgotPasswordBtn.addEventListener('click', () => {
-      alert('Solicita el restablecimiento de acceso con el administrador del sistema.');
+      recoveryMessage.textContent = 'Solicita el restablecimiento de acceso con el administrador del sistema.';
+      recoveryMessage.hidden = false;
     });
   }
 

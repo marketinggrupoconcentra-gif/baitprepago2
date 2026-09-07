@@ -10,14 +10,15 @@
   <meta name="robots" content="noindex, nofollow, noarchive">
 </head>
 <body class="login-body" id="loginBody">
-  <!-- Background Decor -->
+  <!-- Fondo decorativo con apilamiento explícito -->
   <div class="login-background" aria-hidden="true">
     <div class="login-blob login-blob-yellow"></div>
     <div class="login-blob login-blob-dark"></div>
     <div class="login-dot-grid"></div>
   </div>
 
-  <main class="login-shell" id="loginShell" style="opacity: 0; pointer-events: none;">
+  <!-- Contenedor principal con visibilidad pendiente -->
+  <main class="login-shell login-shell-pending" id="loginShell">
     <div class="login-logo-wrap">
       <img src="/assets/bait-logo.svg" alt="BAIT" class="login-logo" />
     </div>
@@ -47,8 +48,10 @@
           </div>
         </div>
 
+        <!-- Recuperación de contraseña -->
         <div class="login-recovery">
           <button type="button" id="forgotPasswordBtn" class="login-recovery-btn">¿Olvidaste tu contraseña?</button>
+          <div id="recoveryMessage" class="login-recovery-message" role="status" aria-live="polite" hidden></div>
         </div>
         
         <button type="submit" id="submitBtn" class="login-submit">
