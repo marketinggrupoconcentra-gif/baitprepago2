@@ -53,6 +53,16 @@ async function newContext(browser, viewport) {
   return ctx;
 }
 
+async function waitForCaptchaImage(page, timeout = 10000) {
+  await page.waitForFunction(
+    () => {
+      const el = document.getElementById('pf-captcha-img-el');
+      return !!(el && el.getAttribute('src') && el.getAttribute('src').startsWith('data:image/svg+xml'));
+    },
+    { timeout }
+  );
+}
+
 async function fillStep1(page, { phone, nip, nipValidUntil }) {
   await page.fill('#pf-phone', phone);
   await page.fill('#pf-phone-confirm', phone);
@@ -170,7 +180,7 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       await page.fill('#pf-apellido', 'Ruiz');
       await page.fill('#pf-email', 'carlos@example.com');
       await page.click('#pf-btn-2');
-      await page.waitForTimeout(300); // allow /api/captcha/challenge to resolve
+      await waitForCaptchaImage(page); // allow /api/captcha/challenge to resolve
 
       const imgSrcBefore = await page.getAttribute('#pf-captcha-img-el', 'src');
       assert.ok(imgSrcBefore && imgSrcBefore.startsWith('data:image/svg+xml'), 'El CAPTCHA se renderiza como imagen SVG servida por backend');
@@ -179,13 +189,20 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       await page.fill('#pf-wa-code', '123456');
       await page.check('#pf-consent');
       await page.click('#pf-btn-3');
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000);
 
       assert.ok(leadRequests.length >= 1 && leadRequests[0] !== 201, 'CAPTCHA incorrecto: /api/leads no responde 201 (lead no se inserta)');
       const stillStep3 = await page.isVisible('#pf-step-3:not(.pf-hidden)');
       assert.ok(stillStep3, 'CAPTCHA incorrecto no navega fuera del formulario');
 
-      await page.waitForTimeout(300);
+      await page.waitForFunction(
+        (prevSrc) => {
+          const el = document.getElementById('pf-captcha-img-el');
+          return !!(el && el.getAttribute('src') && el.getAttribute('src') !== prevSrc);
+        },
+        imgSrcBefore,
+        { timeout: 10000 }
+      );
       const imgSrcAfter = await page.getAttribute('#pf-captcha-img-el', 'src');
       assert.notStrictEqual(imgSrcAfter, imgSrcBefore, 'Tras error de CAPTCHA se solicita un nuevo challenge');
 
@@ -248,7 +265,7 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       await page.fill('#pf-apellido', 'González');
       await page.fill('#pf-email', email);
       await page.click('#pf-btn-2');
-      await page.waitForTimeout(300); // our mocked /api/captcha/challenge resolves
+      await waitForCaptchaImage(page); // our mocked /api/captcha/challenge resolves
 
       await page.fill('#pf-captcha-input', knownAnswer);
       await page.fill('#pf-wa-code', '654321');
