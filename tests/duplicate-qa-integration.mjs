@@ -1,6 +1,12 @@
 import { neon } from '@neondatabase/serverless';
 import handler from '../api/leads.js';
 import crypto from 'crypto';
+import dotenv from 'dotenv';
+import { fork } from 'child_process';
+import path from 'path';
+
+// Load variables if running locally, without overriding process.env if already set
+dotenv.config({ path: '.env.branch' });
 
 function hashCaptchaAnswer(pepper, challengeId, answer) {
   return crypto.createHmac('sha256', pepper).update(challengeId + ':' + answer).digest('hex');
@@ -25,87 +31,137 @@ function createRes() {
   return res;
 }
 
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(`ASSERTION FAILED: ${message}`);
+  }
+  console.log(`✅ ${message}`);
+}
+
 const sql = neon(process.env.DATABASE_URL);
 const dupSql = neon(process.env.DUPLICATES_DATABASE_URL);
 
-async function main() {
-  const phone = '55' + Math.floor(10000000 + Math.random() * 90000000).toString();
+// Fixtures to clean up
+const createdPhones = [];
+const createdCaptchas = [];
+
+async function insertCaptcha(captchaAnswer) {
   const captchaId = crypto.randomUUID();
-  const captchaAnswer = '123456';
   const hash = hashCaptchaAnswer(process.env.CAPTCHA_PEPPER, captchaId, captchaAnswer);
-  
-  // Insert valid captcha into DB so it passes validation
   const expiresAt = new Date(Date.now() + 60000).toISOString();
   await sql`INSERT INTO captcha_challenges (id, answer_hash, expires_at) VALUES (${captchaId}, ${hash}, ${expiresAt})`;
+  createdCaptchas.push(captchaId);
+  return captchaId;
+}
 
+async function cleanupFixtures() {
+  console.log('\n🧹 Cleaning up fixtures...');
+  for (const phone of createdPhones) {
+    await sql`DELETE FROM leads WHERE phone = ${phone}`;
+    await dupSql`DELETE FROM duplicate_leads WHERE phone = ${phone}`;
+  }
+  for (const captchaId of createdCaptchas) {
+    await sql`DELETE FROM captcha_challenges WHERE id = ${captchaId}`;
+  }
+  console.log('✅ Cleanup complete.');
+}
+
+async function runChildProcessFor503(payload) {
+  return new Promise((resolve, reject) => {
+    // Create a temporary script to test 503
+    const child = fork('./tests/run-503-child.mjs', [], {
+      env: {
+        ...process.env,
+        DUPLICATES_DATABASE_URL: 'postgresql://wrong:wrong@ep-jolly-bread-avsqkawa.us-east-2.aws.neon.tech/baitprepago_duplicates'
+      }
+    });
+    
+    child.send(payload);
+    
+    child.on('message', (msg) => {
+      resolve(msg);
+      child.kill();
+    });
+    
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code !== 0) reject(new Error('Child process exited with code ' + code));
+    });
+  });
+}
+
+async function main() {
+  const phone = '55' + Math.floor(10000000 + Math.random() * 90000000).toString();
+  createdPhones.push(phone);
+  
+  const captchaAnswer = '123456';
+  
   const payload = {
     phone,
     nip: phone.slice(-4),
     nip_valid_until: new Date().toISOString().split('T')[0],
     email: 'test' + Date.now() + '@integration.test',
     consent: true,
-    captcha_challenge_id: captchaId,
     captcha_answer: captchaAnswer
   };
-  
-  console.log('\\nA. NEW LEAD: Sending first request...', phone);
-  let req1 = createReq(payload);
-  let res1 = createRes();
-  await handler(req1, res1);
-  console.log('Res 1:', res1.statusCode, res1.jsonData);
 
-  let primaryCount = await sql`SELECT count(*) FROM leads WHERE phone = ${phone}`;
-  let secondaryCount = await dupSql`SELECT count(*) FROM duplicate_leads WHERE phone = ${phone}`;
-  console.log(`DB Primary: ${primaryCount[0].count}, DB Secondary: ${secondaryCount[0].count}`);
+  try {
+    // A. First Request (201)
+    console.log(`\nA. NEW LEAD: Sending first request... (${phone})`);
+    payload.captcha_challenge_id = await insertCaptcha(captchaAnswer);
+    let req1 = createReq(payload);
+    let res1 = createRes();
+    await handler(req1, res1);
+    
+    assert(res1.statusCode === 201, `Status code is 201 (got ${res1.statusCode})`);
+    
+    let primaryCount = await sql`SELECT count(*) FROM leads WHERE phone = ${phone}`;
+    let secondaryCount = await dupSql`SELECT count(*) FROM duplicate_leads WHERE phone = ${phone}`;
+    assert(parseInt(primaryCount[0].count) === 1, `Primary DB count is 1 (got ${primaryCount[0].count})`);
+    assert(parseInt(secondaryCount[0].count) === 0, `Secondary DB count is 0 (got ${secondaryCount[0].count})`);
 
-  // Re-insert valid captcha because it was consumed
-  const captchaId2 = crypto.randomUUID();
-  const hash2 = hashCaptchaAnswer(process.env.CAPTCHA_PEPPER, captchaId2, captchaAnswer);
-  await sql`INSERT INTO captcha_challenges (id, answer_hash, expires_at) VALUES (${captchaId2}, ${hash2}, ${expiresAt})`;
-  payload.captcha_challenge_id = captchaId2;
+    // B. Second Request (409)
+    console.log(`\nB. DUPLICATE: Sending second request... (${phone})`);
+    payload.captcha_challenge_id = await insertCaptcha(captchaAnswer);
+    let req2 = createReq(payload);
+    let res2 = createRes();
+    await handler(req2, res2);
+    
+    assert(res2.statusCode === 409, `Status code is 409 (got ${res2.statusCode})`);
+    
+    primaryCount = await sql`SELECT count(*) FROM leads WHERE phone = ${phone}`;
+    secondaryCount = await dupSql`SELECT count(*) FROM duplicate_leads WHERE phone = ${phone}`;
+    assert(parseInt(primaryCount[0].count) === 1, `Primary DB count is 1 (got ${primaryCount[0].count})`);
+    assert(parseInt(secondaryCount[0].count) === 1, `Secondary DB count is 1 (got ${secondaryCount[0].count})`);
 
-  console.log('\\nB. DUPLICATE: Sending second request...', phone);
-  let req2 = createReq(payload);
-  let res2 = createRes();
-  await handler(req2, res2);
-  console.log('Res 2:', res2.statusCode, res2.jsonData);
+    // C. Third Request (409 again)
+    console.log(`\nC. THIRD ATTEMPT: Sending third request... (${phone})`);
+    payload.captcha_challenge_id = await insertCaptcha(captchaAnswer);
+    let req3 = createReq(payload);
+    let res3 = createRes();
+    await handler(req3, res3);
+    
+    assert(res3.statusCode === 409, `Status code is 409 (got ${res3.statusCode})`);
+    
+    primaryCount = await sql`SELECT count(*) FROM leads WHERE phone = ${phone}`;
+    secondaryCount = await dupSql`SELECT count(*) FROM duplicate_leads WHERE phone = ${phone}`;
+    assert(parseInt(primaryCount[0].count) === 1, `Primary DB count is 1 (got ${primaryCount[0].count})`);
+    assert(parseInt(secondaryCount[0].count) === 2, `Secondary DB count is 2 (got ${secondaryCount[0].count})`);
 
-  primaryCount = await sql`SELECT count(*) FROM leads WHERE phone = ${phone}`;
-  secondaryCount = await dupSql`SELECT count(*) FROM duplicate_leads WHERE phone = ${phone}`;
-  console.log(`DB Primary: ${primaryCount[0].count}, DB Secondary: ${secondaryCount[0].count}`);
-
-  // Re-insert valid captcha again
-  const captchaId3 = crypto.randomUUID();
-  const hash3 = hashCaptchaAnswer(process.env.CAPTCHA_PEPPER, captchaId3, captchaAnswer);
-  await sql`INSERT INTO captcha_challenges (id, answer_hash, expires_at) VALUES (${captchaId3}, ${hash3}, ${expiresAt})`;
-  payload.captcha_challenge_id = captchaId3;
-
-  console.log('\\nC. THIRD ATTEMPT: Sending third request...', phone);
-  let req3 = createReq(payload);
-  let res3 = createRes();
-  await handler(req3, res3);
-  console.log('Res 3:', res3.statusCode, res3.jsonData);
-
-  primaryCount = await sql`SELECT count(*) FROM leads WHERE phone = ${phone}`;
-  secondaryCount = await dupSql`SELECT count(*) FROM duplicate_leads WHERE phone = ${phone}`;
-  console.log(`DB Primary: ${primaryCount[0].count}, DB Secondary: ${secondaryCount[0].count}`);
-  
-  // D. DUPLICATE DB UNAVAILABLE
-  console.log('\\nD. DUPLICATE DB UNAVAILABLE:');
-  const backupEnv = process.env.DUPLICATES_DATABASE_URL;
-  process.env.DUPLICATES_DATABASE_URL = 'postgresql://wrong:wrong@ep-wrong.aws.neon.tech/wrong';
-  
-  // Re-insert valid captcha again
-  const captchaId4 = crypto.randomUUID();
-  const hash4 = hashCaptchaAnswer(process.env.CAPTCHA_PEPPER, captchaId4, captchaAnswer);
-  await sql`INSERT INTO captcha_challenges (id, answer_hash, expires_at) VALUES (${captchaId4}, ${hash4}, ${expiresAt})`;
-  payload.captcha_challenge_id = captchaId4;
-  
-  let req4 = createReq(payload);
-  let res4 = createRes();
-  await handler(req4, res4);
-  console.log('Res 4:', res4.statusCode, res4.jsonData);
-  process.env.DUPLICATES_DATABASE_URL = backupEnv;
+    // D. 503 test (invalid URL from the start in child process)
+    console.log(`\nD. 503 UNAVAILABLE: Secondary DB offline... (${phone})`);
+    payload.captcha_challenge_id = await insertCaptcha(captchaAnswer);
+    const result503 = await runChildProcessFor503(payload);
+    assert(result503.statusCode === 503, `Status code is 503 (got ${result503.statusCode})`);
+    
+    console.log('\n🎉 All integration assertions passed!');
+    
+  } finally {
+    await cleanupFixtures();
+  }
 }
 
-main().catch(console.error);
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

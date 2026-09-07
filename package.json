@@ -33,7 +33,9 @@
     "test:admin-login-ui": "node tests/admin-login-ui.js",
     "test:password-reset-unit": "node --test tests/password-reset-unit.js",
     "test:password-reset-e2e": "node tests/password-reset-e2e.js",
-    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:analytics-unit && npm run test:db-env-resolution && npm run test:timezone && npm run test:nip-conditional && npm run test:email-unit && npm run test:captcha-unit && npm run test:captcha-challenge-endpoint-unit && npm run test:privacy-unit && npm run test:preview-safety && npm run test:admin-login-ui && npm run test:password-reset-unit && npm run test:password-reset-e2e"
+    "test:duplicate-unit": "node tests/duplicate-routing-unit.js",
+    "test:duplicate-qa-integration": "node tests/duplicate-qa-integration.mjs",
+    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:analytics-unit && npm run test:db-env-resolution && npm run test:timezone && npm run test:nip-conditional && npm run test:email-unit && npm run test:captcha-unit && npm run test:captcha-challenge-endpoint-unit && npm run test:privacy-unit && npm run test:preview-safety && npm run test:admin-login-ui && npm run test:password-reset-unit && npm run test:password-reset-e2e && npm run test:duplicate-unit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"

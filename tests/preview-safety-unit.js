@@ -45,6 +45,7 @@ const QA_ENDPOINT_ID = 'ep-jolly-bread-avsqkawa';
 
 // A fake URL that looks like a Neon QA URL containing the QA endpoint
 const QA_DB_URL = `postgresql://fakeuser:fakepwd@${QA_ENDPOINT_ID}.us-east-2.aws.neon.tech/baitqa`;
+const QA_DUP_DB_URL = `postgresql://fakeuser:fakepwd@${QA_ENDPOINT_ID}.us-east-2.aws.neon.tech/baitprepago_duplicates`;
 // A fake URL that looks like a Neon Production URL
 const PROD_DB_URL = `postgresql://fakeuser:fakepwd@${PRODUCTION_ENDPOINT_ID}.us-east-2.aws.neon.tech/baitprod`;
 // A fake STORAGE URL that contains Production endpoint (shared scope)
@@ -103,6 +104,7 @@ function qaEnv(overrides) {
     EXPECTED_NEON_BRANCH_ID:  QA_BRANCH_ID,
     EXPECTED_NEON_ENDPOINT_ID: QA_ENDPOINT_ID,
     DATABASE_URL:             QA_DB_URL,
+    DUPLICATES_DATABASE_URL:  QA_DUP_DB_URL,
   }, overrides);
 }
 
@@ -191,8 +193,38 @@ assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: PROD_DB_URL }),
 
 // 16. DUPLICATES_DATABASE_URL contains QA endpoint
 console.log('─ Test 16: DUPLICATES_DATABASE_URL pointing to QA endpoint → PASS');
-assertPass(qaEnv({ DUPLICATES_DATABASE_URL: QA_DB_URL }),
+assertPass(qaEnv({ DUPLICATES_DATABASE_URL: QA_DUP_DB_URL }),
   'QA DUPLICATES_DATABASE_URL → PASS');
+
+// 17. DUPLICATES_DATABASE_URL missing in preview
+console.log('─ Test 17: DUPLICATES_DATABASE_URL missing → FAIL CLOSED');
+assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: undefined }),
+  'Missing DUPLICATES_DATABASE_URL → FAIL CLOSED');
+
+// 18. DUPLICATES_DATABASE_URL uses neondb
+console.log('─ Test 18: DUPLICATES_DATABASE_URL uses neondb → FAIL CLOSED');
+assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: QA_DB_URL.replace('baitprepago_duplicates', 'neondb') }),
+  'DUPLICATES_DATABASE_URL with neondb → FAIL CLOSED');
+
+// 19. DUPLICATES_DATABASE_URL uses deceptive hostname
+console.log('─ Test 19: DUPLICATES_DATABASE_URL uses deceptive hostname → FAIL CLOSED');
+assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: QA_DB_URL.replace(QA_ENDPOINT_ID, 'fake-ep-jolly-bread-avsqkawa') }),
+  'DUPLICATES_DATABASE_URL with deceptive hostname → FAIL CLOSED');
+
+// 20. DUPLICATES_DATABASE_URL contains endpoint in password
+console.log('─ Test 20: DUPLICATES_DATABASE_URL contains production endpoint in password → FAIL CLOSED');
+assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: `postgresql://user:${PRODUCTION_ENDPOINT_ID}@${QA_ENDPOINT_ID}.proxy.neon.tech/baitprepago_duplicates` }),
+  'DUPLICATES_DATABASE_URL with endpoint in password → FAIL CLOSED');
+
+// 21. DUPLICATES_DATABASE_URL contains endpoint in query string
+console.log('─ Test 21: DUPLICATES_DATABASE_URL contains production endpoint in query string → FAIL CLOSED');
+assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: `${QA_DB_URL}&foo=${PRODUCTION_ENDPOINT_ID}` }),
+  'DUPLICATES_DATABASE_URL with endpoint in query string → FAIL CLOSED');
+
+// 22. DUPLICATES_DATABASE_URL malformed URL
+console.log('─ Test 22: DUPLICATES_DATABASE_URL malformed URL → FAIL CLOSED');
+assertFailClosed(qaEnv({ DUPLICATES_DATABASE_URL: 'not-a-url' }),
+  'DUPLICATES_DATABASE_URL with malformed URL → FAIL CLOSED');
 
 // ─── Parity test: resolveDbUrl mirrors lib/db.js resolution ─────────────────
 console.log('─ Test 15: resolveDbUrl parity with lib/db.js');

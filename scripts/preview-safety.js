@@ -139,16 +139,53 @@ function enforceSafety(env) {
 
   // ── 10. Check DUPLICATES_DATABASE_URL if present ──────────────────────────
   const dupUrl = env.DUPLICATES_DATABASE_URL;
-  if (dupUrl) {
-    if (dupUrl.includes(PRODUCTION_ENDPOINT_ID) || dupUrl.includes(PRODUCTION_BRANCH_ID)) {
+  if (VERCEL_ENV === 'preview') {
+    if (!dupUrl) {
+      console.error('❌ FAIL CLOSED: DUPLICATES_DATABASE_URL missing. Preview requires explicit secondary DB config.');
+      process.exit(1);
+    }
+    
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(dupUrl);
+    } catch (err) {
+      console.error('❌ FAIL CLOSED: DUPLICATES_DATABASE_URL is not a valid URL.');
+      process.exit(1);
+    }
+
+    if (parsedUrl.protocol !== 'postgres:' && parsedUrl.protocol !== 'postgresql:') {
+      console.error('❌ FAIL CLOSED: DUPLICATES_DATABASE_URL protocol must be postgres.');
+      process.exit(1);
+    }
+
+    // Must strictly match the endpoint id in hostname
+    const expectedDupEndpoint = env.EXPECTED_DUPLICATES_NEON_ENDPOINT_ID || EXPECTED_NEON_ENDPOINT_ID;
+    if (!parsedUrl.hostname.startsWith(expectedDupEndpoint + '.')) {
+      console.error('❌ FAIL CLOSED: DUPLICATES_DATABASE_URL hostname does not match expected QA endpoint.');
+      process.exit(1);
+    }
+
+    // Must strictly match the database name
+    const expectedDupDbName = env.EXPECTED_DUPLICATES_DATABASE_NAME || 'baitprepago_duplicates';
+    const dbName = parsedUrl.pathname.slice(1);
+    if (dbName !== expectedDupDbName) {
+      console.error('❌ FAIL CLOSED: DUPLICATES_DATABASE_URL database name does not match expected QA database.');
+      process.exit(1);
+    }
+
+    // Reject query string hacks and username/password trickery
+    if (
+      parsedUrl.username.includes(PRODUCTION_ENDPOINT_ID) || 
+      parsedUrl.password.includes(PRODUCTION_ENDPOINT_ID) || 
+      dupUrl.includes(PRODUCTION_ENDPOINT_ID) ||
+      dupUrl.includes(PRODUCTION_BRANCH_ID)
+    ) {
       console.error(
         `❌ FAIL CLOSED: DUPLICATES_DATABASE_URL contiene identificadores de Producción. ` +
         'Preview NO puede conectarse a Producción para la BDD secundaria.'
       );
       process.exit(1);
     }
-  } else if (VERCEL_ENV === 'preview') {
-    console.warn('⚠️  WARNING: DUPLICATES_DATABASE_URL no está configurada. La inserción de duplicados fallará.');
   }
 
   // ── All checks passed ─────────────────────────────────────────────────────
