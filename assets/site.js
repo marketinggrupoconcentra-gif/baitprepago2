@@ -319,6 +319,24 @@
     var submitBtn = document.getElementById('pf-btn-3');
     if (submitBtn) submitBtn.disabled = true;
 
+    /* Guardar datos para personalización en la página de agradecimiento */
+    try {
+      sessionStorage.setItem('bait_lead_name', formData.nombre || '');
+      sessionStorage.setItem('bait_lead_phone', formData.phone || '');
+    } catch (_) {}
+
+    if (status) status.textContent = 'Enviando solicitud…';
+
+    var redirected = false;
+    function goToThankYou() {
+      if (redirected) return;
+      redirected = true;
+      window.location.assign('/gracias/');
+    }
+
+    /* Redirigir a página de agradecimiento con temporizador de seguridad */
+    var safetyTimer = setTimeout(goToThankYou, 2000);
+
     /* Guardar lead en la base de datos para seguimiento y panel admin */
     try {
       var utms = getUtms();
@@ -347,17 +365,19 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         keepalive: true
-      }).catch(function () {});
-    } catch (_) {}
-
-    /* All good → redirect to WhatsApp */
-    var msg = encodeURIComponent(
-      '¡Hola! Quiero continuar mi portabilidad.\n' +
-      'Número a portar: ' + formData.phone + '\n' +
-      'Nombre: ' + formData.nombre + ' ' + formData.apellido
-    );
-    if (status) status.textContent = 'Datos validados. Abriendo WhatsApp para continuar…';
-    window.location.assign('https://api.whatsapp.com/send/?phone=5215548268533&text=' + msg + '&type=phone_number&app_absent=0');
+      })
+        .then(function () {
+          clearTimeout(safetyTimer);
+          goToThankYou();
+        })
+        .catch(function () {
+          clearTimeout(safetyTimer);
+          goToThankYou();
+        });
+    } catch (_) {
+      clearTimeout(safetyTimer);
+      goToThankYou();
+    }
   });
 
 })();
