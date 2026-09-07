@@ -6,11 +6,12 @@
 - **Infraestructura y Hosting**: Vercel
 - **Base de Datos**: Neon PostgreSQL (conectado mediante Integración de Vercel)
 - **Runtime de API**: Vercel Serverless Functions (`api/`)
+- **Correo**: Resend
 
 > [!WARNING]
 > **STACK ESTRICTO**
-> Queda estrictamente prohibido utilizar o configurar servicios alternativos de terceros como: Cloudflare, Cloudflare Pages, Cloudflare Workers, Supabase, Firebase, Redis, WorkOS, Auth0, Clerk, Resend, etc.
-> El stack es exclusivo de Vercel y Neon.
+> Queda estrictamente prohibido utilizar o configurar servicios alternativos de terceros como: Cloudflare, Cloudflare Pages, Cloudflare Workers, Supabase, Firebase, Redis, WorkOS, Auth0, Clerk, SendGrid, Mailgun, Amazon SES, Brevo, Twilio, etc.
+> El stack es exclusivo de Vercel, Neon y Resend.
 
 ## 2. Reglas de Seguridad (PII y NIP)
 

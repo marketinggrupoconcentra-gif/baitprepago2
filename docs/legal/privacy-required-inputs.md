@@ -1,9 +1,6 @@
 # Datos legales pendientes — Aviso de Privacidad Integral
 
-Estado: **BLOCKED** — el Aviso de Privacidad técnico (`/aviso-de-privacidad/`) ya está publicado y
-funcional en QA, pero no puede certificarse como legalmente completo hasta que el negocio
-proporcione los siguientes datos. Ninguno de estos valores fue inventado; están marcados como
-`pendiente` directamente en la página.
+Estado: **RESOLVED** — Se incluyeron los datos corporativos de Walmart y se autorizó Resend.
 
 ## Pendientes
 
