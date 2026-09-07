@@ -186,7 +186,6 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       assert.ok(imgSrcBefore && imgSrcBefore.startsWith('data:image/svg+xml'), 'El CAPTCHA se renderiza como imagen SVG servida por backend');
 
       await page.fill('#pf-captcha-input', '000000'); // near-certainly wrong
-      await page.fill('#pf-wa-code', '123456');
       await page.check('#pf-consent');
       await page.click('#pf-btn-3');
       await page.waitForTimeout(1000);
@@ -236,11 +235,9 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       const ctx = await newContext(browser);
       const page = await ctx.newPage();
 
-      // Prevent the final WhatsApp redirect from actually navigating this
-      // Playwright page away from the Preview — WhatsApp's number, message
-      // and destination are untouched; we only stop the browser-level
-      // navigation so the test can keep asserting after submit.
-      await page.route('https://api.whatsapp.com/**', route => route.abort());
+      // No need to intercept WhatsApp redirect anymore since it goes to /gracias/
+      // but we can intercept /gracias/ to prevent navigating away.
+      await page.route('**/gracias/**', route => route.abort());
 
       // Hand the page our known challenge instead of a server-generated one.
       await page.route('**/api/captcha/challenge', route => route.fulfill({
@@ -263,7 +260,6 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       await waitForCaptchaImage(page); // our mocked /api/captcha/challenge resolves
 
       await page.fill('#pf-captcha-input', knownAnswer);
-      await page.fill('#pf-wa-code', '654321');
       await page.check('#pf-consent');
 
       // waitForResponse must be armed before the click that triggers the
