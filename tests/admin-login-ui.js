@@ -97,10 +97,10 @@ async function runTests() {
     assert(cspViolations === 0, 'No CSP Console Violations');
 
     // 2. Elements existence
-    const title = await page.locator('.login-title').textContent();
+    const title = await page.locator('#loginCard .login-title').textContent();
     assert(title.trim() === 'Iniciar sesión', 'Title is correct');
 
-    const subtitle = await page.locator('.login-subtitle').textContent();
+    const subtitle = await page.locator('#loginCard .login-subtitle').textContent();
     assert(subtitle.trim() === 'Accede al panel de administración de BAIT Prepago', 'Subtitle is correct');
 
     const logoCount = await page.locator('.login-logo').count();
@@ -129,10 +129,15 @@ async function runTests() {
 
     // 4. Recovery interaction
     await page.click('#forgotPasswordBtn');
-    const recMsg = await page.locator('#recoveryMessage');
-    const isHidden = await recMsg.getAttribute('hidden');
-    const msgText = await recMsg.textContent();
-    assert(isHidden === null && msgText.includes('administrador del sistema'), 'Recovery message shown without alert');
+    
+    // Recovery card should be visible
+    const recoveryCardHidden = await page.locator('#recoveryCard').getAttribute('hidden');
+    assert(recoveryCardHidden === null, 'Recovery card becomes visible');
+    
+    // Go back to login
+    await page.click('#backToLoginBtn');
+    const loginCardHidden = await page.locator('#loginCard').getAttribute('hidden');
+    assert(loginCardHidden === null, 'Login card becomes visible again');
 
     // 5. Submit behavior (Mocked)
     // We mock the API login response

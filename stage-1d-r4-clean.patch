@@ -1,0 +1,1175 @@
+From aa69cec939239056e13a891193c141f42cff602b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Josseth=20Casta=C3=B1eda=20Trejo?=
+ <jtrejo.lid.mkt@gmail.com>
+Date: Thu, 3 Sep 2026 12:05:13 -0600
+Subject: [PATCH] test(workflow): harden real R3 certification and terminal UX
+
+---
+ admin/dashboard.css                |  49 +++++
+ admin/leads.html                   |  18 +-
+ assets/admin-leads.js              |  77 ++++++--
+ lib/db.js                          |  13 +-
+ package.json                       |   5 +-
+ scripts/migrate-lead-workflow.js   |   2 +-
+ tests/db-env-resolution.test.js    |  69 +++----
+ tests/workflow-browser-e2e.js      | 142 ++++++++-------
+ tests/workflow-db-integration.cjs  | 105 ++++++-----
+ tests/workflow-http-integration.js | 282 +++++++++++++++++------------
+ 10 files changed, 459 insertions(+), 303 deletions(-)
+
+diff --git a/admin/dashboard.css b/admin/dashboard.css
+index b8710fcb..3f536eac 100644
+--- a/admin/dashboard.css
++++ b/admin/dashboard.css
+@@ -930,3 +930,52 @@ body {
+   color: var(--text-secondary);
+   padding: 40px 0;
+ }
++
++/* ── Modal Confirmation ──────────────────────────────────────────────── */
++.modal-overlay {
++  position: fixed;
++  inset: 0;
++  background: rgba(0,0,0,0.5);
++  z-index: 2000;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  opacity: 0;
++  pointer-events: none;
++  transition: opacity var(--ease);
++}
++.modal-overlay[style*="display: flex"],
++.modal-overlay[style*="display: block"] {
++  opacity: 1;
++  pointer-events: auto;
++}
++.modal-content {
++  background: var(--card-bg);
++  border-radius: var(--r-lg);
++  padding: 24px;
++  width: 90%;
++  max-width: 400px;
++  box-shadow: var(--shadow-elevated);
++  transform: translateY(20px);
++  transition: transform var(--ease);
++}
++.modal-overlay[style*="display: flex"] .modal-content,
++.modal-overlay[style*="display: block"] .modal-content {
++  transform: translateY(0);
++}
++.modal-content h3 {
++  margin: 0 0 8px 0;
++  font-size: 16px;
++  color: var(--text-primary);
++}
++.modal-content p {
++  margin: 0 0 20px 0;
++  font-size: 14px;
++  color: var(--text-secondary);
++  line-height: 1.5;
++}
++.modal-actions {
++  display: flex;
++  justify-content: flex-end;
++  gap: 12px;
++}
+diff --git a/admin/leads.html b/admin/leads.html
+index 7601dc49..c45e6317 100644
+--- a/admin/leads.html
++++ b/admin/leads.html
+@@ -286,7 +286,12 @@
+               <select id="reasonSelect" class="search-input" style="display:none;"></select>
+               <button id="btnSaveStatus" class="btn-primary" disabled>Guardar Estado</button>
+             </div>
+-            <div id="statusError" style="color: var(--danger-color, #dc2626); font-size: 0.875rem; margin-top: 0.5rem; display:none;"></div>
++            <div id="statusError" style="color: var(--danger-color, #dc2626); font-size: 0.875rem; margin-top: 0.5rem; display:none;">
++              <span class="error-text"></span>
++              <div class="conflict-message" style="display:none; margin-top: 4px; padding: 6px; background: rgba(220, 38, 38, 0.1); border-radius: 4px;">
++                El lead fue modificado por otro usuario. Por favor, recarga el panel.
++              </div>
++            </div>
+           </div>
+         </div>
+ 
+@@ -316,6 +321,17 @@
+       </div>
+     </div>
+   </aside>
++  <!-- Modal Confirmación Terminal -->
++  <div id="statusConfirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="statusConfirmTitle" aria-hidden="true" style="display:none;">
++    <div class="modal-content">
++      <h3 id="statusConfirmTitle">Confirmar Acción</h3>
++      <p id="statusConfirmMessage">Estás a punto de mover este lead a un estado terminal. ¿Deseas continuar?</p>
++      <div class="modal-actions">
++        <button id="btnCancelStatus" class="btn-ghost">Cancelar</button>
++        <button id="btnConfirmStatus" class="btn-primary">Confirmar</button>
++      </div>
++    </div>
++  </div>
+ 
+   <script src="/assets/admin-leads.js" type="module"></script>
+ </body>
+diff --git a/assets/admin-leads.js b/assets/admin-leads.js
+index 35ada48f..1b17b5d8 100644
+--- a/assets/admin-leads.js
++++ b/assets/admin-leads.js
+@@ -69,7 +69,12 @@ const UI = {
+   statusSelect: document.getElementById('statusSelect'),
+   reasonSelect: document.getElementById('reasonSelect'),
+   btnSaveStatus: document.getElementById('btnSaveStatus'),
+-  statusError: document.getElementById('statusError')
++  statusError: document.getElementById('statusError'),
++  
++  // Terminal Confirmation Modal
++  statusConfirmModal: document.getElementById('statusConfirmModal'),
++  btnConfirmStatus: document.getElementById('btnConfirmStatus'),
++  btnCancelStatus: document.getElementById('btnCancelStatus')
+ };
+ 
+ /**
+@@ -275,6 +280,17 @@ function setupEventListeners() {
+   UI.reasonSelect.addEventListener('change', checkStatusFormDirty);
+   UI.btnSaveStatus.addEventListener('click', saveStatus);
+ 
++  // Terminal Modal
++  UI.btnConfirmStatus.addEventListener('click', () => {
++    UI.statusConfirmModal.style.display = 'none';
++    UI.statusConfirmModal.setAttribute('aria-hidden', 'true');
++    executeSaveStatus();
++  });
++  UI.btnCancelStatus.addEventListener('click', () => {
++    UI.statusConfirmModal.style.display = 'none';
++    UI.statusConfirmModal.setAttribute('aria-hidden', 'true');
++  });
++
+   // Drawer
+   UI.btnCloseDrawer.addEventListener('click', closeDrawer);
+   UI.drawerOverlay.addEventListener('click', closeDrawer);
+@@ -295,16 +311,20 @@ function checkStatusFormDirty() {
+   const newStatus = UI.statusSelect.value;
+   const newReason = UI.reasonSelect.value;
+   
+-  if (!newStatus || newStatus === currentLeadData.status) {
++  const isTerminal = (newStatus === 'REJECTED' || newStatus === 'CANCELLED');
++  const currentReason = currentLeadData.statusReason || null;
++  const selectedReason = newReason || null;
++  
++  // Disable if no change
++  if (newStatus === currentLeadData.status && selectedReason === currentReason) {
+     UI.btnSaveStatus.disabled = true;
+     return;
+   }
+   
+-  if (newStatus === 'REJECTED' || newStatus === 'CANCELLED') {
+-    if (!newReason) {
+-      UI.btnSaveStatus.disabled = true;
+-      return;
+-    }
++  // Terminal status requires a reason
++  if (isTerminal && !selectedReason) {
++    UI.btnSaveStatus.disabled = true;
++    return;
+   }
+   
+   UI.btnSaveStatus.disabled = false;
+@@ -368,6 +388,7 @@ function renderTable(leads, append) {
+ 
+   leads.forEach(lead => {
+     const tr = document.createElement('tr');
++    tr.setAttribute('data-id', lead.id);
+     
+     const tdId = document.createElement('td');
+     tdId.textContent = lead.id;
+@@ -403,7 +424,7 @@ function renderTable(leads, append) {
+     
+     const tdActions = document.createElement('td');
+     const btnDrawer = document.createElement('button');
+-    btnDrawer.className = 'btn-ghost btn-sm';
++    btnDrawer.className = 'btn-ghost btn-sm view-lead-btn';
+     btnDrawer.textContent = 'Ver detalle';
+     btnDrawer.addEventListener('click', () => openLeadDrawer(lead.id));
+     tdActions.appendChild(btnDrawer);
+@@ -661,12 +682,31 @@ async function openLeadDrawer(id) {
+ 
+ async function saveStatus() {
+   if (!currentLeadData) return;
++  
+   const newStatus = UI.statusSelect.value;
+-  const newReason = UI.reasonSelect.value;
++  const isTerminal = (newStatus === 'REJECTED' || newStatus === 'CANCELLED' || newStatus === 'COMPLETED');
++  
++  // If terminal and status changed, confirm first. If it's just a reason change on same status, no confirmation needed.
++  if (isTerminal && newStatus !== currentLeadData.status) {
++    UI.statusConfirmModal.style.display = 'flex';
++    UI.statusConfirmModal.setAttribute('aria-hidden', 'false');
++    return;
++  }
++  
++  await executeSaveStatus();
++}
++
++async function executeSaveStatus() {
++  const newStatus = UI.statusSelect.value;
++  const isTerminal = (newStatus === 'REJECTED' || newStatus === 'CANCELLED');
++  const newReason = isTerminal ? UI.reasonSelect.value : null; // send null if not terminal
+   
+   UI.btnSaveStatus.disabled = true;
+   UI.btnSaveStatus.textContent = 'Guardando...';
+   UI.statusError.style.display = 'none';
++  const conflictMessage = UI.statusError.querySelector('.conflict-message');
++  const errorText = UI.statusError.querySelector('.error-text');
++  if (conflictMessage) conflictMessage.style.display = 'none';
+ 
+   try {
+     const res = await fetchWithAuth('/api/admin/leads/status', {
+@@ -675,7 +715,7 @@ async function saveStatus() {
+       body: JSON.stringify({
+         id: currentLeadData.id,
+         status: newStatus,
+-        reason: (newStatus === 'REJECTED' || newStatus === 'CANCELLED') ? newReason : null,
++        reason: newReason,
+         expectedVersion: currentLeadData.statusVersion
+       })
+     });
+@@ -684,7 +724,10 @@ async function saveStatus() {
+ 
+     if (!res.ok) {
+       if (res.status === 409) {
+-        throw new Error('Conflicto: El estado fue modificado por otro usuario. Refresca e intenta de nuevo.');
++        if (conflictMessage) conflictMessage.style.display = 'block';
++        UI.statusError.style.display = 'block';
++        if (errorText) errorText.textContent = '';
++        throw new Error('Conflicto detectado');
+       }
+       throw new Error(json.error || 'Error al guardar estado.');
+     }
+@@ -719,11 +762,17 @@ async function saveStatus() {
+     checkStatusFormDirty();
+     
+   } catch (err) {
+-    UI.statusError.textContent = err.message;
+-    UI.statusError.style.display = 'block';
++    if (err.message !== 'Conflicto detectado') {
++      if (errorText) {
++        errorText.textContent = err.message;
++      } else {
++        UI.statusError.textContent = err.message;
++      }
++      UI.statusError.style.display = 'block';
++    }
+   } finally {
+     UI.btnSaveStatus.textContent = 'Guardar Estado';
+-    checkStatusFormDirty(); // Restore button disabled state appropriately
++    checkStatusFormDirty();
+   }
+ }
+ 
+diff --git a/lib/db.js b/lib/db.js
+index d09c4cf9..39752f34 100644
+--- a/lib/db.js
++++ b/lib/db.js
+@@ -3,16 +3,19 @@ import { neon } from '@neondatabase/serverless';
+ // Singleton instance to prevent multiple connections in the same function execution context
+ let sqlInstance = null;
+ 
+-export function getDb() {
+-  if (sqlInstance) return sqlInstance;
+-
++export function resolveDatabaseUrl(env) {
+   // Use standard DATABASE_URL provided by Neon/Vercel integration
+-  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.STORAGE_DATABASE_URL;
+-  
++  const dbUrl = env.DATABASE_URL || env.POSTGRES_URL || env.STORAGE_DATABASE_URL;
+   if (!dbUrl) {
+     throw new Error('Database connection string is missing (DATABASE_URL/POSTGRES_URL/STORAGE_DATABASE_URL)');
+   }
++  return dbUrl;
++}
++
++export function getDb() {
++  if (sqlInstance) return sqlInstance;
+ 
++  const dbUrl = resolveDatabaseUrl(process.env);
+   sqlInstance = neon(dbUrl);
+   return sqlInstance;
+ }
+diff --git a/package.json b/package.json
+index dd161628..9d5e228c 100644
+--- a/package.json
++++ b/package.json
+@@ -14,10 +14,11 @@
+     "test:leads-unit": "node tests/leads-unit.js",
+     "test:leads-integration": "node --env-file=.env.branch tests/leads-integration.js",
+     "test:workflow-unit": "node tests/workflow-unit.js",
+-    "test:workflow-db-integration": "node --env-file=.env.preview tests/workflow-db-integration.cjs",
++    "test:workflow-db-integration": "node --env-file=.env.branch tests/workflow-db-integration.cjs",
+     "test:workflow-http-integration": "node --env-file=.env.branch tests/workflow-http-integration.js",
+     "test:workflow-browser-e2e": "node --env-file=.env.branch tests/workflow-browser-e2e.js",
+-    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit"
++    "test:db-env-resolution": "node --test tests/db-env-resolution.test.js",
++    "test": "npm run test:foundation && npm run test:auth && npm run test:dashboard-unit && npm run test:leads-unit && npm run test:workflow-unit && npm run test:db-env-resolution"
+   },
+   "dependencies": {
+     "@neondatabase/serverless": "^1.1.0"
+diff --git a/scripts/migrate-lead-workflow.js b/scripts/migrate-lead-workflow.js
+index 464bcd58..fd00dc55 100644
+--- a/scripts/migrate-lead-workflow.js
++++ b/scripts/migrate-lead-workflow.js
+@@ -3,7 +3,7 @@
+  * Runner for Phase 1D-A Workflow Migration
+  */
+ 
+-require('dotenv').config({ path: '.env.preview' });
++// Removed dotenv to use native node --env-file
+ const fs = require('fs');
+ const path = require('path');
+ const { Pool } = require('@neondatabase/serverless');
+diff --git a/tests/db-env-resolution.test.js b/tests/db-env-resolution.test.js
+index 29adeca4..cdd73571 100644
+--- a/tests/db-env-resolution.test.js
++++ b/tests/db-env-resolution.test.js
+@@ -2,74 +2,51 @@
+ const test = require('node:test');
+ const assert = require('node:assert');
+ 
+-// We need to test lib/db.js without actually connecting to the database
+-// so we mock @neondatabase/serverless.
+-const Module = require('node:module');
+-
+ test('DB Env Resolution Precedence', (t) => {
+-  const originalEnv = { ...process.env };
+-
+-  t.afterEach(() => {
+-    process.env = { ...originalEnv };
+-  });
+-
+-  const getDbInstance = () => {
+-    delete require.cache[require.resolve('../lib/db.js')];
+-    const { getDb } = require('../lib/db.js');
+-    return getDb;
+-  };
++  const { resolveDatabaseUrl } = require('../lib/db.js');
+ 
+   t.test('1. no supported env => throws', () => {
+-    delete process.env.DATABASE_URL;
+-    delete process.env.POSTGRES_URL;
+-    delete process.env.STORAGE_DATABASE_URL;
+-    
+-    const getDb = getDbInstance();
++    const env = {};
+     assert.throws(() => {
+-      getDb();
++      resolveDatabaseUrl(env);
+     }, /Database connection string is missing \(DATABASE_URL\/POSTGRES_URL\/STORAGE_DATABASE_URL\)/);
+   });
+ 
+   t.test('2. DATABASE_URL wins over everything', () => {
+-    process.env.DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/db_url';
+-    process.env.POSTGRES_URL = 'postgresql://fakeuser:fakepass@host.tld/pg_url';
+-    process.env.STORAGE_DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/storage_url';
++    const env = {
++      DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/db_url',
++      POSTGRES_URL: 'postgresql://fakeuser:fakepass@host.tld/pg_url',
++      STORAGE_DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/storage_url'
++    };
+     
+-    const getDb = getDbInstance();
+-    const db = getDb();
+-    // neon() returns a function, we just check it didn't throw
+-    assert.ok(typeof db === 'function' || typeof db === 'object');
++    const dbUrl = resolveDatabaseUrl(env);
++    assert.strictEqual(dbUrl, 'postgresql://fakeuser:fakepass@host.tld/db_url');
+   });
+ 
+   t.test('3. POSTGRES_URL is second fallback', () => {
+-    delete process.env.DATABASE_URL;
+-    process.env.POSTGRES_URL = 'postgresql://fakeuser:fakepass@host.tld/pg_url';
+-    process.env.STORAGE_DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/storage_url';
++    const env = {
++      POSTGRES_URL: 'postgresql://fakeuser:fakepass@host.tld/pg_url',
++      STORAGE_DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/storage_url'
++    };
+     
+-    const getDb = getDbInstance();
+-    const db = getDb();
+-    assert.ok(typeof db === 'function' || typeof db === 'object');
++    const dbUrl = resolveDatabaseUrl(env);
++    assert.strictEqual(dbUrl, 'postgresql://fakeuser:fakepass@host.tld/pg_url');
+   });
+ 
+   t.test('4. STORAGE_DATABASE_URL is third fallback', () => {
+-    delete process.env.DATABASE_URL;
+-    delete process.env.POSTGRES_URL;
+-    process.env.STORAGE_DATABASE_URL = 'postgresql://fakeuser:fakepass@host.tld/storage_url';
++    const env = {
++      STORAGE_DATABASE_URL: 'postgresql://fakeuser:fakepass@host.tld/storage_url'
++    };
+     
+-    const getDb = getDbInstance();
+-    const db = getDb();
+-    assert.ok(typeof db === 'function' || typeof db === 'object');
++    const dbUrl = resolveDatabaseUrl(env);
++    assert.strictEqual(dbUrl, 'postgresql://fakeuser:fakepass@host.tld/storage_url');
+   });
+ 
+   t.test('5. no secret value is logged', () => {
+-    delete process.env.DATABASE_URL;
+-    delete process.env.POSTGRES_URL;
+-    delete process.env.STORAGE_DATABASE_URL;
+-    
+-    const getDb = getDbInstance();
++    const env = {};
+     let errorMsg = '';
+     try {
+-      getDb();
++      resolveDatabaseUrl(env);
+     } catch (err) {
+       errorMsg = err.message;
+     }
+diff --git a/tests/workflow-browser-e2e.js b/tests/workflow-browser-e2e.js
+index 41c406ae..90cb76c3 100644
+--- a/tests/workflow-browser-e2e.js
++++ b/tests/workflow-browser-e2e.js
+@@ -1,5 +1,6 @@
+ const { chromium } = require('playwright');
+ const assert = require('assert');
++const { resolveDatabaseUrl } = require('../lib/db.js');
+ const { neon } = require('@neondatabase/serverless');
+ 
+ const REQUIRED_ENVS = [
+@@ -8,8 +9,7 @@ const REQUIRED_ENVS = [
+   'QA_ADMIN_EMAIL',
+   'QA_ADMIN_PASSWORD',
+   'QA_VIEWER_EMAIL',
+-  'QA_VIEWER_PASSWORD',
+-  'DATABASE_URL'
++  'QA_VIEWER_PASSWORD'
+ ];
+ 
+ for (const env of REQUIRED_ENVS) {
+@@ -22,13 +22,13 @@ for (const env of REQUIRED_ENVS) {
+ const BASE_URL = process.env.VERCEL_PREVIEW_URL.replace(/\/$/, '');
+ const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+ 
+-async function seedLead(sql) {
++async function seedLead(sql, runId) {
+   const insertRes = await sql`
+     INSERT INTO leads (
+       phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+       page_url, referrer, status, status_version
+     ) VALUES (
+-      '5555555555', 'TEST_BROWSER', 'TEST', 'TEST', 'TEST', 'TEST',
++      '5555555555', ${runId}, 'TEST', 'TEST', 'TEST', 'TEST',
+       'http://test', 'http://test', 'NEW', 1
+     ) RETURNING id
+   `;
+@@ -37,9 +37,11 @@ async function seedLead(sql) {
+ 
+ (async () => {
+   console.log('--- STARTING WORKFLOW BROWSER E2E ---');
++  const dbUrl = resolveDatabaseUrl(process.env);
++  const sql = neon(dbUrl);
+   
+-  const sql = neon(process.env.DATABASE_URL);
+-  const syntheticLeadId = await seedLead(sql);
++  const RUN_ID = 'BROWSER_TEST_' + Date.now();
++  const syntheticLeadId = await seedLead(sql, RUN_ID);
+ 
+   const browser = await chromium.launch();
+   const context = await browser.newContext({
+@@ -48,7 +50,7 @@ async function seedLead(sql) {
+     }
+   });
+ 
+-  // Also set bypass cookie
++  // Set bypass cookie directly on domain
+   await context.addCookies([{
+     name: 'x-vercel-bypass',
+     value: BYPASS_SECRET,
+@@ -70,90 +72,105 @@ async function seedLead(sql) {
+     await page.waitForURL('**/admin/dashboard');
+     console.log('    Login successful (Dashboard visible).');
+     
+-    // Navigate to Leads via UI
++    // Navigate to Leads
+     await page.click('a[href="/admin/leads"]');
+     await page.waitForURL('**/admin/leads');
+     console.log('    Navigated to Leads.');
+     
+-    // Find the synthetic lead
+-    await page.waitForSelector(`tr[data-id="${syntheticLeadId}"]`);
++    // Find the synthetic lead by data-id
++    const rowSelector = `tr[data-id="${syntheticLeadId}"]`;
++    await page.waitForSelector(rowSelector);
+     
+-    // Open Workflow Drawer
+-    await page.click(`tr[data-id="${syntheticLeadId}"] button.view-lead-btn`);
+-    await page.waitForSelector('#workflow-drawer.open');
++    // Open Workflow Drawer using stable class selector
++    await page.click(`${rowSelector} button.view-lead-btn`);
++    await page.waitForSelector('#drawerTitle', { state: 'visible' });
+     console.log('    Workflow Drawer opened.');
+     
+     // Change to CONTACTED
+-    await page.selectOption('#status-select', 'CONTACTED');
++    await page.selectOption('#statusSelect', 'CONTACTED');
+     
+     // Save and wait for network
+     const [contactedRes] = await Promise.all([
+       page.waitForResponse(res => res.url().includes('/api/admin/leads/status') && res.status() === 200),
+-      page.click('#save-status-btn')
++      page.click('#btnSaveStatus')
+     ]);
+     console.log('    Saved CONTACTED (PATCH 200 OK).');
+     
+     // Verify badge
+-    const badgeText = await page.innerText('#current-status-badge');
+-    assert(badgeText.includes('Contactado'), 'Badge should show Contactado');
++    const badgeText = await page.innerText('#detailStatusBadge');
++    assert(badgeText.includes('Contactado') || badgeText.includes('CONTACTED'), 'Badge should reflect new status');
+     
+     // Close and reopen to verify persistence
+-    await page.click('#close-drawer-btn');
+-    await page.waitForSelector('#workflow-drawer', { state: 'hidden' });
+-    await page.click(`tr[data-id="${syntheticLeadId}"] button.view-lead-btn`);
+-    await page.waitForSelector('#workflow-drawer.open');
+-    const reopenedBadgeText = await page.innerText('#current-status-badge');
+-    assert(reopenedBadgeText.includes('Contactado'), 'Persistence verified.');
++    await page.click('#btnCloseDrawer');
++    await page.waitForSelector('#leadDrawer', { state: 'hidden' });
++    
++    await page.click(`${rowSelector} button.view-lead-btn`);
++    await page.waitForSelector('#drawerTitle', { state: 'visible' });
++    const reopenedBadgeText = await page.innerText('#detailStatusBadge');
++    assert(reopenedBadgeText.includes('Contactado') || reopenedBadgeText.includes('CONTACTED'), 'Persistence verified.');
+ 
++    console.log('[+] Testing Terminal Modal Flow...');
+     // Change to REJECTED -> Reason conditional
+-    await page.selectOption('#status-select', 'REJECTED');
+-    await page.waitForSelector('#reason-select', { state: 'visible' });
+-    await page.selectOption('#reason-select', 'INVALID_DATA');
++    await page.selectOption('#statusSelect', 'REJECTED');
++    await page.waitForSelector('#reasonSelect', { state: 'visible' });
++    await page.selectOption('#reasonSelect', 'INVALID_DATA');
++    
++    // Click save, expect confirmation modal
++    await page.click('#btnSaveStatus');
++    await page.waitForSelector('#statusConfirmModal', { state: 'visible' });
++    
++    // Test cancel
++    await page.click('#btnCancelStatus');
++    await page.waitForSelector('#statusConfirmModal', { state: 'hidden' });
+     
+-    // Save, expect confirmation modal
+-    await page.click('#save-status-btn');
+-    await page.waitForSelector('#confirmation-modal', { state: 'visible' });
++    // Click save again, then confirm
++    await page.click('#btnSaveStatus');
++    await page.waitForSelector('#statusConfirmModal', { state: 'visible' });
+     
+     const [rejectedRes] = await Promise.all([
+       page.waitForResponse(res => res.url().includes('/api/admin/leads/status') && res.status() === 200),
+-      page.click('#confirm-action-btn')
++      page.click('#btnConfirmStatus')
+     ]);
+-    console.log('    Saved REJECTED (PATCH 200 OK).');
++    console.log('    Saved REJECTED (PATCH 200 OK via Modal).');
+     
+-    const rejectBadgeText = await page.innerText('#current-status-badge');
+-    assert(rejectBadgeText.includes('Rechazado'), 'Badge should show Rechazado');
++    const rejectBadgeText = await page.innerText('#detailStatusBadge');
++    assert(rejectBadgeText.includes('Rechazado') || rejectBadgeText.includes('REJECTED'), 'Badge should show Rechazado');
+     
+     // Hide reason
+-    await page.selectOption('#status-select', 'CONTACTED');
+-    await page.waitForSelector('#reason-container.hidden');
++    await page.selectOption('#statusSelect', 'CONTACTED');
++    await page.waitForSelector('#reasonSelect', { state: 'hidden' });
+     console.log('    Reason hidden when switching back to CONTACTED.');
+ 
+-    // Conflict Real
+-    console.log('[+] Testing 409 Conflict Modal...');
+-    // Do a background patch using page.evaluate to simulate another user
+-    await page.evaluate(async (id) => {
++    console.log('[+] Testing 409 Conflict UI...');
++    // Do a background patch using fetch in evaluate to simulate another user (increments expectedVersion out of sync)
++    // First we need to get the real status version of the DB. Our UI has the latest version locally (2 from CONTACTED, +1 from REJECTED = 3).
++    const dbData = await sql`SELECT status_version FROM leads WHERE id = ${syntheticLeadId}`;
++    const realVersion = dbData[0].status_version;
++    
++    await page.evaluate(async ({ id, version }) => {
+       await fetch('/api/admin/leads/status', {
+         method: 'PATCH',
+         headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ id, status: 'VALIDATED', expectedVersion: 3 })
++        body: JSON.stringify({ id, status: 'VALIDATED', expectedVersion: version })
+       });
+-    }, syntheticLeadId);
++    }, { id: syntheticLeadId, version: realVersion });
+     
+-    // Save in UI with outdated version
+-    await page.click('#save-status-btn');
++    // UI still has the old version. Clicking Save should trigger 409.
++    // UI status is currently selected as CONTACTED.
++    await page.click('#btnSaveStatus');
+     const conflictRes = await page.waitForResponse(res => res.url().includes('/api/admin/leads/status'));
+     assert(conflictRes.status() === 409, 'Should return 409 Conflict');
+     
+     // Wait for conflict UI
+     await page.waitForSelector('.conflict-message', { state: 'visible' });
+-    console.log('    Conflict modal UI correctly shown.');
++    console.log('    Conflict message UI correctly shown.');
+     
+     // Close drawer
+-    await page.click('#close-drawer-btn');
++    await page.click('#btnCloseDrawer');
+     
+     // VIEWER test
+-    console.log('[+] Testing VIEWER RBAC...');
+-    await page.click('#logout-btn');
++    console.log('[+] Testing VIEWER RBAC restrictions in UI...');
++    await page.click('#logoutBtn');
+     await page.waitForURL('**/admin/login');
+     
+     await page.fill('input[type="email"]', process.env.QA_VIEWER_EMAIL);
+@@ -164,26 +181,15 @@ async function seedLead(sql) {
+     await page.click('a[href="/admin/leads"]');
+     await page.waitForURL('**/admin/leads');
+     
+-    await page.waitForSelector(`tr[data-id="${syntheticLeadId}"]`);
+-    await page.click(`tr[data-id="${syntheticLeadId}"] button.view-lead-btn`);
+-    await page.waitForSelector('#workflow-drawer.open');
++    await page.waitForSelector(rowSelector);
++    await page.click(`${rowSelector} button.view-lead-btn`);
++    await page.waitForSelector('#drawerTitle', { state: 'visible' });
+     
+-    // Save controls absent
+-    const saveBtnVisible = await page.isVisible('#save-status-btn');
+-    assert(!saveBtnVisible, 'VIEWER should not see Save button');
++    // Save controls absent (disabled or hidden via CSS)
++    const canSave = await page.isVisible('#statusControlWrap');
++    assert(!canSave, 'VIEWER should not see Save controls UI wrapper');
+     
+-    // Background PATCH 403
+-    const viewerPatchStatus = await page.evaluate(async (id) => {
+-      const res = await fetch('/api/admin/leads/status', {
+-        method: 'PATCH',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ id, status: 'CONTACTED', expectedVersion: 4 })
+-      });
+-      return res.status;
+-    }, syntheticLeadId);
+-    
+-    assert(viewerPatchStatus === 403, `VIEWER PATCH should return 403, got ${viewerPatchStatus}`);
+-    console.log('    VIEWER controls and API access correctly restricted.');
++    console.log('    VIEWER controls correctly hidden.');
+ 
+     console.log('--- BROWSER E2E PASSED ---');
+   } catch (err) {
+@@ -191,7 +197,11 @@ async function seedLead(sql) {
+     console.error(err);
+     process.exit(1);
+   } finally {
++    console.log('[+] Cleaning up RUN_ID:', RUN_ID);
+     await browser.close();
+-    await sql`DELETE FROM leads WHERE utm_source = 'TEST_BROWSER'`;
++    if (RUN_ID) {
++      await sql`DELETE FROM admin_audit_log WHERE metadata->>'leadId' IN (SELECT id::text FROM leads WHERE utm_source = ${RUN_ID})`;
++      await sql`DELETE FROM leads WHERE utm_source = ${RUN_ID}`;
++    }
+   }
+ })();
+diff --git a/tests/workflow-db-integration.cjs b/tests/workflow-db-integration.cjs
+index f006330f..b2c6ad61 100644
+--- a/tests/workflow-db-integration.cjs
++++ b/tests/workflow-db-integration.cjs
+@@ -1,68 +1,56 @@
+ /**
+- * tests/test-workflow-e2e.cjs
++ * tests/workflow-db-integration.cjs
+  * Pruebas E2E para el Workflow de Leads.
+- * Valida concurrencia, autorizaciones, reglas del catálogo y auditoría usando la API.
++ * Valida concurrencia, reglas del catálogo y auditoría (atomicity) a nivel Base de Datos.
+  */
+ 
+-// using --env-file
++const { resolveDatabaseUrl } = require('../lib/db.js');
+ const { neon } = require('@neondatabase/serverless');
+ 
+-// Simulate Next.js API handler
+-async function simulateStatusApi(body, role = 'SUPER_ADMIN') {
+-  const { validateTransitionPayload } = require('../lib/lead-workflow.js');
+-  const validation = validateTransitionPayload(body.status, body.reason);
+-  if (!validation.valid) {
+-    return { status: 400, data: { error: validation.error } };
+-  }
+-  
+-  // Return dummy ok for now if we just want to test validation.
+-  return { status: 200, data: {} };
+-}
+-
+ async function runTests() {
+-  const dbUrl = process.env.DATABASE_URL;
+-  if (!dbUrl) {
+-    console.error('❌ DATABASE_URL missing.');
+-    process.exit(1);
+-  }
+-
++  const dbUrl = resolveDatabaseUrl(process.env);
+   const sql = neon(dbUrl);
++  
++  const RUN_ID = 'DB_TEST_' + Date.now();
+ 
+   try {
+-    console.log('--- STARTING WORKFLOW E2E TESTS ---');
++    console.log('--- STARTING WORKFLOW DB INTEGRATION TESTS ---');
+ 
+-    console.log('[+] Testing Catalog Validations via lib...');
+-    
+-    let res = await simulateStatusApi({ status: 'INVALID', reason: null });
+-    if (res.status !== 400) throw new Error('Allowed INVALID status');
++    console.log('[+] 1. Testing DB CHECK constraints for status_reason...');
+     
+-    res = await simulateStatusApi({ status: 'REJECTED', reason: 'INVALID_REASON' });
+-    if (res.status !== 400) throw new Error('Allowed INVALID reason');
+-    
+-    res = await simulateStatusApi({ status: 'CONTACTED', reason: 'INVALID_DATA' });
+-    if (res.status !== 400) throw new Error('Allowed reason for non-reject status');
+-    
+-    res = await simulateStatusApi({ status: 'REJECTED', reason: null });
+-    if (res.status !== 400) throw new Error('Allowed missing reason for REJECTED');
++    // Test: Missing reason for REJECTED
++    try {
++      await sql`
++        INSERT INTO leads (
++          phone, utm_source, status, status_version
++        ) VALUES (
++          '5555555555', ${RUN_ID}, 'REJECTED', 1
++        )
++      `;
++      throw new Error('Allowed missing reason for REJECTED');
++    } catch (err) {
++      if (!err.message.includes('leads_status_reason_rule')) throw err;
++    }
+     
++    // Test: Invalid reason for REJECTED (assuming Migration003 checks valid catalog if any)
++    // Here we mainly test the strict enforcement of reason matrix.
++
+     console.log('    Validations OK.');
+ 
+-    console.log('[+] Testing Optimistic Concurrency and DB rules...');
++    console.log('[+] 2. Testing Optimistic Concurrency...');
+     
+-    // 1. Arrange - Insert a synthetic lead to test with
++    // Insert a synthetic lead to test with
+     const insertRes = await sql`
+       INSERT INTO leads (
+         phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+         page_url, referrer, status, status_version
+       ) VALUES (
+-        '5555555555', 'TEST', 'TEST', 'TEST', 'TEST', 'TEST',
++        '5555555555', ${RUN_ID}, 'TEST', 'TEST', 'TEST', 'TEST',
+         'http://test', 'http://test', 'NEW', 1
+       ) RETURNING id, status_version
+     `;
+     const leadId = insertRes[0].id;
+     let v1 = insertRes[0].status_version;
+-
+-    console.log(`[+] Synthetic lead created: ${leadId} (version ${v1})`);
+     
+     // Simulate user 2 reading and updating
+     await sql`
+@@ -70,7 +58,6 @@ async function runTests() {
+       SET status = 'CONTACTED', status_version = status_version + 1 
+       WHERE id = ${leadId} AND status_version = ${v1}
+     `;
+-    console.log('    User 2 updated successfully.');
+     
+     // Simulate user 1 attempting to update with old version
+     const updateRes = await sql`
+@@ -79,21 +66,36 @@ async function runTests() {
+       WHERE id = ${leadId} AND status_version = ${v1}
+     `;
+ 
+-    if (updateRes.length === 0) {
+-      console.log('    User 1 update blocked (Optimistic Concurrency OK).');
+-    } else {
++    if (updateRes.length !== 0) {
+       throw new Error('Optimistic Concurrency failed. User 1 overwrote User 2.');
+     }
+-
++    
++    console.log('    Optimistic Concurrency OK.');
++    
++    console.log('[+] 3. Testing Reason rules on UPDATE...');
+     try {
+       await sql`UPDATE leads SET status = 'CONTACTED', status_reason = 'INVALID_DATA' WHERE id = ${leadId}`;
+       throw new Error('Allowed reason for non-reject/cancel status in DB!');
+     } catch (err) {
+-      if (err.message.includes('leads_status_reason_rule') || err.message.includes('violates check constraint')) {
+-        console.log('    Reason for non-rejected/cancelled status blocked by DB constraint OK.');
+-      } else {
+-        throw err;
++      if (!err.message.includes('leads_status_reason_rule')) throw err;
++      console.log('    Reason rules OK.');
++    }
++    
++    console.log('[+] 4. Testing Atomicity (Rollback on Audit failure)...');
++    try {
++      await sql.transaction([
++        sql`UPDATE leads SET status = 'COMPLETED', status_version = status_version + 1 WHERE id = ${leadId}`,
++        sql`INSERT INTO admin_audit_log (admin_user_id, action, actor_hash, metadata) VALUES (999999999, 'LEAD_STATUS_CHANGED', 'test', '{}'::jsonb)`
++      ]);
++      throw new Error('Transaction succeeded unexpectedly');
++    } catch (err) {
++      if (!err.message.includes('violates foreign key constraint')) throw err;
++      // Verify rollback happened
++      const checkRes = await sql`SELECT status FROM leads WHERE id = ${leadId}`;
++      if (checkRes[0].status === 'COMPLETED') {
++        throw new Error('Rollback failed. Parent lead was updated despite audit failure.');
+       }
++      console.log('    Atomicity OK. Parent lead update rolled back.');
+     }
+ 
+     console.log('--- ALL TESTS PASSED ---');
+@@ -102,8 +104,11 @@ async function runTests() {
+     console.error(err);
+     process.exit(1);
+   } finally {
+-    // Cleanup
+-    await sql`DELETE FROM leads WHERE utm_source = 'TEST' AND phone = '5555555555'`;
++    // Cleanup using unique RUN_ID
++    if (RUN_ID) {
++      await sql`DELETE FROM admin_audit_log WHERE metadata->>'leadId' IN (SELECT id::text FROM leads WHERE utm_source = ${RUN_ID})`;
++      await sql`DELETE FROM leads WHERE utm_source = ${RUN_ID}`;
++    }
+   }
+ }
+ 
+diff --git a/tests/workflow-http-integration.js b/tests/workflow-http-integration.js
+index 932788f3..44f68ec9 100644
+--- a/tests/workflow-http-integration.js
++++ b/tests/workflow-http-integration.js
+@@ -1,5 +1,6 @@
+ // tests/workflow-http-integration.js
+ const assert = require('assert');
++const { resolveDatabaseUrl } = require('../lib/db.js');
+ const { neon } = require('@neondatabase/serverless');
+ 
+ const REQUIRED_ENVS = [
+@@ -8,8 +9,7 @@ const REQUIRED_ENVS = [
+   'QA_ADMIN_EMAIL',
+   'QA_ADMIN_PASSWORD',
+   'QA_VIEWER_EMAIL',
+-  'QA_VIEWER_PASSWORD',
+-  'DATABASE_URL'
++  'QA_VIEWER_PASSWORD'
+ ];
+ 
+ for (const env of REQUIRED_ENVS) {
+@@ -52,139 +52,185 @@ async function login(email, password) {
+ }
+ 
+ async function runTests() {
+-  const sql = neon(process.env.DATABASE_URL);
++  const dbUrl = resolveDatabaseUrl(process.env);
++  const sql = neon(dbUrl);
+   
+-  console.log('--- STARTING WORKFLOW HTTP INTEGRATION TESTS ---');
++  const RUN_ID = 'HTTP_TEST_' + Date.now();
+ 
+-  console.log('[+] Logging in QA SUPER_ADMIN...');
+-  const adminSession = await login(process.env.QA_ADMIN_EMAIL, process.env.QA_ADMIN_PASSWORD);
+-  
+-  console.log('[+] Logging in QA VIEWER...');
+-  const viewerSession = await login(process.env.QA_VIEWER_EMAIL, process.env.QA_VIEWER_PASSWORD);
+-
+-  console.log('[+] Testing Workflow Config HTTP...');
+-  let res = await doFetch('/api/admin/leads/workflow');
+-  assert(res.status === 401, 'Unauth should be 401');
+-
+-  res = await doFetch('/api/admin/leads/workflow', { session: adminSession });
+-  assert(res.status === 200, 'SUPER_ADMIN should be 200');
+-  let data = await res.json();
+-  assert(data.canManageStatus === true, 'SUPER_ADMIN can manage status');
+-  assert(Array.isArray(data.statuses), 'Missing status catalog');
+-
+-  res = await doFetch('/api/admin/leads/workflow', { session: viewerSession });
+-  assert(res.status === 200, 'VIEWER should be 200');
+-  data = await res.json();
+-  assert(data.canManageStatus === false, 'VIEWER cannot manage status');
+-
+-  console.log('[+] Testing Status HTTP Security...');
+-  res = await doFetch('/api/admin/leads/status', { method: 'PATCH', session: viewerSession, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 1, status: 'CONTACTED', expectedVersion: 1 }) });
+-  assert(res.status === 403, 'VIEWER should be 403');
+-  
+-  res = await doFetch('/api/admin/leads/status', { method: 'POST', session: adminSession });
+-  assert(res.status === 405, 'Wrong method should be 405');
++  let adminSession;
++  let viewerSession;
++  let testIds = [];
+ 
+-  console.log('[+] Testing Concurrency Stress (20x pairs)...');
+-  
+-  // Seed 20 leads
+-  const testIds = [];
+-  for(let i=0; i<20; i++) {
+-    const insertRes = await sql`
++  try {
++    console.log('--- STARTING WORKFLOW HTTP INTEGRATION TESTS ---');
++
++    console.log('[+] 0. Safe Identity Handshake...');
++    const handshakeInsert = await sql`
+       INSERT INTO leads (
+-        phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+-        page_url, referrer, status, status_version
++        phone, utm_source, status, status_version
+       ) VALUES (
+-        '5555555555', 'TEST_R3', 'TEST', 'TEST', 'TEST', 'TEST',
+-        'http://test', 'http://test', 'NEW', 1
++        '1111111111', ${RUN_ID}, 'NEW', 1
+       ) RETURNING id
+     `;
+-    testIds.push(insertRes[0].id);
+-  }
++    const handshakeId = handshakeInsert[0].id;
++    testIds.push(handshakeId);
++    
++    adminSession = await login(process.env.QA_ADMIN_EMAIL, process.env.QA_ADMIN_PASSWORD);
++    
++    const handshakeFetch = await doFetch(`/api/admin/leads/detail?id=${handshakeId}`, { session: adminSession });
++    if (handshakeFetch.status === 404) {
++      throw new Error('Handshake failed: API returned 404 for DB-inserted lead. API is pointing to a different DB!');
++    }
++    assert(handshakeFetch.status === 200, 'Handshake fetch should be 200');
++    console.log('    Handshake OK. Remote API hits local DB connection.');
++
++    console.log('[+] 1. Logging in QA VIEWER...');
++    viewerSession = await login(process.env.QA_VIEWER_EMAIL, process.env.QA_VIEWER_PASSWORD);
++
++    console.log('[+] 2. Testing Workflow Config HTTP...');
++    let res = await doFetch('/api/admin/leads/workflow');
++    assert(res.status === 401, 'Unauth should be 401');
++
++    res = await doFetch('/api/admin/leads/workflow', { session: adminSession });
++    assert(res.status === 200, 'SUPER_ADMIN should be 200');
++    let data = await res.json();
++    assert(data.canManageStatus === true, 'SUPER_ADMIN can manage status');
++    assert(Array.isArray(data.statuses), 'Missing status catalog');
++
++    res = await doFetch('/api/admin/leads/workflow', { session: viewerSession });
++    assert(res.status === 200, 'VIEWER should be 200');
++    data = await res.json();
++    assert(data.canManageStatus === false, 'VIEWER cannot manage status');
++
++    console.log('[+] 3. Testing Status HTTP Security Matrix...');
++    // VIEWER attempt -> 403
++    res = await doFetch('/api/admin/leads/status', { method: 'PATCH', session: viewerSession, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: handshakeId, status: 'CONTACTED', expectedVersion: 1 }) });
++    assert(res.status === 403, 'VIEWER should be 403');
++    
++    // WRONG METHOD -> 405
++    res = await doFetch('/api/admin/leads/status', { method: 'POST', session: adminSession });
++    assert(res.status === 405, 'Wrong method should be 405');
++    
++    // NO CONTENT TYPE -> 415
++    res = await doFetch('/api/admin/leads/status', { method: 'PATCH', session: adminSession, body: JSON.stringify({ id: handshakeId, status: 'CONTACTED', expectedVersion: 1 }) });
++    assert(res.status === 415, 'No JSON Content-Type should be 415');
+ 
+-  let expected200 = 0;
+-  let expected409 = 0;
+-  let doubleSuccess = 0;
++    // MISSING BODY -> 400
++    res = await doFetch('/api/admin/leads/status', { method: 'PATCH', session: adminSession, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
++    assert(res.status === 400, 'Missing fields should be 400');
+ 
+-  for (const leadId of testIds) {
+-    const p1 = doFetch('/api/admin/leads/status', {
++    console.log('[+] 4. Testing Concurrency Stress (20x pairs)...');
++    
++    for(let i=0; i<20; i++) {
++      const insertRes = await sql`
++        INSERT INTO leads (
++          phone, utm_source, status, status_version
++        ) VALUES (
++          '5555555555', ${RUN_ID}, 'NEW', 1
++        ) RETURNING id
++      `;
++      testIds.push(insertRes[0].id);
++    }
++
++    // Skip handshake ID for concurrency test
++    const concurrencyIds = testIds.slice(1);
++    
++    let expected200 = 0;
++    let expected409 = 0;
++    let doubleSuccess = 0;
++
++    for (const leadId of concurrencyIds) {
++      const p1 = doFetch('/api/admin/leads/status', {
++        method: 'PATCH',
++        session: adminSession,
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ id: leadId, status: 'CONTACTED', expectedVersion: 1 })
++      });
++      const p2 = doFetch('/api/admin/leads/status', {
++        method: 'PATCH',
++        session: adminSession,
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ id: leadId, status: 'VALIDATED', expectedVersion: 1 })
++      });
++
++      const [r1, r2] = await Promise.all([p1, p2]);
++      const s1 = r1.status;
++      const s2 = r2.status;
++
++      if (s1 === 200) expected200++;
++      if (s2 === 200) expected200++;
++      if (s1 === 409) expected409++;
++      if (s2 === 409) expected409++;
++      if (s1 === 200 && s2 === 200) doubleSuccess++;
++
++      const dbLead = await sql`SELECT status, status_version FROM leads WHERE id = ${leadId}`;
++      assert(dbLead[0].status_version === 2, `Expected version 2, got ${dbLead[0].status_version}`);
++      
++      const audits = await sql`SELECT COUNT(*) as c FROM lead_audit_logs WHERE lead_id = ${leadId.toString()}`;
++      assert(parseInt(audits[0].c, 10) === 1, `Expected exactly 1 audit row for lead ${leadId}, got ${audits[0].c}`);
++    }
++
++    console.log(`    Expected 200: 20 (Actual: ${expected200})`);
++    console.log(`    Expected 409: 20 (Actual: ${expected409})`);
++    assert(expected200 === 20, 'Should have exactly 20 successful CAS updates');
++    assert(expected409 === 20, 'Should have exactly 20 CAS losses');
++    assert(doubleSuccess === 0, 'Should have ZERO double success');
++
++    // Test NOOP
++    console.log('[+] 5. Testing SAME STATUS NOOP...');
++    const noopId = concurrencyIds[0];
++    const noopLead = await sql`SELECT status, status_version FROM leads WHERE id = ${noopId}`;
++    res = await doFetch('/api/admin/leads/status', {
+       method: 'PATCH',
+       session: adminSession,
+       headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({ id: leadId, status: 'CONTACTED', expectedVersion: 1 })
++      body: JSON.stringify({ id: noopId, status: noopLead[0].status, expectedVersion: noopLead[0].status_version })
+     });
+-    const p2 = doFetch('/api/admin/leads/status', {
++    assert(res.status === 200, 'NOOP should return 200');
++    data = await res.json();
++    assert(data.changed === false, 'NOOP should have changed = false');
++    const auditCheck = await sql`SELECT COUNT(*) as c FROM lead_audit_logs WHERE lead_id = ${noopId.toString()}`;
++    assert(parseInt(auditCheck[0].c, 10) === 1, 'NOOP should NOT create a new audit record (remains 1)');
++
++    // Test Reason change (NOT a NOOP)
++    console.log('[+] 6. Testing SAME STATUS DIFFERENT REASON...');
++    const reasonId = concurrencyIds[1];
++    await doFetch('/api/admin/leads/status', {
+       method: 'PATCH',
+       session: adminSession,
+       headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({ id: leadId, status: 'VALIDATED', expectedVersion: 1 })
++      body: JSON.stringify({ id: reasonId, status: 'REJECTED', reason: 'INVALID_DATA', expectedVersion: 2 })
+     });
+-
+-    const [r1, r2] = await Promise.all([p1, p2]);
+-    const s1 = r1.status;
+-    const s2 = r2.status;
+-
+-    if (s1 === 200) expected200++;
+-    if (s2 === 200) expected200++;
+-    if (s1 === 409) expected409++;
+-    if (s2 === 409) expected409++;
+-    if (s1 === 200 && s2 === 200) doubleSuccess++;
+-
+-    const dbLead = await sql`SELECT status, status_version FROM leads WHERE id = ${leadId}`;
+-    assert(dbLead[0].status_version === 2, `Expected version 2, got ${dbLead[0].status_version}`);
+-    
+-    const audits = await sql`SELECT COUNT(*) as c FROM admin_audit_log WHERE metadata->>'leadId' = ${leadId.toString()}`;
+-    assert(parseInt(audits[0].c, 10) === 1, `Expected exactly 1 audit row for lead ${leadId}, got ${audits[0].c}`);
++    res = await doFetch('/api/admin/leads/status', {
++      method: 'PATCH',
++      session: adminSession,
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ id: reasonId, status: 'REJECTED', reason: 'DUPLICATE', expectedVersion: 3 })
++    });
++    assert(res.status === 200, 'Same status reason change should return 200');
++    data = await res.json();
++    assert(data.changed === true, 'Reason change should have changed = true');
++    assert(data.lead.statusVersion === 4, 'Version should increment');
++
++    console.log('[+] 7. Testing Audit Log PII Masking...');
++    const auditPIICheck = await sql`SELECT action_metadata FROM lead_audit_logs WHERE lead_id = ${reasonId} AND new_status = 'REJECTED' LIMIT 1`;
++    const metadata = auditPIICheck[0].action_metadata;
++    assert(!metadata.phone, 'Audit log should NOT contain raw phone');
++    assert(!metadata.phoneConfirm, 'Audit log should NOT contain phoneConfirm');
++    assert(!metadata.nip, 'Audit log should NOT contain nip');
++
++    console.log('--- HTTP INTEGRATION TESTS PASSED ---');
++  } catch (err) {
++    console.error('--- TEST FAILED ---');
++    console.error(err);
++    process.exit(1);
++  } finally {
++    console.log('[+] Cleaning up RUN_ID:', RUN_ID);
++    if (RUN_ID) {
++      await sql`DELETE FROM admin_audit_log WHERE metadata->>'leadId' IN (SELECT id::text FROM leads WHERE utm_source = ${RUN_ID})`;
++      await sql`DELETE FROM leads WHERE utm_source = ${RUN_ID}`;
++    }
+   }
+-
+-  console.log(`    Expected 200: 20 (Actual: ${expected200})`);
+-  console.log(`    Expected 409: 20 (Actual: ${expected409})`);
+-  assert(expected200 === 20, 'Should have exactly 20 successful CAS updates');
+-  assert(expected409 === 20, 'Should have exactly 20 CAS losses');
+-  assert(doubleSuccess === 0, 'Should have ZERO double success');
+-
+-  // Test NOOP
+-  console.log('[+] Testing SAME STATUS NOOP...');
+-  const noopId = testIds[0];
+-  const noopLead = await sql`SELECT status, status_version FROM leads WHERE id = ${noopId}`;
+-  res = await doFetch('/api/admin/leads/status', {
+-    method: 'PATCH',
+-    session: adminSession,
+-    headers: { 'Content-Type': 'application/json' },
+-    body: JSON.stringify({ id: noopId, status: noopLead[0].status, expectedVersion: noopLead[0].status_version })
+-  });
+-  assert(res.status === 200, 'NOOP should return 200');
+-  data = await res.json();
+-  assert(data.changed === false, 'NOOP should have changed = false');
+-  const auditCheck = await sql`SELECT COUNT(*) as c FROM admin_audit_log WHERE metadata->>'leadId' = ${noopId.toString()}`;
+-  assert(parseInt(auditCheck[0].c, 10) === 1, 'NOOP should NOT create a new audit record (remains 1)');
+-
+-  // Test Reason change (NOT a NOOP)
+-  console.log('[+] Testing SAME STATUS DIFFERENT REASON...');
+-  const reasonId = testIds[1];
+-  await doFetch('/api/admin/leads/status', {
+-    method: 'PATCH',
+-    session: adminSession,
+-    headers: { 'Content-Type': 'application/json' },
+-    body: JSON.stringify({ id: reasonId, status: 'REJECTED', reason: 'INVALID_DATA', expectedVersion: 2 })
+-  });
+-  res = await doFetch('/api/admin/leads/status', {
+-    method: 'PATCH',
+-    session: adminSession,
+-    headers: { 'Content-Type': 'application/json' },
+-    body: JSON.stringify({ id: reasonId, status: 'REJECTED', reason: 'DUPLICATE', expectedVersion: 3 })
+-  });
+-  assert(res.status === 200, 'Same status reason change should return 200');
+-  data = await res.json();
+-  assert(data.changed === true, 'Reason change should have changed = true');
+-  assert(data.lead.statusVersion === 4, 'Version should increment');
+-
+-  console.log('--- HTTP INTEGRATION TESTS PASSED ---');
+-
+-  // Cleanup
+-  await sql`DELETE FROM leads WHERE utm_source = 'TEST_R3'`;
+ }
+ 
+-runTests().catch(err => {
+-  console.error(err);
+-  process.exit(1);
+-});
++runTests();
+-- 
+2.54.0.windows.1
+

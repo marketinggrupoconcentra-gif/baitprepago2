@@ -418,3 +418,4 @@ body, html {
   font-size: 18px;
   color: var(--text-light);
 }
+.login-recovery-back { margin-top: 1rem; text-align: center; } .login-recovery-link { text-decoration: none; }

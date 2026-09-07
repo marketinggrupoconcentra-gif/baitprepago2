@@ -23,7 +23,7 @@
       <img src="/assets/bait-logo.svg" alt="BAIT" class="login-logo" />
     </div>
 
-    <div class="login-card">
+    <div class="login-card" id="loginCard">
       <h1 class="login-title">Iniciar sesión</h1>
       <p class="login-subtitle">Accede al panel de administración de BAIT Prepago</p>
 
@@ -48,10 +48,8 @@
           </div>
         </div>
 
-        <!-- Recuperación de contraseña -->
         <div class="login-recovery">
           <button type="button" id="forgotPasswordBtn" class="login-recovery-btn">¿Olvidaste tu contraseña?</button>
-          <div id="recoveryMessage" class="login-recovery-message" role="status" aria-live="polite" hidden></div>
         </div>
         
         <button type="submit" id="submitBtn" class="login-submit">
@@ -59,6 +57,31 @@
           <span id="submitText">Entrar</span>
         </button>
       </form>
+    </div>
+
+    <!-- Recovery Card -->
+    <div class="login-card" id="recoveryCard" hidden>
+      <h1 class="login-title">Recuperar contraseña</h1>
+      <p class="login-subtitle">Ingresa tu correo registrado</p>
+
+      <div class="login-error" id="recoveryErrorMessage" role="alert" hidden></div>
+      <div class="login-success" id="recoverySuccessMessage" role="status" hidden></div>
+
+      <form id="recoveryForm" class="login-form">
+        <div class="login-field">
+          <label for="recoveryEmail">Correo electrónico</label>
+          <input type="email" id="recoveryEmail" name="email" class="login-input" placeholder="tu@empresa.com" autocomplete="username" inputmode="email" required>
+        </div>
+        
+        <button type="submit" id="recoverySubmitBtn" class="login-submit">
+          <span class="login-spinner" id="recoverySpinner" aria-hidden="true" hidden></span>
+          <span id="recoverySubmitText">Enviar enlace de recuperación</span>
+        </button>
+      </form>
+
+      <div class="login-recovery login-recovery-back">
+        <button type="button" id="backToLoginBtn" class="login-recovery-btn">Volver a iniciar sesión</button>
+      </div>
     </div>
   </main>
   

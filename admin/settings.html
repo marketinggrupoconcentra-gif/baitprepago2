@@ -155,9 +155,93 @@
             </form>
           </div>
         </section>
+        <section class="card settings-card" aria-labelledby="emailHeading" style="margin-top: 24px;">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="emailHeading">Configuración de Correo</h2>
+              <p class="card-subtitle">Estado de la integración con Resend y cola de salida</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="emailConfigState" style="margin-bottom: 24px;">
+              <p>Cargando estado...</p>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Estado de Cola</th>
+                    <th>Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody id="emailOutboxBody">
+                  <tr><td colspan="2">Cargando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="card settings-card" aria-labelledby="reportsHeading" style="margin-top: 24px;">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="reportsHeading">Reportes Programados</h2>
+              <p class="card-subtitle">Configura envíos automáticos de reportes de captación</p>
+            </div>
+            <button id="newReportBtn" class="btn-primary" style="font-size: 12px; padding: 6px 12px;">+ Crear Reporte</button>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Frecuencia</th>
+                    <th>Próximo Envío</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="reportsBody">
+                  <tr><td colspan="5">Cargando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   </div>
+
+  <!-- Modal: Crear Reporte -->
+  <dialog id="createReportModal" class="modal" aria-labelledby="createReportTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="createReportTitle" class="modal-title">Nuevo Reporte Programado</h2>
+        <button class="btn-close-modal" id="closeReportModalBtn" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <form id="createReportForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="reportName">Nombre del Reporte</label>
+            <input type="text" id="reportName" required placeholder="Ej. Reporte Semanal Directivo">
+          </div>
+          <div class="form-group">
+            <label for="reportFrequency">Frecuencia</label>
+            <select id="reportFrequency" required>
+              <option value="DAILY">Diario (Últimas 24h)</option>
+              <option value="WEEKLY">Semanal (Últimos 7 días)</option>
+              <option value="MONTHLY">Mensual (Últimos 30 días)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="cancelReportBtn">Cancelar</button>
+          <button type="submit" class="btn-primary" id="submitReportBtn">Crear</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
 
   <script src="/admin/settings.js" type="module"></script>
 </body>

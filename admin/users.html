@@ -119,8 +119,8 @@
           <p class="topbar-sub">Gestión de cuentas y permisos</p>
         </div>
         <div class="topbar-controls">
-          <button id="newUserBtn" class="btn-primary" style="display:none;" aria-label="Crear nuevo usuario">
-            + Nuevo Usuario
+          <button id="newUserBtn" class="btn-primary" style="display:none;" aria-label="Invitar nuevo usuario">
+            + Invitar Usuario
           </button>
         </div>
       </header>
@@ -146,15 +146,40 @@
             </table>
           </div>
         </section>
+
+        <section class="card" style="margin-top: 24px;">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Invitaciones Pendientes</h2>
+              <p class="card-subtitle">Administradores que no han aceptado la invitación</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" aria-label="Lista de invitaciones">
+              <thead>
+                <tr>
+                  <th scope="col">Email</th>
+                  <th scope="col">Rol</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Expiración</th>
+                  <th scope="col" style="text-align:right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="invitesBody">
+                <!-- Data populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
   </div>
 
-  <!-- Modal: Crear Usuario -->
+  <!-- Modal: Crear/Invitar Usuario -->
   <dialog id="createUserModal" class="modal" aria-labelledby="createUserTitle">
     <div class="modal-box">
       <div class="modal-header">
-        <h2 id="createUserTitle" class="modal-title">Nuevo Usuario</h2>
+        <h2 id="createUserTitle" class="modal-title">Invitar Usuario</h2>
         <button class="btn-close-modal" id="closeCreateModalBtn" aria-label="Cerrar modal">&times;</button>
       </div>
       <form id="createUserForm">
@@ -173,14 +198,10 @@
               <option value="SUPER_ADMIN">Super Admin (Acceso total)</option>
             </select>
           </div>
-          <div class="form-group">
-            <label for="createPassword">Contraseña Inicial</label>
-            <input type="password" id="createPassword" required minlength="8" placeholder="Mínimo 8 caracteres">
-          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn-secondary" id="cancelCreateBtn">Cancelar</button>
-          <button type="submit" class="btn-primary" id="submitCreateBtn">Crear Usuario</button>
+          <button type="submit" class="btn-primary" id="submitCreateBtn">Enviar Invitación</button>
         </div>
       </form>
     </div>

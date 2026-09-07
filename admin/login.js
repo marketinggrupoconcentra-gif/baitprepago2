@@ -9,6 +9,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const togglePasswordBtn = document.getElementById('togglePasswordBtn');
   const passwordInput = document.getElementById('password');
   const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+  
+  // Recovery elements
+  const loginCard = document.getElementById('loginCard');
+  const recoveryCard = document.getElementById('recoveryCard');
+  const backToLoginBtn = document.getElementById('backToLoginBtn');
+  const recoveryForm = document.getElementById('recoveryForm');
+  const recoveryErrorMessage = document.getElementById('recoveryErrorMessage');
+  const recoverySuccessMessage = document.getElementById('recoverySuccessMessage');
+  const recoverySubmitBtn = document.getElementById('recoverySubmitBtn');
+  const recoverySubmitText = document.getElementById('recoverySubmitText');
+  const recoverySpinner = document.getElementById('recoverySpinner');
 
   // Prevent flash of UI if already authenticated
   fetch('/api/admin/session')
@@ -35,12 +46,64 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Forgot password mock
-  const recoveryMessage = document.getElementById('recoveryMessage');
-  if (forgotPasswordBtn && recoveryMessage) {
+  // Forgot password UI Toggle
+  if (forgotPasswordBtn && loginCard && recoveryCard) {
     forgotPasswordBtn.addEventListener('click', () => {
-      recoveryMessage.textContent = 'Solicita el restablecimiento de acceso con el administrador del sistema.';
-      recoveryMessage.hidden = false;
+      loginCard.hidden = true;
+      recoveryCard.hidden = false;
+      recoveryErrorMessage.hidden = true;
+      recoverySuccessMessage.hidden = true;
+    });
+  }
+
+  if (backToLoginBtn && loginCard && recoveryCard) {
+    backToLoginBtn.addEventListener('click', () => {
+      recoveryCard.hidden = true;
+      loginCard.hidden = false;
+    });
+  }
+
+  // Recovery Form Submit
+  if (recoveryForm) {
+    recoveryForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('recoveryEmail').value;
+      
+      recoveryErrorMessage.hidden = true;
+      recoverySuccessMessage.hidden = true;
+      
+      recoverySubmitBtn.disabled = true;
+      recoverySubmitText.textContent = 'Enviando…';
+      recoverySpinner.hidden = false;
+
+      try {
+        const response = await fetch('/api/admin/password-reset/request', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email })
+        });
+
+        // Always show the same generic message on 200 OK
+        if (response.ok) {
+          recoverySuccessMessage.textContent = 'Si existe una cuenta activa asociada a ese correo, recibirás un enlace para restablecer tu contraseña.';
+          recoverySuccessMessage.hidden = false;
+          recoveryForm.reset();
+        } else {
+          const data = await response.json();
+          recoveryErrorMessage.textContent = data.error || 'Error al procesar la solicitud.';
+          recoveryErrorMessage.hidden = false;
+        }
+      } catch (err) {
+        recoveryErrorMessage.textContent = 'Error de conexión. Intente nuevamente.';
+        recoveryErrorMessage.hidden = false;
+      } finally {
+        recoverySubmitBtn.disabled = false;
+        recoverySubmitText.textContent = 'Enviar enlace de recuperación';
+        recoverySpinner.hidden = true;
+      }
     });
   }
 
