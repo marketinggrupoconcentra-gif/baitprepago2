@@ -2,11 +2,12 @@ import { getDb } from '../lib/db.js';
 import { validateLeadPayload } from '../lib/validation.js';
 import { checkRateLimitAndIdempotency } from '../lib/security.js';
 import { parseAttribution } from '../lib/attribution.js';
+import { consumeCaptchaChallenge } from '../lib/captcha.js';
 
 export default async function handler(req, res) {
   // CORS and Cache
   res.setHeader('Cache-Control', 'no-store, max-age=0');
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -21,14 +22,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
-  // 1. Validaciones
+  // 1. Validaciones (el código de portabilidad y su fecha de vigencia se validan y se descartan)
   const validation = validateLeadPayload(body);
   if (!validation.valid) {
     return res.status(422).json({ error: 'Invalid payload', details: validation.errors });
   }
 
-  const { phone } = validation.data; // NIP is completely ignored here, not extracted
-  
+  const { phone, email } = validation.data; // Nada relacionado al código de portabilidad se extrae aquí
+
   // 2. Attribution
   const attribution = parseAttribution(body, req.headers);
 
@@ -42,6 +43,16 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 3b. CAPTCHA server-side (single use, consumed before insert)
+    const captchaResult = await consumeCaptchaChallenge(
+      sql,
+      body.captcha_challenge_id,
+      body.captcha_answer
+    );
+    if (!captchaResult.ok) {
+      return res.status(422).json({ error: 'Invalid payload', details: [captchaResult.error] });
+    }
+
     // 4. Rate Limiting e Idempotencia (consultas a DB)
     const securityCheck = await checkRateLimitAndIdempotency(sql, attribution.ip, phone);
     if (!securityCheck.allowed) {
@@ -55,15 +66,15 @@ export default async function handler(req, res) {
     }
 
     // 5. Inserción
-    // Nota: NIP no se persiste en la DB, se omitió del schema.
+    // Nota: el código de portabilidad y su fecha de vigencia no se persisten en la DB.
     await sql`
       INSERT INTO leads (
-        phone,
+        phone, email,
         utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         fbclid, fb_ad_id, fb_adset_id, fb_campaign_id,
         ip, user_agent, referrer, page_url
       ) VALUES (
-        ${phone},
+        ${phone}, ${email},
         ${attribution.utm_source}, ${attribution.utm_medium}, ${attribution.utm_campaign}, ${attribution.utm_content}, ${attribution.utm_term},
         ${attribution.fbclid}, ${attribution.fb_ad_id}, ${attribution.fb_adset_id}, ${attribution.fb_campaign_id},
         ${attribution.ip}, ${attribution.user_agent}, ${attribution.referrer}, ${attribution.page_url}

@@ -117,7 +117,7 @@ export default async function handler(req, res) {
 
     // Construct Query dynamically using params
     let queryStr = `
-      SELECT id, phone, utm_source, utm_medium, utm_campaign, created_at, status
+      SELECT id, phone, email, utm_source, utm_medium, utm_campaign, created_at, status
       FROM leads
       WHERE 1=1
     `;
@@ -188,6 +188,7 @@ export default async function handler(req, res) {
     const items = rows.map(row => ({
       id: row.id,
       phoneMasked: maskPhone(row.phone), // Masked!
+      email: row.email || null,
       source: row.utm_source,
       medium: row.utm_medium,
       campaign: row.utm_campaign,

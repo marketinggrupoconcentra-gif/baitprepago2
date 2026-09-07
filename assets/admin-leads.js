@@ -51,6 +51,7 @@ const UI = {
   drawerFields: {
     id: document.getElementById('drawerLeadId'),
     phone: document.getElementById('detailPhone'),
+    email: document.getElementById('detailEmail'),
     source: document.getElementById('detailSource'),
     medium: document.getElementById('detailMedium'),
     campaign: document.getElementById('detailCampaign'),
@@ -420,7 +421,7 @@ function renderTable(leads, append) {
   if (leads.length === 0 && !append) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 6;
+    td.colSpan = 8;
     td.style.textAlign = 'center';
     td.style.padding = '2rem';
     td.textContent = 'No se encontraron leads.';
@@ -452,6 +453,9 @@ function renderTable(leads, append) {
     strongPhone.textContent = lead.phoneMasked || '-';
     tdPhone.appendChild(strongPhone);
 
+    const tdEmail = document.createElement('td');
+    tdEmail.textContent = lead.email || '—';
+
     const tdStatus = document.createElement('td');
     const spanStatus = document.createElement('span');
     spanStatus.className = 'badge';
@@ -482,6 +486,7 @@ function renderTable(leads, append) {
     tr.appendChild(tdId);
     tr.appendChild(tdDate);
     tr.appendChild(tdPhone);
+    tr.appendChild(tdEmail);
     tr.appendChild(tdStatus);
     tr.appendChild(tdSource);
     tr.appendChild(tdCampaign);
@@ -502,7 +507,7 @@ async function loadLeads(reset = false) {
     UI.leadsBody.textContent = '';
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 7;
+    td.colSpan = 8;
     td.style.textAlign = 'center';
     td.style.padding = '2rem';
     const loader = document.createElement('div');
@@ -557,7 +562,7 @@ async function loadLeads(reset = false) {
       UI.leadsBody.textContent = '';
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 6;
+      td.colSpan = 8;
       td.style.textAlign = 'center';
       td.style.color = 'red';
       td.textContent = 'Error al cargar leads';
@@ -648,6 +653,7 @@ async function openLeadDrawer(id) {
     
     UI.drawerFields.id.textContent = `#${data.id}`;
     UI.drawerFields.phone.textContent = data.phoneMasked || '-';
+    if (UI.drawerFields.email) UI.drawerFields.email.textContent = data.email || '—';
     UI.drawerFields.source.textContent = data.utmSource || '-';
     UI.drawerFields.medium.textContent = data.utmMedium || '-';
     UI.drawerFields.campaign.textContent = data.utmCampaign || '-';

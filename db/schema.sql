@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS leads (
   id              SERIAL          PRIMARY KEY,
   created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
-  -- Datos del formulario (NIP se valida en server y se descarta)
+  -- Datos del formulario (NIP y nip_valid_until se validan en server y se descartan; nunca se persisten)
   phone           VARCHAR(10)     NOT NULL,
+
+  -- Correo para envío futuro del cupón BAIT (Stage 1I). Nullable: leads
+  -- históricos no tienen email; la API exige el campo para leads nuevos.
+  email           TEXT,
 
   -- ── UTMs de Google Ads / GA4 ──────────────────────────────────
   utm_source      VARCHAR(255),
@@ -74,3 +78,16 @@ CREATE INDEX IF NOT EXISTS leads_utm_source_idx   ON leads (utm_source);
 CREATE INDEX IF NOT EXISTS leads_utm_campaign_idx ON leads (utm_campaign);
 CREATE INDEX IF NOT EXISTS leads_fbclid_idx       ON leads (fbclid);
 CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS leads_email_idx ON leads (email);
+
+-- Server-side CAPTCHA challenges (Stage 1H). Only an HMAC-SHA256 hash of the
+-- answer is stored, never the plaintext code.
+CREATE TABLE IF NOT EXISTS captcha_challenges (
+  id            TEXT          PRIMARY KEY,
+  answer_hash   TEXT          NOT NULL,
+  expires_at    TIMESTAMPTZ   NOT NULL,
+  used_at       TIMESTAMPTZ   NULL,
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS captcha_challenges_expires_at_idx ON captcha_challenges (expires_at);
