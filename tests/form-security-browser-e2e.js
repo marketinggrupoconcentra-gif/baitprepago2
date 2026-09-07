@@ -249,11 +249,6 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
         body: JSON.stringify({ challengeId, image: STUB_CAPTCHA_SVG_DATA_URI, expiresAt: expiresAt.toISOString() })
       }));
 
-      const leadResponses = [];
-      page.on('response', res => {
-        if (res.url().includes('/api/leads')) leadResponses.push(res);
-      });
-
       const phone = '5587650000'; // last4 = 0000, no NIP-validity date needed
       const email = `QA.E2E.${Date.now()}@Bait.Test`; // mixed case, trimmed to prove normalization
 
@@ -270,11 +265,18 @@ async function fillStep1(page, { phone, nip, nipValidUntil }) {
       await page.fill('#pf-captcha-input', knownAnswer);
       await page.fill('#pf-wa-code', '654321');
       await page.check('#pf-consent');
-      await page.click('#pf-btn-3');
-      await page.waitForTimeout(700);
 
-      assert.ok(leadResponses.length >= 1, 'Se realizó un POST a /api/leads');
-      const finalStatus = leadResponses[leadResponses.length - 1].status();
+      // waitForResponse must be armed before the click that triggers the
+      // fetch, so it can't miss the response race that a passive listener +
+      // fixed timeout was prone to under real network latency.
+      const leadResponsePromise = page.waitForResponse(
+        res => res.url().includes('/api/leads') && res.request().method() === 'POST',
+        { timeout: 15000 }
+      );
+      await page.click('#pf-btn-3');
+      const leadResponse = await leadResponsePromise;
+
+      const finalStatus = leadResponse.status();
       assert.ok(finalStatus === 200 || finalStatus === 201, `CAPTCHA correcto → /api/leads responde éxito (200/201), obtuvo ${finalStatus}`);
 
       // Confirm the row landed in the real QA database, with email normalized.
