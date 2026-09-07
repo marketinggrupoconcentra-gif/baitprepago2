@@ -49,7 +49,7 @@ async function main() {
   }
 
   // Primary URL validation
-  if (!primaryUrl.hostname.startsWith(EXPECTED_QA_ENDPOINT + '.')) {
+  if (!primaryUrl.hostname.startsWith(EXPECTED_QA_ENDPOINT + '.') && !primaryUrl.hostname.startsWith(EXPECTED_QA_ENDPOINT + '-pooler.')) {
     console.error(`❌ FAIL CLOSED: Primary DB hostname does not match expected QA endpoint (${EXPECTED_QA_ENDPOINT})`);
     process.exit(1);
   }
@@ -59,7 +59,7 @@ async function main() {
   }
 
   // Secondary URL validation
-  if (!dupUrl.hostname.startsWith(EXPECTED_QA_ENDPOINT + '.')) {
+  if (!dupUrl.hostname.startsWith(EXPECTED_QA_ENDPOINT + '.') && !dupUrl.hostname.startsWith(EXPECTED_QA_ENDPOINT + '-pooler.')) {
     console.error(`❌ FAIL CLOSED: Duplicates DB hostname does not match expected QA endpoint (${EXPECTED_QA_ENDPOINT})`);
     process.exit(1);
   }
