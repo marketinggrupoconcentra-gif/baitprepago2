@@ -320,15 +320,6 @@
   if (captchaImg) captchaImg.addEventListener('click', requestCaptchaChallenge);
   if (captchaRefresh) captchaRefresh.addEventListener('click', requestCaptchaChallenge);
 
-  /* ── "Get code via WhatsApp" button ── */
-  var getWaCodeBtn = document.getElementById('pf-get-wa-code');
-  if (getWaCodeBtn) {
-    getWaCodeBtn.addEventListener('click', function () {
-      var msg = encodeURIComponent('¡Hola! Necesito mi código de verificación para portar el número ' + (formData.phone || ''));
-      window.open('https://api.whatsapp.com/send/?phone=5215548268533&text=' + msg + '&type=phone_number&app_absent=0', '_blank');
-    });
-  }
-
   /* ==============================
      STEP 3 — Confirm & submit
   ============================== */
@@ -342,7 +333,6 @@
   step3.addEventListener('submit', function (e) {
     e.preventDefault();
     var captchaInput = document.getElementById('pf-captcha-input');
-    var waCode       = document.getElementById('pf-wa-code');
     var consent      = document.getElementById('pf-consent');
     var valid        = true;
 
@@ -354,16 +344,6 @@
     } else {
       showErr('pf-captcha-error', '');
       captchaInput.setAttribute('aria-invalid', 'false');
-    }
-
-    /* WA verification code */
-    if (!/^\d{6}$/.test(waCode.value)) {
-      showErr('pf-wa-code-error', 'Ingresa el código de 6 dígitos.');
-      waCode.setAttribute('aria-invalid', 'true');
-      valid = false;
-    } else {
-      showErr('pf-wa-code-error', '');
-      waCode.setAttribute('aria-invalid', 'false');
     }
 
     /* Consent */
@@ -381,7 +361,13 @@
 
     var submitBtn = document.getElementById('pf-btn-3');
     if (submitBtn) submitBtn.disabled = true;
-    if (status) status.textContent = 'Validando tu solicitud…';
+    if (status) status.textContent = 'Enviando solicitud…';
+
+    /* Guardar datos para personalización en la página de agradecimiento */
+    try {
+      sessionStorage.setItem('bait_lead_name', formData.nombre || '');
+      sessionStorage.setItem('bait_lead_phone', formData.phone || '');
+    } catch (_) {}
 
     var utms = getUtms();
     var payload = {
@@ -437,16 +423,8 @@
           return;
         }
 
-        /* All good → redirect to WhatsApp */
-        var msg = encodeURIComponent(
-          '¡Hola! Quiero continuar mi portabilidad.\n' +
-          'Número a portar: ' + formData.phone + '\n' +
-          'NIP: ' + formData.nip + '\n' +
-          'Nombre: ' + formData.nombre + ' ' + formData.apellido + '\n' +
-          'Código verificación: ' + waCode.value
-        );
-        if (status) status.textContent = 'Datos validados. Abriendo WhatsApp para continuar…';
-        window.location.assign('https://api.whatsapp.com/send/?phone=5215548268533&text=' + msg + '&type=phone_number&app_absent=0');
+        /* All good → redirect to Thank You page */
+        window.location.assign('/gracias/');
       })
       .catch(function () {
         if (submitBtn) submitBtn.disabled = false;
