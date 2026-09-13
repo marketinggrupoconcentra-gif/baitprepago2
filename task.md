@@ -26,8 +26,8 @@ Rama `feat/scale-engine` · base `main` @ `83d6a5f9` · playbook Scale v2.0.0 (e
 - [x] `.env.example` reescrito como contrato (45 variables usadas en `src/` cubiertas).
 - [x] Neon: rama de test `scale-test-20260912` (`br-billowing-moon-avyvasmr`) → `app`/`drizzle` del WIP eliminados **solo ahí** → migraciones 0000–0008 → rol `baitprepago_app_runtime` provisionado (password vía MCP `reset_postgres_role_password`).
 - [x] `README.md` y `GEMINI.md` actualizados al motor.
-- [ ] Vercel: env vars de Preview/Producción (requiere CLI/dashboard autenticado → `walkthrough.md` §5).
-- [ ] Neon `main`: aplicar migraciones + rol runtime (**solo con go-ahead**, `walkthrough.md` §6).
+- [ ] Vercel: cargar `.env.production.vercel` (Production) y valores de test (Preview) → merge a `main` → smoke → bootstrap admin (`walkthrough.md` §6.6–6.8). Requiere sesión de Vercel.
+- [x] Neon `main` (autorizado 2026-09-13): snapshot `snap-gentle-base-avw2c3co` → drop WIP `app`/`drizzle` → migraciones 0000–0008 (18 tablas) → rol `baitprepago_app_runtime` verificado (`walkthrough.md` §6).
 
 ## FASE 4 — Verificación
 - [x] `npm run type-check` OK · `npm run lint` 0 errores.

@@ -89,16 +89,31 @@ Estado del Preview `dpl_B33p934xBatg455xg5ihNkaJFKsj` (commit `2b3bc359`): compi
 "Collecting page data" con `[auth] NEON_AUTH_BASE_URL no está definida` — solo faltan las env vars; basta un Redeploy tras cargarlas.
 El equivalente para producción (`br-lingering-sun-avyoux4u`) se lee con `get_auth` (lectura de prod: requiere tu autorización).
 
-## 6. Producción — pasos pendientes de go-ahead (NO ejecutados)
+## 6. Producción — estado
 
-1. Snapshot de Neon `main` (`create_snapshot`) y export de `public.leads` (está vacía, pero se respalda).
-2. En `main`: `DROP SCHEMA app CASCADE; DROP SCHEMA drizzle CASCADE;` (restos del WIP: 17 tablas, 1 `admin_profiles`, 0 leads). El schema `public` del sitio vanilla **no se toca** (rollback posible).
-3. `DATABASE_URL=<owner main> npm run db:migrate` → 0000–0008 (18 tablas en `app`).
-4. `node --env-file=.env.prod scripts/provision-runtime-role.mjs` → `baitprepago_app_runtime` (contraseña vía Neon `reset_postgres_role_password`; Neon deniega `ALTER ROLE` al owner) → `APP_DATABASE_URL` de producción.
-5. Verificar Neon Auth en `main` (`NEON_AUTH_BASE_URL` de `.env.local` proviene del WIP; confirmar con `get_auth`).
-6. Cargar env vars (§5) en Vercel; merge `feat/scale-engine` → `main` (squash) → deploy.
-7. Smoke prod: `GET /` 200, `GET /gracias/` 200, `GET /api/analytics/config` 200, `GET /admin` → login, `POST /api/admin/bootstrap` (primer admin), lead de prueba → `/admin/dashboard` + `/admin/analytics`, luego borrarlo.
-8. Rollback: "Promote" del deployment anterior en Vercel (sitio vanilla lee `public.*`, intacto) + restaurar snapshot si hiciera falta.
+**Ejecutado el 2026-09-13 con autorización explícita del usuario (base de datos Neon `sweet-mud-87845510`):**
+
+1. ✅ Snapshot de Neon `main`: `snap-gentle-base-avw2c3co` (`pre-scale-engine-20260913`). Estado previo: `app` 17 tablas (WIP), `drizzle` 1, `public` 19; 0 leads en todas.
+2. ✅ `DROP SCHEMA app CASCADE; DROP SCHEMA drizzle CASCADE;` en `main` (una transacción). `public` intacto.
+3. ✅ `drizzle-kit migrate` con el owner → 9 migraciones (0000–0008), 18 tablas en `app`, `TimeZone = America/Mexico_City`.
+4. ✅ `scripts/provision-runtime-role.mjs` → rol `baitprepago_app_runtime` con los grants del manifiesto; contraseña fijada con
+   `reset_postgres_role_password`. Verificado: conecta, `DELETE app.leads` denegado (42501), `public.leads` denegado (42501).
+   URL guardada en `.env.prod.runtime` (gitignored).
+5. ✅ Neon Auth en `main` provisionado (`better_auth`, gestionado por Neon):
+   `NEON_AUTH_BASE_URL=https://ep-square-recipe-avlk7lu1.neonauth.c-11.us-east-1.aws.neon.tech/neondb/auth`.
+   Nota: `app.admin_profiles` quedó vacío (el registro del WIP se eliminó con el schema) → hace falta el bootstrap del primer admin (paso 8).
+
+**Pendiente (requiere sesión de Vercel del usuario):**
+
+6. Cargar en Vercel (Production) el contenido de `.env.production.vercel` (gitignored; secretos nuevos generados, rol runtime, Neon Auth).
+   Con CLI: `vercel env add <NAME> production` por variable, o pegar en Settings → Environment Variables.
+   Para Preview usar los valores de la rama de test (`.env.scale-test`) — nunca los de producción.
+7. Merge `feat/scale-engine` → `main` (squash) → deploy de producción. Hasta que existan las env vars, un merge produciría un build
+   fallido en Vercel (el deployment vanilla actual permanecería activo, pero no conviene).
+8. Smoke prod: `GET /` 200, `GET /gracias/` 200, `GET /api/analytics/config` 200, `GET /admin` → login,
+   `POST /api/admin/bootstrap` (primer admin = `ADMIN_BOOTSTRAP_EMAIL`), lead de prueba → `/admin/dashboard` + `/admin/analytics`, luego borrarlo.
+9. Rollback: "Promote" del deployment anterior en Vercel (el sitio vanilla lee `public.*`, intacto) y/o restaurar el snapshot
+   `snap-gentle-base-avw2c3co` para volver al estado previo de `app`/`drizzle`.
 
 ## 7. Verificación (comandos y resultado)
 
