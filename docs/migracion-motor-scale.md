@@ -104,7 +104,7 @@ El equivalente para producción (`br-lingering-sun-avyoux4u`) se lee con `get_au
 
 **Pendiente:**
 
-5b. Aplicar las migraciones `0009_drop_crm_outbox` y `0010_click_ids_conversions` en Neon `main` (`DATABASE_URL=<owner main> npm run db:migrate`, luego
+5b. Aplicar las migraciones `0009`…`0011` en Neon `main` (`DATABASE_URL=<owner main> npm run db:migrate`, luego
    `scripts/provision-runtime-role.mjs` para resincronizar grants). Elimina dos tablas vacías; ya aplicada en la rama de test.
 
 
@@ -146,5 +146,7 @@ El equivalente para producción (`br-lingering-sun-avyoux4u`) se lee con `get_au
 - `GET /api/admin/analytics/acquisition` tenía la autenticación comentada (heredado): restaurada con `analytics.view`.
 - Atribución/conversiones (migración 0010): click ids reales cifrados, cola `app.conversion_deliveries`, cron
   `/api/cron/conversions` (Google Ads offline + Meta CAPI), credenciales en `/admin/settings`. Ver `docs/atribucion.md`.
+- Intelix reincorporado (migración 0011) con el contrato real de portabilidad (`chat_id, dn, compania, nombre, apellidos, nip,
+  capturista`), módulo Logs del admin y NIP cifrado temporal (`GEMINI.md` §2).
 - Eliminados archivos ajenos al proyecto: reportes generados por las herramientas de migración, `.neon` de otro proyecto,
   `.obsidian`, scripts sueltos, un scaffold CRA (`mi-app/`) y un build antiguo (`dist/`).

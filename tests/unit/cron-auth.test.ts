@@ -37,6 +37,7 @@ describe('Cron auth — sin CRON_SECRET configurado (FLW-005 fail-closed)', () =
     const files = [
       'src/app/api/cron/reports/route.ts',
       'src/app/api/cron/nip-purge/route.ts',
+      'src/app/api/cron/outbox/route.ts',
       'src/app/api/cron/google-ads/route.ts',
       'src/app/api/cron/conversions/route.ts',
     ];

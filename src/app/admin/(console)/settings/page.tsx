@@ -12,6 +12,9 @@ import SettingsClient, { type IntegrationStatus } from '@/components/admin/Setti
 import { getDb, schema } from '@/db';
 import { MASKED_VALUE, SENSITIVE_KEYS } from '@/lib/settings';
 import { conversionQueueStats } from '@/lib/conversions/queue';
+import { INTELIX_DEFAULTS } from '@/lib/integrations/config';
+import { MAX_ATTEMPTS } from '@/lib/outbox/claim';
+import { sql } from 'drizzle-orm';
 
 export const metadata: Metadata = { title: 'Configuración' };
 
@@ -37,6 +40,15 @@ export default async function SettingsPage() {
   } catch {
     // sin acceso a app.settings → se muestran solo las variables de entorno
   }
+
+  let outboxSummary = 'sin envíos registrados';
+  try {
+    const rows = await db.select({ status: schema.deliveryOutbox.status, n: sql<number>`count(*)::int` }).from(schema.deliveryOutbox).groupBy(schema.deliveryOutbox.status);
+    if (rows.length) {
+      const n = (st: string) => rows.find((r) => r.status === st)?.n ?? 0;
+      outboxSummary = `entregados ${n('delivered')} · pendientes ${n('pending') + n('processing') + n('failed')} · muertos ${n('dead')}`;
+    }
+  } catch { /* sin acceso */ }
 
   let conversionStats: { provider: string; status: string; n: number }[] = [];
   try { conversionStats = await conversionQueueStats(); } catch { /* tabla vacía o sin acceso */ }
@@ -74,6 +86,13 @@ export default async function SettingsPage() {
       plain('Conversión "Portabilidad ganada" (id)', 'google_ads_won_conversion_action_id', 'GOOGLE_ADS_WON_CONVERSION_ACTION_ID', '', 'Opcional. Se sube cuando un lead pasa a estado comercial Ganado.'),
       plain('Filtro de campañas', 'google_ads_campaign_filter', 'GOOGLE_ADS_CAMPAIGN_FILTER', 'Ej: Bait', 'Solo campañas cuyo nombre contenga este texto (métricas SEM).'),
     ] },
+    { key: 'intelix', label: 'Intelix (CRM de portabilidad)', meta: `outbox cada 5 min · ${outboxSummary}`, status: status(v('intelix_api_url', 'INTELIX_API_URL') || INTELIX_DEFAULTS.apiUrl), configKeys: [
+      plain('URL del endpoint', 'intelix_api_url', 'INTELIX_API_URL', INTELIX_DEFAULTS.apiUrl, `Vacío = ${INTELIX_DEFAULTS.apiUrl}`),
+      secret('API key', 'intelix_api_key', 'INTELIX_API_KEY', 'Opcional: se envía como Authorization: Bearer si existe.'),
+      plain('Capturista', 'intelix_capturista', 'INTELIX_CAPTURISTA', INTELIX_DEFAULTS.capturista, 'Id de capturista que Intelix asocia a los registros web.'),
+      plain('Compañía', 'intelix_compania', 'INTELIX_COMPANIA', INTELIX_DEFAULTS.compania, 'Compañía de origen que se envía en cada registro (el formulario no la pregunta).'),
+      plain('chat_id', 'intelix_chat_id', 'INTELIX_CHAT_ID', String(INTELIX_DEFAULTS.chatId), 'Identificador de canal que espera el endpoint.'),
+    ] },
     { key: 'conversions', label: 'Valor de conversión', meta: 'MXN por portabilidad ganada (Google Ads / Meta)', status: 'CONFIGURED' as IntegrationStatus, configKeys: [
       plain('Valor (MXN)', 'conversion_won_value', 'CONVERSION_WON_VALUE', '100', 'Se envía como valor de la conversión "won". Default 100.'),
     ] },
@@ -88,6 +107,7 @@ export default async function SettingsPage() {
     authProvider: 'Neon Auth (managed)',
     privacyPolicyVersion: env.PRIVACY_POLICY_VERSION ?? null,
     termsVersion: env.TERMS_VERSION ?? null,
+    maxDeliveryAttempts: MAX_ATTEMPTS,
   };
 
   // Campos reales del formulario de portabilidad (public/assets/site.js → src/lib/validators/lead-schema.ts)

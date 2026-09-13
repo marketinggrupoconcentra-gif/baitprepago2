@@ -5,7 +5,7 @@
  * Diseño: "Analítica de adquisición.dc.html" (Claude Design).
  *
  * Todo se alimenta de /api/admin/analytics/acquisition (datos reales de
- * app.analytics_events / app.leads / app.lead_attribution).
+ * app.analytics_events / app.leads / app.lead_attribution / app.delivery_outbox).
  * Las secciones que dependen de integraciones no conectadas (Google Ads,
  * Meta Ads, Search Console, jerarquía de grupos/anuncios) muestran un estado
  * "no conectado" — nunca estimaciones.
@@ -118,6 +118,7 @@ interface Acquisition {
     sections: { id: string; sessions: number }[];
   };
   geo: { code: string; leads: number }[];
+  delivery: { delivered: number; failed: number; duplicate: number; pending: number; total: number };
   health: { sessions: number; attributed: number; noUtm: number; lastEventAt: string | null };
   campaigns: Campaign[];
   utm: { dim: string; val: string; sessions: number; leads: number }[];
@@ -1221,7 +1222,7 @@ function LandingAndOrganic({ data, d }: { data: Acquisition; d: Derived }) {
   );
 }
 
-// ── Health / quality row ──────────────────────────────────────────
+// ── Health / quality / delivery row ──────────────────────────────────────────
 function HealthRow({ data, d, nowMs }: { data: Acquisition; d: Derived; nowMs: number }) {
   const H = data.health;
   const cov = H.sessions ? H.attributed / H.sessions : 0;
@@ -1229,6 +1230,15 @@ function HealthRow({ data, d, nowMs }: { data: Acquisition; d: Derived; nowMs: n
   const lastMs = H.lastEventAt ? nowMs - new Date(H.lastEventAt).getTime() : null;
   const stale = lastMs != null && lastMs > 3 * 3600 * 1000;
   const bad = cov < 0.6 || stale;
+
+  const D = data.delivery;
+  const deliveryRows = [
+    ['Lead exitoso', D.total, '100%', INK],
+    ['Entregado a CRM', D.delivered, D.total ? pf(D.delivered / D.total, 1) : '—', GREEN],
+    ['Fallido en entrega', D.failed, D.total ? pf(D.failed / D.total, 1) : '—', '#C0392B'],
+    ['Duplicado', D.duplicate, D.total ? pf(D.duplicate / D.total, 1) : '—', '#D9B45A'],
+    ['Pendiente', D.pending, D.total ? pf(D.pending / D.total, 1) : '—', MUTED],
+  ] as const;
 
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, alignItems: 'start' }}>
@@ -1275,6 +1285,19 @@ function HealthRow({ data, d, nowMs }: { data: Acquisition; d: Derived; nowMs: n
         </div>
       </Card>
 
+      <Card style={{ gap: 13 }}>
+        <CardHead title="Entrega de leads" sub="¿el sistema procesó lo que generó marketing?" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: '#EFEEE9', border: `1px solid #EFEEE9`, borderRadius: 10, overflow: 'hidden' }}>
+          {deliveryRows.map(([label, val, pct, c]) => (
+            <div key={label} style={{ background: CARD, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: c, flex: '0 0 6px' }} />
+              <span style={{ flex: 1, minWidth: 0, font: `600 12px ${SANS}`, color: '#4B4B44' }}>{label}</span>
+              <span style={{ font: `600 11.5px ${SANS}`, color: MUTED, fontVariantNumeric: 'tabular-nums' }}>{pct}</span>
+              <span style={{ font: `700 12.5px ${SANS}`, fontVariantNumeric: 'tabular-nums', width: 52, textAlign: 'right' }}>{nf(val)}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
     </section>
   );
 }

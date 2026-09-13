@@ -17,6 +17,7 @@ const hasDb = Boolean(SCHEMA_DB_URL);
 const EXPECTED_TABLES = [
   // Etapa 1
   'analytics_events',
+  'delivery_outbox',
   'idempotency_keys',
   'lead_attribution',
   'lead_consents',
@@ -31,7 +32,7 @@ const EXPECTED_TABLES = [
   'report_schedules',
   // Etapa 2.2 (migration 0002)
   'rate_limits',
-  // 0006 / 0007 / 0008 (motor + BAIT Prepago); 0009 retira el outbox CRM
+  // 0006 / 0007 / 0008 (motor + BAIT Prepago)
   'settings',
   'ads_metrics',
   'captcha_challenges',
@@ -41,6 +42,7 @@ const EXPECTED_TABLES = [
 
 const EXPECTED_ENUM_TYPES = [
   'lead_status',
+  'outbox_status',
   'conversion_provider',
   'conversion_event',
   'conversion_delivery_status',

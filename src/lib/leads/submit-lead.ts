@@ -30,9 +30,11 @@ export async function submitLead(
     phoneBidx: string;
     stateCode?: string | null;
     planCode: string;
-    /** Secreto tipo NIP: si se omite NO se escribe lead_secrets (BAIT Prepago nunca persiste el NIP). */
+    /** NIP cifrado con retención corta: solo para la entrega a Intelix (se borra al entregar). */
     nipEnc?: string;
     nipExpiresAt?: Date;
+    /** Destino del outbox ('intelix'); si se omite NO se encola entrega. */
+    outboxDestination?: string;
     sessionId?: string;
     sourceCategory: 'google_ads' | 'meta_ads' | 'paid_other' | 'organic' | 'referral' | 'direct' | 'other';
     utmSource?: string;
@@ -158,6 +160,15 @@ export async function submitLead(
     termsVersion: opts.termsVersion,
     acceptedAt: opts.now,
   } as typeof schema.leadConsents.$inferInsert);
+
+  if (opts.outboxDestination) {
+    await tx.insert(schema.deliveryOutbox).values({
+      leadId: opts.leadId,
+      destination: opts.outboxDestination,
+      status: 'pending',
+      nextAttemptAt: null, // elegible de inmediato (evita desfase reloj app vs Postgres)
+    });
+  }
 
   // 4b. Cola de conversiones (Google Ads offline / Meta CAPI). event_id = idempotency key,
   //     el mismo uuid que el Pixel usa como eventID → deduplicación en Meta.

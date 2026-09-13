@@ -16,10 +16,15 @@
 ## 2. Reglas de Seguridad (PII y NIP)
 
 El NIP (Número de Identificación Personal) que el usuario recibe por SMS es **información altamente sensible**.
-1. **NO se persistirá nunca en la base de datos** (`app.leads` no tiene columna `nip` y el motor no escribe en `app.lead_secrets`).
-2. **NO se pasará por la URL** al redirigir a WhatsApp u otro destino.
-3. El frontend y backend validan que el NIP se introdujo correctamente para reducir spam/bots, pero una vez validado, se descarta.
-4. Las credenciales de la base de datos (connection strings) no deben loguearse ni subirse a control de versiones. El runtime usa el rol de mínimo privilegio `baitprepago_app_runtime` (`APP_DATABASE_URL`); el rol owner (`DATABASE_URL`) es solo para migraciones y scripts.
+1. **Nunca en claro**: el NIP se cifra (AES-256-GCM, `app.lead_secrets.nip_enc`) y **solo** existe para entregarlo al CRM
+   Intelix, que lo necesita para iniciar la portabilidad. Se borra en cuanto Intelix acepta el registro
+   (`markDelivered`) y, en todo caso, a las `NIP_RETENTION_HOURS` (72 h) vía `/api/cron/nip-purge`.
+2. **NO se pasará por la URL** al redirigir a WhatsApp u otro destino, ni aparece en el admin, exports, logs
+   ni en `delivery_outbox.last_error_payload` (el payload enviado se guarda enmascarado: `nip: [REDACTED]`).
+3. La fecha de vigencia del NIP se valida en el servidor y se descarta.
+4. Las credenciales de la base de datos (connection strings) no deben loguearse ni subirse a control de versiones.
+   El runtime usa el rol de mínimo privilegio `baitprepago_app_runtime` (`APP_DATABASE_URL`); el rol owner
+   (`DATABASE_URL`) es solo para migraciones y scripts.
 
 ## 3. Entornos y Seguridad de Preview (Fail Closed)
 
@@ -39,7 +44,10 @@ El NIP (Número de Identificación Personal) que el usuario recibe por SMS es **
   - *Seguridad*: origen permitido, detección de bots, rate limit distribuido (`app.rate_limits`), honeypot, tiempo mínimo, idempotencia (`app.idempotency_keys`),
     dedupe por blind index del teléfono.
   - *Atribución (`src/lib/analytics/attribution.ts`)*: UTMs, gclid/fbclid hasheados, ids de Meta, primer/último toque en `app.lead_attribution`.
-  - *Persistencia (`src/lib/leads/submit-lead.ts`)*: una transacción → `app.leads` (PII cifrada), `lead_consents`, `lead_attribution`, evento `lead_success`.
+  - *Persistencia (`src/lib/leads/submit-lead.ts`)*: una transacción → `app.leads` (PII cifrada), `lead_secrets` (NIP cifrado, temporal), `lead_consents`,
+    `lead_attribution`, `delivery_outbox` (pendiente para Intelix), `conversion_deliveries`, evento `lead_success`.
+  - *Entrega a Intelix (`src/app/api/cron/outbox/route.ts`)*: cada 5 min, `POST {intelix_api_url}` con
+    `{ chat_id, dn, compania, nombre, apellidos, nip, capturista }`; reintentos con lease/backoff; estado en `/admin/logs`.
 
 - **Base de Datos**: `src/db/schema/app.ts` + `npm run db:migrate`; grants del rol runtime en `src/lib/security/privilege-manifest.ts`.
 

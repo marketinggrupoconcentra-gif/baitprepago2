@@ -28,7 +28,55 @@ export const INTEGRATION_SETTING_KEYS = {
   conversions: {
     wonValueMxn:           'conversion_won_value',
   },
+  intelix: {
+    apiUrl:                'intelix_api_url',
+    apiKey:                'intelix_api_key',
+    capturista:            'intelix_capturista',
+    compania:              'intelix_compania',
+    chatId:                'intelix_chat_id',
+  },
 } as const;
+
+export interface IntelixConfig {
+  apiUrl: string;
+  apiKey?: string;
+  capturista: string;
+  compania: string;
+  chatId: number;
+  timeoutMs: number;
+}
+
+export const INTELIX_DEFAULTS = {
+  apiUrl: 'https://intelix-api.grupoconcentra.com/api/botmaker/store/portability',
+  capturista: '89991',
+  compania: 'telcel',
+  chatId: 1,
+} as const;
+
+/** CRM Intelix (entrega de portabilidades). Configurable en /admin/settings; defaults del contrato. */
+export async function getIntelixConfig(): Promise<IntelixConfig | null> {
+  const k = INTEGRATION_SETTING_KEYS.intelix;
+  const env = process.env;
+  const [apiUrl, apiKey, capturista, compania, chatId] = await Promise.all([
+    getSetting(k.apiUrl, env.INTELIX_API_URL ?? INTELIX_DEFAULTS.apiUrl),
+    getSetting(k.apiKey, env.INTELIX_API_KEY),
+    getSetting(k.capturista, env.INTELIX_CAPTURISTA ?? INTELIX_DEFAULTS.capturista),
+    getSetting(k.compania, env.INTELIX_COMPANIA ?? INTELIX_DEFAULTS.compania),
+    getSetting(k.chatId, env.INTELIX_CHAT_ID ?? String(INTELIX_DEFAULTS.chatId)),
+  ]);
+  const url = clean(apiUrl);
+  // https obligatorio en producción; http solo para pruebas locales contra un mock
+  if (!url || !(url.startsWith('https://') || (process.env.NODE_ENV !== 'production' && url.startsWith('http://')))) return null;
+  const chat = Number(clean(chatId) ?? INTELIX_DEFAULTS.chatId);
+  return {
+    apiUrl: url,
+    apiKey: clean(apiKey),
+    capturista: clean(capturista) ?? INTELIX_DEFAULTS.capturista,
+    compania: (clean(compania) ?? INTELIX_DEFAULTS.compania).toLowerCase(),
+    chatId: Number.isFinite(chat) ? chat : INTELIX_DEFAULTS.chatId,
+    timeoutMs: Number(env.DOWNSTREAM_TIMEOUT_MS ?? 10_000),
+  };
+}
 
 export interface GoogleAdsConfig {
   developerToken: string;

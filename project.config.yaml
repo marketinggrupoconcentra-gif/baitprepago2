@@ -84,7 +84,8 @@ email:
   from_email: ""                     # pending_credential: RESEND_FROM_EMAIL (dominio verificado en Resend)
 
 crm:
-  provider: "none"
+  provider: "intelix"
+  api_url_setting: "intelix_api_url"
 
 analytics:
   enabled: true
@@ -114,6 +115,8 @@ deployment:
   production_branch: "main"
   framework_preset: "nextjs"
   crons:
+    - path: "/api/cron/outbox"
+      schedule: "*/5 * * * *"
     - path: "/api/cron/nip-purge"
       schedule: "0 9 * * *"
     - path: "/api/cron/reports"

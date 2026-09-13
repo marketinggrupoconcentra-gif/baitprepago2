@@ -11,11 +11,13 @@ export const EDITABLE_SETTING_KEYS = [
   'google_ads_account_id', 'google_ads_login_customer_id', 'google_ads_campaign_filter',
   'google_ads_conversion_action_id', 'google_ads_won_conversion_action_id',
   'conversion_won_value',
+  'intelix_api_url', 'intelix_api_key', 'intelix_capturista', 'intelix_compania', 'intelix_chat_id',
 ] as const;
 
 /** Secretos: cifrados en reposo (AES-256-GCM) y enmascarados en la UI. */
 export const SENSITIVE_KEYS = new Set<string>([
   'resend_api_key',
+  'intelix_api_key',
   'meta_capi_access_token',
   'google_ads_developer_token',
   'google_ads_client_secret',

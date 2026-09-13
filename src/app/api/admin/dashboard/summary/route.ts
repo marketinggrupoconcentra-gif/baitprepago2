@@ -3,7 +3,7 @@
  *
  * Alimenta `/admin/dashboard` (diseño "Resumen"). Requiere: dashboard.view
  * Todo sale de tablas reales (app.leads, app.analytics_events, app.lead_attribution,
- * app.lead_management). Timezone de negocio: America/Mexico_City.
+ * app.lead_management, app.delivery_outbox). Timezone de negocio: America/Mexico_City.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/db/index';
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const [
       leadCur, leadPrev, evCur, evPrev, wonRow,
       barRows, sparkRows, channelSessionRows, channelLeadRows,
-      recentRows, healthRow,
+      recentRows, deliveryRow, healthRow, outboxErrorRow,
     ] = await Promise.all([
       db.execute(leadTotals(from, to)),
       db.execute(leadTotals(prevFrom, prevTo)),
@@ -142,6 +142,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         LEFT JOIN app.lead_attribution la ON la.lead_id = l.id
         ORDER BY l.created_at DESC LIMIT 7
       `),
+      // entrega CRM (delivery_outbox)
+      db.execute(sql`
+        SELECT
+          max(delivered_at) AS last_delivered,
+          count(*) FILTER (WHERE status IN ('pending', 'processing'))::int AS pending,
+          count(*) FILTER (WHERE status IN ('failed', 'dead'))::int AS failed
+        FROM app.delivery_outbox
+      `),
       // salud del tracking
       db.execute(sql`
         SELECT
@@ -151,6 +159,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         FROM app.analytics_events
         WHERE created_at >= ${from} AND created_at < ${to} AND event_name = 'page_view'
       `),
+      // outbox errors breakdown
+      db.execute(sql`
+        SELECT last_error_code AS code, count(*)::int AS count
+        FROM app.delivery_outbox
+        WHERE status = 'failed' AND updated_at >= ${from} AND updated_at < ${to}
+        GROUP BY 1
+        ORDER BY count DESC
+      `),
     ]);
 
     const rows = (r: unknown): Record<string, unknown>[] =>
@@ -159,7 +175,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const num = (v: unknown) => Number(v) || 0;
 
     const lc = one(leadCur), lp = one(leadPrev), ec = one(evCur), ep = one(evPrev);
-    const health = one(healthRow);
+    const del = one(deliveryRow), health = one(healthRow);
 
     const channelSessions = new Map(channelSessionRows && rows(channelSessionRows).map((r) => [String(r.ch), num(r.sessions)]));
     const channelLeads = new Map(rows(channelLeadRows).map((r) => [String(r.ch), num(r.leads)]));
@@ -179,6 +195,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         sessions: { cur: num(ec.sessions), prev: num(ep.sessions) },
         formStart: { cur: num(ec.form_start), prev: num(ep.form_start) },
         submitted: { cur: num(ec.submitted), prev: num(ep.submitted) },
+        validated: { cur: num(lc.delivered), prev: num(lp.delivered) },
         won: { cur: num(one(wonRow).won) },
         failed: { cur: num(lc.failed) },
         duplicate: { cur: num(lc.duplicate) },
@@ -199,6 +216,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         sessions: num(health.sessions),
         noUtm: num(health.no_utm),
         lastEventAt: health.last_event ? new Date(health.last_event as string).toISOString() : null,
+      },
+      delivery: {
+        lastDeliveredAt: del.last_delivered ? new Date(del.last_delivered as string).toISOString() : null,
+        pending: num(del.pending),
+        failed: num(del.failed),
+        errorsBreakdown: rows(outboxErrorRow).map((r) => ({
+          code: String(r.code || 'Desconocido'),
+          count: num(r.count),
+        })),
       },
       integrations: { googleAds: false, metaAds: false },
     });

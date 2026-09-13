@@ -5,7 +5,7 @@
  * Diseño: "Resumen.dc.html" (Claude Design), replicado a exactitud.
  *
  * Datos reales de /api/admin/dashboard/summary (app.leads, app.analytics_events,
- * app.lead_attribution, app.lead_management).
+ * app.lead_attribution, app.lead_management, app.delivery_outbox).
  * PROHIBIDO: KPIs inventados, datos mock. Lo que no hay → estado honesto.
  */
 'use client';
@@ -69,7 +69,7 @@ interface Summary {
   period: { from: string; to: string };
   updatedAt: string;
   kpis: {
-    leads: Kpi; sessions: Kpi; formStart: Kpi; submitted: Kpi;
+    leads: Kpi; sessions: Kpi; formStart: Kpi; submitted: Kpi; validated: Kpi;
     won: Kpi; failed: Kpi; duplicate: Kpi;
   };
   bars: { bucket: string; leads: number }[];
@@ -77,6 +77,12 @@ interface Summary {
   channels: { id: string; sessions: number; leads: number }[];
   recent: { ref: string; at: string; channel: string; state: string; status: string }[];
   health: { sessions: number; noUtm: number; lastEventAt: string | null };
+  delivery: { 
+    lastDeliveredAt: string | null; 
+    pending: number; 
+    failed: number; 
+    errorsBreakdown?: { code: string; count: number }[] 
+  };
   integrations: { googleAds: boolean; metaAds: boolean };
 }
 
@@ -167,14 +173,16 @@ export default function DashboardClient() {
       { label: 'Sesiones', val: n(sessions), d: delta(sessions, k.sessions.prev), src: 'landing', spark: sparkSes },
       { label: 'Inicios de formulario', val: n(formStart), d: delta(formStart, k.formStart.prev), src: 'landing', spark: sparkFs },
       { label: 'Tasa de conversión', val: pct(cvr, 2), d: delta(cvr, prevCvr), src: 'calculado', spark: sparkLeads },
+      { label: 'Leads entregados a CRM', val: n(k.validated.cur), d: delta(k.validated.cur, k.validated.prev), src: 'CRM', spark: sparkLeads },
     ];
 
-    // Embudo de portabilidad (4 pasos, datos reales)
+    // Embudo de portabilidad (5 pasos, datos reales)
     const steps: [string, number][] = [
       ['Sesiones en la landing', sessions],
       ['Inicios de formulario', formStart],
       ['Leads enviados', leads],
-      ['Portabilidad ganada', k.won.cur],
+      ['Entregados a CRM', k.validated.cur],
+      ['Portabilidad ganada (CRM)', k.won.cur],
     ];
     const funnel = steps.map(([label, val], i) => {
       const stepPct = i === 0 ? 1 : steps[i - 1][1] ? val / steps[i - 1][1] : 0;
@@ -231,15 +239,22 @@ export default function DashboardClient() {
     }
     if (k.failed.cur > 0) {
       alerts.push({
-        title: `${n(k.failed.cur)} lead${k.failed.cur === 1 ? '' : 's'} marcado${k.failed.cur === 1 ? '' : 's'} como fallido`,
-        body: 'Revisa los datos del lead en la sección de Leads.',
+        title: `${n(k.failed.cur)} lead${k.failed.cur === 1 ? '' : 's'} fallido${k.failed.cur === 1 ? '' : 's'} en la entrega`,
+        body: 'No se entregaron al CRM de portabilidad. Revisa el estado del outbox y los datos del lead.',
         bg: RED_BG, bd: RED_BD, dot: RED_FG,
+      });
+    }
+    if (data.delivery.pending > 0) {
+      alerts.push({
+        title: `${n(data.delivery.pending)} lead${data.delivery.pending === 1 ? '' : 's'} pendiente${data.delivery.pending === 1 ? '' : 's'} de entrega`,
+        body: 'Están en cola de envío al CRM. Si no bajan, revisa el worker del outbox.',
+        bg: AMBER_SOFT, bd: AMBER_BD, dot: '#E0A800',
       });
     }
     if (alerts.length === 0) {
       alerts.push({
         title: 'Sin alertas en el período',
-        body: 'El embudo y la atribución operan dentro de lo esperado.',
+        body: 'El embudo, la atribución y la entrega al CRM operan dentro de lo esperado.',
         bg: GREEN_BG, bd: GREEN_BD, dot: '#1B7F4B',
       });
     }
@@ -247,6 +262,7 @@ export default function DashboardClient() {
     // Integraciones
     const lastEvMs = data.health.lastEventAt ? Date.parse(data.health.lastEventAt) : 0;
     const evStale = !lastEvMs || nowMs - lastEvMs > 3 * 3600 * 1000;
+    const lastDel = data.delivery.lastDeliveredAt ? new Date(data.delivery.lastDeliveredAt) : null;
     const integrations = [
       {
         label: 'Landing BAIT Prepago',
@@ -255,6 +271,13 @@ export default function DashboardClient() {
       },
       { label: 'Google Ads', meta: 'sin credenciales', ...pill('Pendiente', GOLD, AMBER_SOFT, AMBER_BD) },
       { label: 'Meta Ads', meta: 'sin credenciales', ...pill('Pendiente', GOLD, AMBER_SOFT, AMBER_BD) },
+      {
+        label: 'CRM portabilidad (outbox)',
+        meta: lastDel ? `último envío ${lastDel.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'sin envíos registrados',
+        ...(data.delivery.failed > 0
+          ? pill('Con fallos', RED_FG, RED_BG, RED_BD)
+          : lastDel ? pill('Activa', GREEN_FG, GREEN_BG, GREEN_BD) : pill('Sin datos', MUTED, '#F3F2ED', LINE)),
+      },
     ];
 
     // Últimos leads
@@ -270,7 +293,20 @@ export default function DashboardClient() {
       };
     });
 
-    return { kpis, funnel, funnelNote, channels, bars, barMax, alerts, integrations, recent };
+    const intelixErrors = data.delivery.errorsBreakdown?.map((e) => {
+      let desc = 'Error en el sistema';
+      if (e.code === 'http_409_duplicado') desc = 'Teléfono duplicado';
+      else if (e.code.startsWith('http_')) desc = `Fallo de conexión (${e.code})`;
+      else desc = `Regla de negocio (${e.code})`;
+      
+      return {
+        code: e.code,
+        desc,
+        count: n(e.count)
+      };
+    }) || [];
+
+    return { kpis, funnel, funnelNote, channels, bars, barMax, alerts, integrations, recent, intelixErrors };
   }, [data, nowMs]);
 
   const cmpLabel = range === 'hoy' ? 'vs ayer' : 'vs período anterior';
@@ -442,6 +478,21 @@ export default function DashboardClient() {
                   </div>
                 ))}
               </div>
+
+              {d.intelixErrors.length > 0 && (
+                <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <h2 style={{ margin: 0, font: `700 15.5px ${SANS}`, letterSpacing: '-0.015em' }}>Errores Intelix (Outbox)</h2>
+                  {d.intelixErrors.map((e) => (
+                    <div key={e.code} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 0', borderBottom: `1px solid #F5F4EF` }}>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                        <span style={{ font: `600 13px ${SANS}` }}>{e.desc}</span>
+                        <span style={{ font: `500 11px ${MONO}`, color: MUTED }}>Código: {e.code}</span>
+                      </span>
+                      <span style={{ font: `700 13px ${SANS}` }}>{e.count} <span style={{ font: `500 11px ${SANS}`, color: MUTED }}>casos</span></span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <h2 style={{ margin: 0, font: `700 15.5px ${SANS}`, letterSpacing: '-0.015em' }}>Integraciones</h2>

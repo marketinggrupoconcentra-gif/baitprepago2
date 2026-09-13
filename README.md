@@ -4,7 +4,7 @@ Landing de portabilidad **BAIT Prepago** (`https://baitprepago.com`) sobre el mo
 Next.js 16 (App Router) · Drizzle ORM · Neon Postgres (schema `app`) · Neon Auth (admin) · Resend · Vercel.
 
 - **Zona horaria de negocio**: `America/Mexico_City` (ver `GEMINI.md` §5).
-- **Regla de oro**: el NIP de portabilidad **nunca se persiste** (`GEMINI.md` §2). El motor no escribe en `app.lead_secrets`.
+- **Regla de oro**: el NIP de portabilidad **nunca en claro** (`GEMINI.md` §2): se cifra solo para entregarlo a Intelix y se borra al entregar (o a las 72 h).
 - **Zona protegida** (`.scale-design-lock.json`): `public/legacy/**`, `public/assets/{site.css,site.js,images/,bait-logo.svg}`,
   `public/robots.txt`, `public/sitemap.xml`. Es la landing en producción, copiada verbatim; no se rediseña.
 
@@ -18,9 +18,10 @@ Next.js 16 (App Router) · Drizzle ORM · Neon Postgres (schema `app`) · Neon A
 | Analítica cliente | `public/assets/js/bait-analytics.js` | Configurado por `window.BAIT_ANALYTICS_CONFIG` en `index.html`; lee GTM/GA4/Pixel de `GET /api/analytics/config`; envía embudo a `POST /api/track`. |
 | CAPTCHA propio | `POST /api/captcha/challenge` → `src/lib/security/captcha.ts` | Reto de 6 dígitos (SVG sin `<text>`), hash HMAC con `CAPTCHA_PEPPER`, un solo uso, tabla `app.captcha_challenges`. |
 | Alta de lead | `POST /api/leads` (contrato de la landing) y `POST /api/v1/leads` | Mismo handler `src/lib/leads/handle-lead-request.ts`: origen → bot → rate limit distribuido → honeypot → tiempo mínimo → idempotencia → Zod (`src/lib/validators/lead-schema.ts`) → CAPTCHA → dedupe por teléfono (blind index) → transacción `submitLead`. |
-| Datos | `src/db/schema/app.ts`, migraciones `src/db/migrations/0000..0010` | PII cifrada (AES-256-GCM) + blind indexes HMAC. Rol runtime de mínimo privilegio `baitprepago_app_runtime` (`src/lib/security/privilege-manifest.ts`). |
-| Admin | `/admin/*` (`src/app/admin`) | Neon Auth + RBAC (`src/lib/rbac.ts`): dashboard, leads, analytics, SEM, settings, usuarios. |
-| Crons (`vercel.json`) | `/api/cron/{reports,nip-purge,google-ads,conversions}` | `Authorization: Bearer CRON_SECRET`. `nip-purge` purga retos CAPTCHA y buckets de rate limit; `conversions` envía leads/ganados a Google Ads (offline) y Meta CAPI. |
+| Datos | `src/db/schema/app.ts`, migraciones `src/db/migrations/0000..0011` | PII cifrada (AES-256-GCM) + blind indexes HMAC. Rol runtime de mínimo privilegio `baitprepago_app_runtime` (`src/lib/security/privilege-manifest.ts`). |
+| Admin | `/admin/*` (`src/app/admin`) | Neon Auth + RBAC (`src/lib/rbac.ts`): dashboard, leads, analytics, SEM, logs (entregas a Intelix), settings, usuarios. |
+| Entrega a Intelix | `/api/cron/outbox` cada 5 min → `POST {intelix_api_url}` | Outbox con claim exclusivo y reintentos; `{ chat_id, dn, compania, nombre, apellidos, nip, capturista }`. Estado y reintento manual en `/admin/logs`. |
+| Crons (`vercel.json`) | `/api/cron/{outbox,nip-purge,reports,google-ads,conversions}` | `Authorization: Bearer CRON_SECRET`. `nip-purge` borra NIPs vencidos, retos CAPTCHA y buckets de rate limit; `conversions` envía leads/ganados a Google Ads (offline) y Meta CAPI. |
 | Edge | `src/proxy.ts` | CSP, cabeceras de seguridad, rate limit en memoria, redirect `/gracias` → `/gracias/`, `/admin` sin sesión → login. |
 
 Respuestas de `POST /api/leads` que consume `site.js`:
@@ -81,7 +82,7 @@ Smoke manual de la landing contra un servidor local (`npm run build && npm start
 
 ## 6. Despliegue (Vercel)
 
-- Rama `main` → producción; cualquier otra rama → Preview. `vercel.json` fija `framework: nextjs`, 4 crons y cabeceras.
+- Rama `main` → producción; cualquier otra rama → Preview. `vercel.json` fija `framework: nextjs`, 5 crons y cabeceras.
 - Variables de entorno de producción: todas las `[REQUIRED]` de `.env.example` (nunca las `[LOCAL]`).
 - Primer administrador: `POST /api/admin/bootstrap` con `ADMIN_BOOTSTRAP_EMAIL`, o `scripts/create-admin-direct.mjs`.
 - Rollback: `vercel rollback <deployment-id>` (o "Promote" del deployment anterior en el dashboard).
@@ -90,7 +91,7 @@ Smoke manual de la landing contra un servidor local (`npm run build && npm start
 
 - PII (nombre, apellido, email, teléfono) cifrada en columna; búsquedas por blind index; el teléfono se revela en admin
   solo con permiso y queda en `app.audit_logs`.
-- NIP y fecha de vigencia del NIP: se validan en servidor y se descartan. No existe columna ni log que los contenga.
+- NIP: cifrado en `lead_secrets` solo hasta que Intelix acepta el registro (o 72 h); nunca en claro, admin, exports ni logs. La fecha de vigencia se valida y se descarta.
 - Anti-abuso: honeypot (`website`), tiempo mínimo de llenado (`SECURITY_MIN_FORM_FILL_MS`), idempotencia 24 h,
   rate limit distribuido (`app.rate_limits`) + edge, CAPTCHA propio, dedupe por teléfono.
 - `.env*` nunca se commitea (`.gitignore`); solo `.env.example`.

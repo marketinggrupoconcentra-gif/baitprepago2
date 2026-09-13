@@ -12,6 +12,8 @@
  *
  * Covers:
  *   FLW-001  atomicidad del lead (rollback total + true concurrency)
+ *   FLW-003  outbox: filtro de estados terminales ANTES del LIMIT (production code)
+ *   FLW-004  outbox: claim exclusivo + lease (production code)
  *   SEC-004  rate limit distribuido: incremento atómico, concurrencia
  *   SEC-010  least privilege: DML real, DDL safe probes, append-only, no-access
  *   PRIV     privilege manifest enforcement
@@ -141,6 +143,7 @@ describe('Etapa 2.2 — regresión contra Neon real (hardened)', () => {
     if (createdLeadIds.length > 0) {
       // Delete in correct FK order
       await ownerSql`DELETE FROM app.analytics_events WHERE session_id LIKE ${'test-' + RUN_ID + '%'}`;
+      await ownerSql`DELETE FROM app.delivery_outbox WHERE lead_id = ANY(${createdLeadIds}::uuid[])`;
       await ownerSql`DELETE FROM app.lead_management WHERE lead_id = ANY(${createdLeadIds}::uuid[])`;
       await ownerSql`DELETE FROM app.lead_consents WHERE lead_id = ANY(${createdLeadIds}::uuid[])`;
       await ownerSql`DELETE FROM app.lead_attribution WHERE lead_id = ANY(${createdLeadIds}::uuid[])`;
@@ -157,6 +160,15 @@ describe('Etapa 2.2 — regresión contra Neon real (hardened)', () => {
     await ownerSql`DELETE FROM app.security_events WHERE route = ${'/test/' + RUN_ID}`;
     await ownerSql`DELETE FROM app.audit_logs WHERE target_type = ${'test-' + RUN_ID}`;
   });
+
+  // Helper: seed a lead and track it for cleanup
+  async function seedLead(): Promise<string> {
+    const id = randomUUID();
+    createdLeadIds.push(id);
+    await sql`INSERT INTO app.leads (id, public_reference, status, first_name_enc,last_name_enc,email_enc,phone_enc,birthdate_enc,email_bidx,phone_bidx,state_code,plan_code)
+      VALUES (${id}, ${randomUUID()}, 'received','x','x','x','x',NULL,'x','x',NULL,'prepago_100')`;
+    return id;
+  }
 
 
   // ── FLW-001 — atomicidad del lead ────────────────────────────────────────
@@ -197,6 +209,7 @@ describe('Etapa 2.2 — regresión contra Neon real (hardened)', () => {
       expect((await sql`select count(*)::int n from app.lead_secrets where lead_id = ${leadId}`)[0].n).toBe(0);
       expect((await sql`select count(*)::int n from app.lead_attribution where lead_id = ${leadId}`)[0].n).toBe(0);
       expect((await sql`select count(*)::int n from app.lead_consents where lead_id = ${leadId}`)[0].n).toBe(0);
+      expect((await sql`select count(*)::int n from app.delivery_outbox where lead_id = ${leadId}`)[0].n).toBe(0);
       expect((await sql`select count(*)::int n from app.analytics_events where session_id = ${'test-fail-' + RUN_ID}`)[0].n).toBe(0);
     }, 15000);
 
@@ -257,6 +270,7 @@ describe('Etapa 2.2 — regresión contra Neon real (hardened)', () => {
             emailBidx: emailBidxVal, phoneBidx: blindIndex(p.replace(/\D/g, '').slice(-10)),
             stateCode: null, planCode: 'prepago_100',
             nipEnc: 'x', nipExpiresAt: new Date(Date.now() + 3600_000),
+            outboxDestination: 'test-crm-' + RUN_ID,
             sourceCategory: 'organic',
             contractingAccepted: true, privacyAccepted: true, privacyPolicyVersion: '1', termsVersion: '1',
           });
@@ -273,7 +287,7 @@ describe('Etapa 2.2 — regresión contra Neon real (hardened)', () => {
       expect(rejected).toHaveLength(1);
       expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(IdempotencyRaceError);
 
-      // §20: exactly 1 lead + 1 idempotency key + exactly 1 of all child writes
+      // §20: exactly 1 lead + 1 outbox + 1 idempotency key + exactly 1 of all child writes
       const n = (await sql`select count(*)::int n from app.idempotency_keys where idempotency_key = ${key}`)[0].n;
       expect(n).toBe(1);
 
@@ -285,6 +299,7 @@ describe('Etapa 2.2 — regresión contra Neon real (hardened)', () => {
       expect((await sql`select count(*)::int n from app.lead_secrets where lead_id = ${committedLeadId}`)[0].n).toBe(1);
       expect((await sql`select count(*)::int n from app.lead_attribution where lead_id = ${committedLeadId}`)[0].n).toBe(1);
       expect((await sql`select count(*)::int n from app.lead_consents where lead_id = ${committedLeadId}`)[0].n).toBe(1);
+      expect((await sql`select count(*)::int n from app.delivery_outbox where lead_id = ${committedLeadId}`)[0].n).toBe(1);
       
       const analyticsRows = await sql`select count(*)::int n from app.analytics_events where event_name = 'lead_success' and session_id = ${'test-' + RUN_ID}`;
       expect(analyticsRows[0].n).toBe(1);
@@ -329,6 +344,168 @@ describe('Etapa 2.2 — regresión contra Neon real (hardened)', () => {
       expect(rejected[0].reason).toBeInstanceOf(DuplicatePhoneError);
       expect((await sql`select count(*)::int n from app.leads where phone_bidx = ${phoneBidx}`)[0].n).toBe(1);
     }, 15000);
+  });
+
+  // ── FLW-003 / FLW-004 — outbox (PRODUCTION CODE via import) ──────────────
+  describe('FLW-003/004 outbox (production claim)', () => {
+    // Import the ACTUAL production claim module (§23)
+    let claimOutboxBatch: typeof import('../../src/lib/outbox/claim').claimOutboxBatch;
+    let markDelivered: typeof import('../../src/lib/outbox/claim').markDelivered;
+    let markFailed: typeof import('../../src/lib/outbox/claim').markFailed;
+    let MAX_ATTEMPTS: number;
+
+    beforeAll(async () => {
+      ({ claimOutboxBatch, markDelivered, markFailed, MAX_ATTEMPTS } =
+        await import('../../src/lib/outbox/claim'));
+    });
+    
+    // HRD-013: Hermetic destination specific to this test run.
+    const DEST = 'test-intelix-' + RUN_ID;
+
+    test('FLW-003: 50 delivered antiguos NO bloquean 1 pending real', async () => {
+      const bulkLeads = Array.from({ length: 50 }, () => randomUUID());
+      bulkLeads.forEach(id => createdLeadIds.push(id));
+      await sql`
+        INSERT INTO app.leads (id, public_reference, status, first_name_enc,last_name_enc,email_enc,phone_enc,birthdate_enc,email_bidx,phone_bidx,state_code,plan_code)
+        SELECT g::uuid, gen_random_uuid(), 'received','x','x','x','x','x','x','x','JC','pospago_199'
+        FROM unnest(${bulkLeads}::uuid[]) g`;
+      await sql`
+        INSERT INTO app.delivery_outbox (lead_id, destination, status, created_at)
+        SELECT g::uuid, ${DEST}, 'delivered', now() - interval '10 days'
+        FROM unnest(${bulkLeads}::uuid[]) g`;
+
+      const pendLead = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, next_attempt_at)
+        VALUES (${pendLead}, ${DEST}, 'pending', now() - interval '1 minute')`;
+
+      // Use ACTUAL production claim code
+      const claimed = await claimOutboxBatch({ batch: 50, destination: DEST });
+      const claimedLeads = await sql`SELECT lead_id FROM app.delivery_outbox WHERE id = ANY(${claimed.map(c => c.id)})`;
+      expect(claimedLeads.map(r => r.lead_id)).toContain(pendLead);
+    }, 30_000);
+
+    test('FLW-004: dos "workers" concurrentes no claiman la misma fila', async () => {
+      const l = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, next_attempt_at)
+        VALUES (${l}, ${DEST}, 'pending', now() - interval '1 minute')`;
+      // §25: Two actual workers concurrently
+      const [a, b] = await Promise.all([
+        claimOutboxBatch({ batch: 10, workerId: 'w1-' + RUN_ID, destination: DEST }),
+        claimOutboxBatch({ batch: 10, workerId: 'w2-' + RUN_ID, destination: DEST }),
+      ]);
+      const idsA = a.map(r => r.id);
+      const idsB = b.map(r => r.id);
+      const overlap = idsA.filter(x => idsB.includes(x));
+      expect(overlap).toHaveLength(0);
+      expect(idsA.length + idsB.length).toBe(1);
+    });
+
+    test('FLW-004: lease expirado → se puede re-claim; delivered/dead nunca', async () => {
+      const l1 = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, locked_at, lease_expires_at)
+        VALUES (${l1}, ${DEST}, 'processing', now() - interval '10 minutes', now() - interval '5 minutes')`;
+      const l2 = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status) VALUES (${l2}, ${DEST}, 'delivered')`;
+      const l3 = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, attempts) VALUES (${l3}, ${DEST}, 'dead', 5)`;
+
+      const claimed = await claimOutboxBatch({ batch: 10, destination: DEST });
+      const rows = await sql`SELECT lead_id, status FROM app.delivery_outbox WHERE id = ANY(${claimed.map(c => c.id)})`;
+      const leads = rows.map(r => r.lead_id);
+      expect(leads).toContain(l1);       // lease expirado → reclaim
+      expect(leads).not.toContain(l2);   // delivered
+      expect(leads).not.toContain(l3);   // dead
+    });
+
+    // §26: Outbox success lifecycle
+    test('outbox success: pending → processing → delivered', async () => {
+      const l = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, next_attempt_at)
+        VALUES (${l}, ${DEST}, 'pending', now() - interval '1 minute')`;
+
+      const claimed = await claimOutboxBatch({ batch: 1, destination: DEST });
+      expect(claimed).toHaveLength(1);
+      expect(claimed[0].lead_id).toBe(l);
+
+      // Verify processing state
+      const processing = (await sql`SELECT status, locked_at, lease_expires_at FROM app.delivery_outbox WHERE id = ${claimed[0].id}`)[0];
+      expect(processing.status).toBe('processing');
+      expect(processing.locked_at).toBeTruthy();
+      expect(processing.lease_expires_at).toBeTruthy();
+
+      // Mark delivered using production code
+      await markDelivered(claimed[0].id, l, 1);
+
+      const delivered = (await sql`SELECT status, delivered_at, locked_at, lease_expires_at FROM app.delivery_outbox WHERE id = ${claimed[0].id}`)[0];
+      expect(delivered.status).toBe('delivered');
+      expect(delivered.delivered_at).toBeTruthy();
+      expect(delivered.locked_at).toBeNull();
+      expect(delivered.lease_expires_at).toBeNull();
+
+      const lead = (await sql`SELECT status FROM app.leads WHERE id = ${l}`)[0];
+      expect(lead.status).toBe('delivered');
+    });
+
+    // §27: Outbox retry
+    test('outbox retry: failed → retryable with backoff', async () => {
+      const l = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, next_attempt_at)
+        VALUES (${l}, ${DEST}, 'pending', now() - interval '1 minute')`;
+
+      const claimed = await claimOutboxBatch({ batch: 1, destination: DEST });
+      expect(claimed).toHaveLength(1);
+
+      // Simulate network error using production code
+      await markFailed(claimed[0].id, l, 1, 'timeout');
+
+      const failed = (await sql`SELECT status, attempts, next_attempt_at, last_error_code, locked_at FROM app.delivery_outbox WHERE id = ${claimed[0].id}`)[0];
+      expect(failed.status).toBe('failed');
+      expect(failed.attempts).toBe(1);
+      expect(failed.last_error_code).toBe('timeout');
+      expect(failed.next_attempt_at).toBeTruthy();
+      expect(failed.locked_at).toBeNull();
+    });
+
+    // §28: Outbox dead
+    test('outbox dead: max attempts → dead, lead → failed', async () => {
+      const l = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, attempts, next_attempt_at)
+        VALUES (${l}, ${DEST}, 'failed', ${MAX_ATTEMPTS - 1}, now() - interval '1 minute')`;
+
+      const claimed = await claimOutboxBatch({ batch: 1, destination: DEST });
+      expect(claimed).toHaveLength(1);
+
+      await markFailed(claimed[0].id, l, MAX_ATTEMPTS, 'http_500');
+
+      const dead = (await sql`SELECT status, attempts FROM app.delivery_outbox WHERE id = ${claimed[0].id}`)[0];
+      expect(dead.status).toBe('dead');
+      expect(dead.attempts).toBe(MAX_ATTEMPTS);
+
+      // Dead must never be claimed again
+      const reClaim = await claimOutboxBatch({ batch: 10, destination: DEST });
+      const reIds = reClaim.map(r => r.id);
+      expect(reIds).not.toContain(claimed[0].id);
+
+      // Lead status
+      const lead = (await sql`SELECT status FROM app.leads WHERE id = ${l}`)[0];
+      expect(lead.status).toBe('failed');
+    });
+
+    // §29: Stale lease
+    test('outbox stale lease: processing with expired lease → reclaimable; active lease → not', async () => {
+      const lStale = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, locked_at, lease_expires_at, locked_by)
+        VALUES (${lStale}, ${DEST}, 'processing', now() - interval '10 minutes', now() - interval '5 minutes', 'stale-worker')`;
+
+      const lActive = await seedLead();
+      await sql`INSERT INTO app.delivery_outbox (lead_id, destination, status, locked_at, lease_expires_at, locked_by)
+        VALUES (${lActive}, ${DEST}, 'processing', now(), now() + interval '5 minutes', 'active-worker')`;
+
+      const claimed = await claimOutboxBatch({ batch: 10, destination: DEST });
+      const claimedLeadIds = claimed.map(r => r.lead_id);
+      expect(claimedLeadIds).toContain(lStale);     // expired → reclaimable
+      expect(claimedLeadIds).not.toContain(lActive); // active → skip
+    });
   });
 
   // ── SEC-004 — rate limit distribuido ────────────────────────────────────

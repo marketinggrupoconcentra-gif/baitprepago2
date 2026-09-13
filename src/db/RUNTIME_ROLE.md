@@ -33,10 +33,12 @@ GRANT USAGE ON SCHEMA app TO baitprepago_app_runtime;   -- NUNCA GRANT CREATE
 | Tabla (`app.`)         | SELECT | INSERT | UPDATE | DELETE | Justificación |
 |------------------------|:---:|:---:|:---:|:---:|---|
 | leads                  | ✔ | ✔ | ✔ |   | alta (tx lead), dedup, listados admin, dashboard/reportes, cambios de estado desde el admin |
-| lead_secrets           | ✔ | ✔ |   | ✔ | (vacía en BAIT Prepago: el NIP no se persiste) insert (tx lead), delete (cron). Sin UPDATE |
+| lead_secrets           | ✔ | ✔ |   | ✔ | NIP cifrado temporal: insert (tx lead), select (outbox), delete (al entregar / cron). Sin UPDATE |
 | lead_attribution       | ✔ | ✔ |   |   | insert (tx lead), joins de reportes/dashboard/admin |
 | lead_consents          | ✔ | ✔ |   |   | insert (tx lead), detalle de lead en admin |
 | idempotency_keys       | ✔ | ✔ |   |   | SELECT (check idempotencia) + INSERT ... RETURNING (`onConflictDoNothing`). Sin UPDATE |
+| delivery_outbox        | ✔ | ✔ | ✔ |   | insert (tx lead), claim `FOR UPDATE SKIP LOCKED` + UPDATE de estado, detalle admin, reintento manual |
+| conversion_deliveries  | ✔ | ✔ | ✔ |   | encolar (tx lead / Ganado), cron de conversiones |
 | analytics_events       | ✔ | ✔ |   |   | insert (`/api/track`, `lead_success`), lecturas de analítica/funnel |
 | security_events        |   | ✔ |   |   | append-only (`logSecurityEvent`). SELECT denegado |
 | admin_profiles         | ✔ | ✔ | ✔ |   | autorización (session), alta/edición de usuarios y bootstrap. Baja lógica vía `is_active` |

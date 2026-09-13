@@ -55,6 +55,14 @@ export const PRIVILEGE_MANIFEST: Record<string, TablePrivileges> = {
     delete: false,
   },
 
+  // ── Entrega a Intelix (outbox) ──────────────────────────────────────────────
+  delivery_outbox: {
+    select: true,   // claim, detalle admin, logs
+    insert: true,   // encolar en la tx del lead
+    update: true,   // claim/deliver/fail/dead, reintento manual
+    delete: false,
+  },
+
   // ── Conversiones a plataformas de anuncios ──────────────────────────────────
   conversion_deliveries: {
     select: true,   // cron: filas pendientes; admin: conteos

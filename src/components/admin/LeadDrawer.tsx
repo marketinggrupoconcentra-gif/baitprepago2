@@ -23,7 +23,7 @@ const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
 const MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
 const STATUS_PILL: Record<string, { label: string; fg: string; bg: string; bd: string }> = {
-  delivered: { label: 'Validado', fg: '#1B6B44', bg: '#EAF5EE', bd: '#CBE5D6' },
+  delivered: { label: 'Entregado', fg: '#1B6B44', bg: '#EAF5EE', bd: '#CBE5D6' },
   received: { label: 'En validación', fg: '#8C6A00', bg: '#FFF6DC', bd: '#F4E2AE' },
   processing: { label: 'En validación', fg: '#8C6A00', bg: '#FFF6DC', bd: '#F4E2AE' },
   duplicate: { label: 'Duplicado', fg: '#54544C', bg: '#F3F2ED', bd: '#E6E5E0' },
@@ -64,6 +64,7 @@ interface LeadDetail {
   } | null;
   consent: { contractingAccepted: boolean; privacyAccepted: boolean; acceptedAt: string } | null;
   management: { commercialStatus: string; notes: string | null; assignedToAuthUserId: string | null; updatedAt: string | null } | null;
+  delivery: { status: string; attempts: number; deliveredAt: string | null; lastErrorCode: string | null; createdAt: string | null } | null;
 }
 
 const fmtDateTime = (d: string | null | undefined) =>
@@ -167,7 +168,16 @@ export default function LeadDrawer({ id, session, onClose }: {
       dot: lead.status === 'failed' ? '#A33A2A' : lead.status === 'delivered' ? '#1B7F4B' : '#E0A800',
     },
     {
-      t: 'Estado comercial',
+      t: 'Envío al CRM',
+      at: lead.delivery
+        ? lead.delivery.status === 'delivered'
+          ? `Entregado ${fmtDateTime(lead.delivery.deliveredAt)}`
+          : `${lead.delivery.status} · ${lead.delivery.attempts} intento${lead.delivery.attempts === 1 ? '' : 's'}${lead.delivery.lastErrorCode ? ` · ${lead.delivery.lastErrorCode}` : ''}`
+        : 'sin registro de outbox',
+      dot: lead.delivery?.status === 'delivered' ? '#1B7F4B' : lead.delivery?.status === 'failed' || lead.delivery?.status === 'dead' ? '#A33A2A' : '#E0A800',
+    },
+    {
+      t: 'Estado comercial (CRM)',
       at: lead.management ? `${COMMERCIAL.find((c) => c.id === lead.management!.commercialStatus)?.label ?? lead.management.commercialStatus} · act. ${fmtDateTime(lead.management.updatedAt)}` : 'sin gestión',
       dot: '#C9C8C0',
     },

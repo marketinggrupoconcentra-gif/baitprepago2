@@ -74,7 +74,7 @@ describe('vercel.json schema validation', () => {
   });
 
   test('cron paths deben ser rutas reales de la API', () => {
-    const expectedPaths = ['/api/cron/nip-purge', '/api/cron/reports', '/api/cron/google-ads', '/api/cron/conversions'];
+    const expectedPaths = ['/api/cron/nip-purge', '/api/cron/outbox', '/api/cron/reports', '/api/cron/google-ads', '/api/cron/conversions'];
     for (const expectedPath of expectedPaths) {
       const found = vercelJson.crons.some((c: { path: string }) => c.path === expectedPath);
       expect(found, `Ruta cron "${expectedPath}" no encontrada en vercel.json`).toBe(true);

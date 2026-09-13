@@ -3,7 +3,7 @@
  *
  * Página completa de detalle de un lead.
  * Muestra: datos del formulario (PII), atribución, consentimientos,
- * gestión comercial (con cambio de estado).
+ * gestión CRM (con cambio de estado) y entrega a Intelix.
  */
 'use client';
 
@@ -58,15 +58,27 @@ interface LeadDetail {
     updatedAt: string | null;
     assignedToAuthUserId: string | null;
   } | null;
+  delivery: {
+    destination: string;
+    status: string;
+    attempts: number;
+    deliveredAt: string | null;
+    lastErrorCode: string | null;
+    nextAttemptAt: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+  } | null;
 }
 
 /* ─── Constantes ─────────────────────────────────────────────────────────────── */
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   received:   { label: 'Recibido',   color: 'oklch(38% 0.12 240)', bg: 'oklch(93% 0.06 240)' },
   processing: { label: 'En proceso', color: 'oklch(38% 0.12 97)',  bg: 'oklch(95% 0.08 97)'  },
-  delivered:  { label: 'Validado',   color: 'oklch(35% 0.12 155)', bg: 'oklch(93% 0.08 155)' },
+  delivered:  { label: 'Enviado',    color: 'oklch(35% 0.12 155)', bg: 'oklch(93% 0.08 155)' },
   failed:     { label: 'Fallido',    color: 'oklch(40% 0.12 25)',  bg: 'oklch(95% 0.05 25)'  },
   duplicate:  { label: 'Duplicado',  color: 'oklch(42% 0 0)',      bg: 'oklch(93% 0 0)'      },
+  pending:    { label: 'Pendiente',  color: 'oklch(38% 0.12 97)',  bg: 'oklch(95% 0.08 97)'  },
+  dead:       { label: 'Muerto',     color: 'oklch(40% 0.12 25)',  bg: 'oklch(95% 0.05 25)'  },
 };
 
 const COMMERCIAL_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -517,6 +529,34 @@ export default function LeadDetailClient({
                 {lead.attribution.lastUtmTerm     && <DataRow label="utm_term"     value={lead.attribution.lastUtmTerm}     mono />}
                 {lead.attribution.lastUtmContent  && <DataRow label="utm_content"  value={lead.attribution.lastUtmContent}  mono />}
               </div>
+            )}
+          </Section>
+        )}
+
+        {/* 6. Entrega Intelix */}
+        {lead.delivery && (
+          <Section title="Entrega a Intelix" icon="🚀">
+            <DataRow label="Destino" value={lead.delivery.destination} mono />
+            <DataRow label="Estado" value={<Badge value={lead.delivery.status} map={STATUS_MAP} />} />
+            <DataRow label="Intentos" value={String(lead.delivery.attempts)} />
+            {lead.delivery.deliveredAt && (
+              <DataRow label="Entregado el" value={fmtDate(lead.delivery.deliveredAt)} />
+            )}
+            {lead.delivery.lastErrorCode && (
+              <DataRow
+                label="Último error"
+                value={
+                  <span style={{ color: 'oklch(40% 0.12 25)', fontFamily: 'monospace', fontSize: '12px' }}>
+                    {lead.delivery.lastErrorCode}
+                  </span>
+                }
+              />
+            )}
+            {lead.delivery.nextAttemptAt && (
+              <DataRow label="Próximo intento" value={fmtDate(lead.delivery.nextAttemptAt)} />
+            )}
+            {lead.delivery.createdAt && (
+              <DataRow label="Creado" value={fmtDate(lead.delivery.createdAt)} />
             )}
           </Section>
         )}

@@ -25,6 +25,9 @@ export type Permission =
   | 'leads.export.sensitive'      // Export CSV con campos sensibles descifrados
   // Analytics
   | 'analytics.view'
+  // Logs de entrega (delivery_outbox → Intelix)
+  | 'logs.view'
+  | 'logs.retry'                  // Re-encolar un envío fallido en el outbox
   // Usuarios admin
   | 'users.view'
   | 'users.invite'
@@ -52,6 +55,8 @@ const ADMIN_PERMISSIONS: Permission[] = [
   'leads.export',
   'leads.export.sensitive',
   'analytics.view',
+  'logs.view',
+  'logs.retry',
   'users.view',
   'users.invite',
   'users.role.change',
@@ -73,6 +78,8 @@ const EDITOR_PERMISSIONS: Permission[] = [
   'leads.status.change',
   'leads.export',
   'analytics.view',
+  'logs.view',
+  'logs.retry',
   'reports.view',
   'reports.manual_run',
   'settings.view',
@@ -82,6 +89,7 @@ const READER_PERMISSIONS: Permission[] = [
   'dashboard.view',
   'leads.view',
   'analytics.view',
+  'logs.view',
   'reports.view',
   'settings.view',
 ];

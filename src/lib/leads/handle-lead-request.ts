@@ -38,6 +38,10 @@ function fbclidFromFbc(fbc: string | null | undefined): string | undefined {
   return m?.[1] || undefined;
 }
 const PLAN_CODE = process.env.LEAD_PLAN_CODE ?? 'prepago_100';
+// Entrega al CRM Intelix vía outbox (src/app/api/cron/outbox). El NIP se cifra y se
+// conserva SOLO hasta que Intelix acepta el registro o vence NIP_RETENTION_HOURS.
+const OUTBOX_DESTINATION = 'intelix';
+const NIP_RETENTION_HOURS = Number(process.env.NIP_RETENTION_HOURS ?? 72);
 // La landing dice "recibirás tu cupón por correo"; el backend original NO enviaba
 // nada al lead. Se mantiene apagado salvo LEAD_CONFIRMATION_EMAIL=on.
 const LEAD_EMAIL_ENABLED = (process.env.LEAD_CONFIRMATION_EMAIL ?? 'off').toLowerCase() === 'on';
@@ -243,7 +247,11 @@ export async function handleLeadRequest(req: NextRequest, route: string): Promis
         phoneBidx,
         stateCode: null,
         planCode: PLAN_CODE,
-        // NIP: validado arriba, NUNCA persistido (regla BAIT Prepago) → sin lead_secrets
+        // NIP: cifrado (AES-256-GCM) en lead_secrets con retención corta; Intelix lo necesita
+        // para iniciar la portabilidad. Se borra al entregar. Nunca en claro ni en logs.
+        nipEnc: encryptPII(data.nip),
+        nipExpiresAt: new Date(Date.now() + NIP_RETENTION_HOURS * 60 * 60 * 1000),
+        outboxDestination: OUTBOX_DESTINATION,
         sessionId: data.session_id,
         sourceCategory,
         ...utm,
