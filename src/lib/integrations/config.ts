@@ -71,7 +71,7 @@ export async function getIntelixConfig(): Promise<IntelixConfig | null> {
   return {
     apiUrl: url,
     apiKey: clean(apiKey),
-    capturista: clean(capturista) ?? INTELIX_DEFAULTS.capturista,
+    capturista: digits(capturista) ?? INTELIX_DEFAULTS.capturista,
     compania: (clean(compania) ?? INTELIX_DEFAULTS.compania).toLowerCase(),
     chatId: Number.isFinite(chat) ? chat : INTELIX_DEFAULTS.chatId,
     timeoutMs: Number(env.DOWNSTREAM_TIMEOUT_MS ?? 10_000),

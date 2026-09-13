@@ -9,7 +9,7 @@ import { requireAdminSession } from '@/lib/session';
 import { writeAuditLog } from '@/lib/audit';
 import { logError } from '@/lib/log';
 import { z } from 'zod';
-import { EDITABLE_SETTING_KEYS, MASKED_VALUE, setSetting } from '@/lib/settings';
+import { EDITABLE_SETTING_KEYS, MASKED_VALUE, SETTING_VALIDATORS, setSetting } from '@/lib/settings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +46,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, ignored: true });
     }
 
-    await setSetting(key, value?.trim() ?? null);
+    const trimmed = value?.trim() ?? null;
+    if (trimmed) {
+      const validate = SETTING_VALIDATORS[key as (typeof EDITABLE_SETTING_KEYS)[number]];
+      const problem = validate?.(trimmed);
+      if (problem) return NextResponse.json({ error: problem, key }, { status: 400 });
+    }
+
+    await setSetting(key, trimmed);
 
     // Auditoría: solo la clave, nunca el valor (puede ser un secreto)
     await writeAuditLog({

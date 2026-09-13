@@ -64,6 +64,7 @@ export default async function SettingsPage() {
   const mask = (val: string) => val ? MASKED_VALUE : '';
   const secret = (label: string, dbKey: string, envKey: string, help?: string) => ({ label, dbKey, val: mask(v(dbKey, envKey)), ph: 'sin configurar', secret: true, help });
   const plain = (label: string, dbKey: string, envKey: string, ph: string, help?: string) => ({ label, dbKey, val: v(dbKey, envKey), ph, help });
+  const numeric = (label: string, dbKey: string, envKey: string, ph: string, help?: string) => ({ ...plain(label, dbKey, envKey, ph, help), numeric: true });
 
   const integrations = [
     { key: 'landing', label: 'Landing BAIT Prepago', meta: 'eventos propios (app.analytics_events)', status: 'CONFIGURED' as IntegrationStatus },
@@ -82,16 +83,16 @@ export default async function SettingsPage() {
       plain('OAuth client ID', 'google_ads_client_id', 'GOOGLE_ADS_OAUTH_CLIENT_ID', '....apps.googleusercontent.com', 'Google Cloud → Credenciales → OAuth 2.0 (tipo Escritorio).'),
       secret('OAuth client secret', 'google_ads_client_secret', 'GOOGLE_ADS_OAUTH_CLIENT_SECRET'),
       secret('Refresh token', 'google_ads_refresh_token', 'GOOGLE_ADS_REFRESH_TOKEN', 'Genera con: node scripts/get-refresh-token.mjs'),
-      plain('Conversión "Lead" (id)', 'google_ads_conversion_action_id', 'GOOGLE_ADS_CONVERSION_ACTION_ID', '123456789', 'Id numérico de la acción de conversión (Objetivos → Conversiones → la acción → URL: ctId=...). Origen: Importar / clics de anuncios.'),
-      plain('Conversión "Portabilidad ganada" (id)', 'google_ads_won_conversion_action_id', 'GOOGLE_ADS_WON_CONVERSION_ACTION_ID', '', 'Opcional. Se sube cuando un lead pasa a estado comercial Ganado.'),
+      numeric('Conversión "Lead" (id)', 'google_ads_conversion_action_id', 'GOOGLE_ADS_CONVERSION_ACTION_ID', '123456789', 'Id numérico de la acción de conversión (Objetivos → Conversiones → la acción → URL: ctId=...). Origen: Importar / clics de anuncios.'),
+      numeric('Conversión "Portabilidad ganada" (id)', 'google_ads_won_conversion_action_id', 'GOOGLE_ADS_WON_CONVERSION_ACTION_ID', '', 'Opcional. Se sube cuando un lead pasa a estado comercial Ganado.'),
       plain('Filtro de campañas', 'google_ads_campaign_filter', 'GOOGLE_ADS_CAMPAIGN_FILTER', 'Ej: Bait', 'Solo campañas cuyo nombre contenga este texto (métricas SEM).'),
     ] },
     { key: 'intelix', label: 'Intelix (CRM de portabilidad)', meta: `outbox cada 5 min · ${outboxSummary}`, status: status(v('intelix_api_url', 'INTELIX_API_URL') || INTELIX_DEFAULTS.apiUrl), configKeys: [
       plain('URL del endpoint', 'intelix_api_url', 'INTELIX_API_URL', INTELIX_DEFAULTS.apiUrl, `Vacío = ${INTELIX_DEFAULTS.apiUrl}`),
       secret('API key', 'intelix_api_key', 'INTELIX_API_KEY', 'Opcional: se envía como Authorization: Bearer si existe.'),
-      plain('Capturista', 'intelix_capturista', 'INTELIX_CAPTURISTA', INTELIX_DEFAULTS.capturista, 'Id de capturista que Intelix asocia a los registros web.'),
+      numeric('Capturista', 'intelix_capturista', 'INTELIX_CAPTURISTA', INTELIX_DEFAULTS.capturista, 'Id de capturista que Intelix asocia a los registros web. Solo números, sin longitud fija.'),
       plain('Compañía', 'intelix_compania', 'INTELIX_COMPANIA', INTELIX_DEFAULTS.compania, 'Compañía de origen que se envía en cada registro (el formulario no la pregunta).'),
-      plain('chat_id', 'intelix_chat_id', 'INTELIX_CHAT_ID', String(INTELIX_DEFAULTS.chatId), 'Identificador de canal que espera el endpoint.'),
+      numeric('chat_id', 'intelix_chat_id', 'INTELIX_CHAT_ID', String(INTELIX_DEFAULTS.chatId), 'Identificador de canal que espera el endpoint. Solo números.'),
     ] },
     { key: 'conversions', label: 'Valor de conversión', meta: 'MXN por portabilidad ganada (Google Ads / Meta)', status: 'CONFIGURED' as IntegrationStatus, configKeys: [
       plain('Valor (MXN)', 'conversion_won_value', 'CONVERSION_WON_VALUE', '100', 'Se envía como valor de la conversión "won". Default 100.'),

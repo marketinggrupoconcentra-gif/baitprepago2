@@ -27,6 +27,25 @@ export const SENSITIVE_KEYS = new Set<string>([
 export const MASKED_VALUE = '••••••••••••••••';
 
 /**
+ * Reglas de formato por clave (se aplican al guardar; vacío = borrar el ajuste).
+ * Devuelven un mensaje de error o null si el valor es válido.
+ */
+export const SETTING_VALIDATORS: Partial<Record<(typeof EDITABLE_SETTING_KEYS)[number], (v: string) => string | null>> = {
+  intelix_capturista: (v) => (/^\d+$/.test(v) ? null : 'El capturista debe contener solo números.'),
+  intelix_chat_id: (v) => (/^\d+$/.test(v) ? null : 'chat_id debe ser un número entero.'),
+  intelix_api_url: (v) => (/^https:\/\/\S+$/.test(v) ? null : 'La URL debe empezar por https://.'),
+  intelix_compania: (v) => (/^[a-z0-9_-]{2,40}$/i.test(v) ? null : 'Compañía: solo letras/números (2-40).'),
+  google_ads_account_id: (v) => (/^\d{3}-?\d{3}-?\d{4}$/.test(v) ? null : 'Customer ID con formato 123-456-7890.'),
+  google_ads_login_customer_id: (v) => (/^\d{3}-?\d{3}-?\d{4}$/.test(v) ? null : 'MCC con formato 123-456-7890.'),
+  google_ads_conversion_action_id: (v) => (/^\d+$/.test(v) ? null : 'El id de la acción de conversión es numérico.'),
+  google_ads_won_conversion_action_id: (v) => (/^\d+$/.test(v) ? null : 'El id de la acción de conversión es numérico.'),
+  conversion_won_value: (v) => (/^\d+(\.\d{1,2})?$/.test(v) ? null : 'Valor en MXN (p. ej. 100 o 99.50).'),
+  meta_pixel_id: (v) => (/^\d{5,20}$/.test(v) ? null : 'El Pixel ID es numérico.'),
+  gtm_id: (v) => (/^GTM-[A-Z0-9]{4,10}$/.test(v) ? null : 'Formato GTM-XXXXXXX.'),
+  ga4_id: (v) => (/^G-[A-Z0-9]{5,15}$/.test(v) ? null : 'Formato G-XXXXXXXX.'),
+};
+
+/**
  * Obtiene un ajuste desde la base de datos (app.settings) por su clave.
  * Si no se encuentra, retorna el envFallback provisto o undefined.
  */

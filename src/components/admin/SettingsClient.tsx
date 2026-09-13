@@ -34,7 +34,7 @@ export interface Integration {
   meta: string;
   status: IntegrationStatus;
   value?: string | null;
-  configKeys?: { label: string; dbKey: string; val: string; ph?: string; secret?: boolean; help?: string }[];
+  configKeys?: { label: string; dbKey: string; val: string; ph?: string; secret?: boolean; numeric?: boolean; help?: string }[];
 }
 interface SystemInfo {
   appUrl: string | null;
@@ -366,7 +366,10 @@ function IntegrationEditor({ integration }: { integration: Integration }) {
       if (results.every(r => r.ok)) {
         window.location.reload();
       } else {
-        alert(`Error al guardar configuración de ${integration.label}`);
+        const problems = await Promise.all(results.filter(r => !r.ok).map(async r => {
+          try { const j = await r.json(); return j.error as string; } catch { return 'Error al guardar'; }
+        }));
+        alert(`No se guardó la configuración de ${integration.label}:` + String.fromCharCode(10) + problems.join(String.fromCharCode(10)));
       }
     } catch {
       alert(`Error de red al guardar ${integration.label}`);
@@ -399,7 +402,9 @@ function IntegrationEditor({ integration }: { integration: Integration }) {
               autoComplete="off"
               value={values[k.dbKey]}
               onFocus={() => { if (k.secret && values[k.dbKey] === '••••••••••••••••') setValues(prev => ({ ...prev, [k.dbKey]: '' })); }}
-              onChange={e => setValues(prev => ({ ...prev, [k.dbKey]: e.target.value }))}
+              inputMode={k.numeric ? 'numeric' : undefined}
+              pattern={k.numeric ? '[0-9]*' : undefined}
+              onChange={e => setValues(prev => ({ ...prev, [k.dbKey]: k.numeric ? e.target.value.replace(/\D/g, '') : e.target.value }))}
               placeholder={k.ph || ''}
               title={k.label}
               style={{ font: `500 12px ${MONO}`, padding: '6px 8px', border: `1px solid ${LINE}`, borderRadius: 6, width: '100%', outline: 'none', boxSizing: 'border-box' }}
