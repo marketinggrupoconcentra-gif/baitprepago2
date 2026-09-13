@@ -3,10 +3,11 @@
 ## 1. Stack Tecnológico Autorizado
 
 - **Repositorio**: GitHub (`marketinggrupoconcentra-gif/baitprepago2`)
-- **Infraestructura y Hosting**: Vercel
-- **Base de Datos**: Neon PostgreSQL (conectado mediante Integración de Vercel)
-- **Runtime de API**: Vercel Serverless Functions (`api/`)
+- **Infraestructura y Hosting**: Vercel (Next.js 16, App Router, Fluid Compute)
+- **Base de Datos**: Neon PostgreSQL, proyecto `sweet-mud-87845510`, schema `app` (Drizzle ORM, migraciones en `src/db/migrations`)
+- **Autenticación del admin**: Neon Auth (servidor administrado por Neon)
 - **Correo**: Resend
+- **Motor**: playbook Scale v2.0.0 (`project.config.yaml`, modo `transplant`)
 
 > [!WARNING]
 > **STACK ESTRICTO**
@@ -16,32 +17,39 @@
 ## 2. Reglas de Seguridad (PII y NIP)
 
 El NIP (Número de Identificación Personal) que el usuario recibe por SMS es **información altamente sensible**.
-1. **NO se persistirá nunca en la base de datos** (`leads` table no tiene columna `nip`).
+1. **NO se persistirá nunca en la base de datos** (`app.leads` no tiene columna `nip` y el motor no escribe en `app.lead_secrets`).
 2. **NO se pasará por la URL** al redirigir a WhatsApp u otro destino.
 3. El frontend y backend validan que el NIP se introdujo correctamente para reducir spam/bots, pero una vez validado, se descarta.
-4. Las credenciales de la base de datos (connection strings) no deben loguearse ni subirse a control de versiones. Usa las integraciones automáticas (`process.env.DATABASE_URL` provisto por Vercel).
+4. Las credenciales de la base de datos (connection strings) no deben loguearse ni subirse a control de versiones. El runtime usa el rol de mínimo privilegio `baitprepago_app_runtime` (`APP_DATABASE_URL`); el rol owner (`DATABASE_URL`) es solo para migraciones y scripts.
 
 ## 3. Entornos y Seguridad de Preview (Fail Closed)
 
-- Se debe utilizar el script `scripts/preview-safety.js` en los pipelines o comandos críticos para asegurar que un entorno de tipo "Preview" en Vercel nunca se conecte a la base de datos de "Producción".
-- Ante la duda, los scripts o conexiones deben fallar (Fail Closed).
+- Test ≠ producción: `tests/integration/etapa22.test.ts` aborta si `TEST_NEON_BRANCH_ID === PROD_NEON_BRANCH_ID` o si el host de
+  `TEST_DATABASE_URL` empieza por `PROD_NEON_ENDPOINT_PREFIX` (`ep-square-recipe`). Los tests de integración corren solo contra una rama Neon de test.
+- Sin `APP_DATABASE_URL` el rate limiter distribuido y el alta de leads fallan cerrado (429/503). Ante la duda, fallar.
+- Producción (`main` de Neon, proyecto Vercel de producción) **no se migra ni se despliega sin go-ahead explícito**, con snapshot previo de la rama.
 
 ## 4. Arquitectura de Leads
 
-- **Frontend**: `index.html` (página estática) + `assets/site.js` (validaciones visuales, captura de UTMs, fetch a `/api/leads` y `/api/captcha/challenge`).
-- **Backend (API)**: `api/leads.js` (recibe POST de leads).
-  - *Validación (`lib/validation.js`)*: Verifica payload, limpia entradas, valida email y omite NIP/fecha de vigencia del NIP.
-  - *CAPTCHA (`lib/captcha.js`, `api/captcha/challenge.js`)*: Challenge servidor-cliente con hash HMAC-SHA256 (`CAPTCHA_PEPPER`); un solo uso, sin exponer nunca la respuesta al frontend. Fail closed si `CAPTCHA_PEPPER` falta.
-  - *Seguridad (`lib/security.js`)*: Valida Rate Limiting e Idempotencia consultando a la DB.
-  - *Atribución (`lib/attribution.js`)*: Captura UTMs y metadatos (ej. GCLID).
-- **Base de Datos**: `db/schema.sql` y `db/migrate.js` para crear y mantener la estructura en Neon.
+- **Frontend (zona protegida, `.scale-design-lock.json`)**: `public/legacy/index.html` + `public/assets/site.js` (3 pasos, captura de UTMs, fetch a
+  `/api/captcha/challenge` y `/api/leads`, 409 → `/duplicado/`, 201 → `/gracias/`). `public/assets/js/bait-analytics.js` envía el embudo a `/api/track`.
+- **Backend (API)**: `src/app/api/leads/route.ts` y `src/app/api/v1/leads/route.ts` → `src/lib/leads/handle-lead-request.ts`.
+  - *Validación (`src/lib/validators/lead-schema.ts`)*: Zod estricto; normaliza email/nombres; regla del NIP condicional (§4.1). NIP y vigencia no se persisten.
+  - *CAPTCHA (`src/lib/security/captcha.ts`, `src/app/api/captcha/challenge/route.ts`)*: reto de 6 dígitos, HMAC-SHA256 con `CAPTCHA_PEPPER`, un solo uso
+    (`app.captcha_challenges`, `used_at` atómico), rate limit por cliente. Fail closed si `CAPTCHA_PEPPER` falta.
+  - *Seguridad*: origen permitido, detección de bots, rate limit distribuido (`app.rate_limits`), honeypot, tiempo mínimo, idempotencia (`app.idempotency_keys`),
+    dedupe por blind index del teléfono.
+  - *Atribución (`src/lib/analytics/attribution.ts`)*: UTMs, gclid/fbclid hasheados, ids de Meta, primer/último toque en `app.lead_attribution`.
+  - *Persistencia (`src/lib/leads/submit-lead.ts`)*: una transacción → `app.leads` (PII cifrada), `lead_consents`, `lead_attribution`, evento `lead_success`.
+    Outbox solo si `CRM_PROVIDER != none`.
+- **Base de Datos**: `src/db/schema/app.ts` + `npm run db:migrate`; grants del rol runtime en `src/lib/security/privilege-manifest.ts`.
 
 ### 4.1 Stage 1H — NIP condicional, email, privacidad y CAPTCHA
 
 - El NIP sigue sin persistirse. Si el NIP capturado coincide con los últimos 4 dígitos del teléfono a portar, el
-  formulario exige y valida (server-side, en `lib/validation.js` + `lib/cdmx-date.js`) una fecha de vigencia del NIP
+  formulario exige y valida (server-side, en `lead-schema.ts`: `isWithinNipValidityWindow`) una fecha de vigencia del NIP
   dentro de la ventana `hoy..hoy+5` días naturales en `America/Mexico_City`. Esa fecha tampoco se persiste.
-- `leads.email` captura el correo para el envío futuro del cupón BAIT (Stage 1I, no implementado en esta etapa).
+- `app.leads.email_enc` captura el correo (cifrado) para el envío futuro del cupón BAIT (`LEAD_CONFIRMATION_EMAIL=on` + Resend).
 - El Aviso de Privacidad vive en `/aviso-de-privacidad/` (página estática, sin JS). Su contenido legal (razón social,
   domicilio, contacto ARCO) está pendiente — ver `docs/legal/privacy-required-inputs.md`.
 

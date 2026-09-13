@@ -1,0 +1,125 @@
+# project.config.yaml — manifiesto Scale del proyecto BAIT Prepago (baitprepago2)
+# Rellenado el 2026-09-12 desde lo descubierto en el repo (main @ 83d6a5f9). Ver walkthrough.md.
+
+project:
+  name: "BAIT Prepago"
+  slug: "baitprepago2"
+  type: "landing-with-admin"
+  environment: "production"
+
+mode:
+  type: "transplant"
+
+# ── Zona protegida: la landing real de producción, copiada verbatim de main → public/ ──
+protected_zone:
+  - "public/legacy/"
+  - "public/assets/site.css"
+  - "public/assets/site.js"          # controlador del formulario (solo wiring sancionado, ver walkthrough)
+  - "public/assets/images/"
+  - "public/assets/bait-logo.svg"
+  - "public/robots.txt"
+  - "public/sitemap.xml"
+
+brand:
+  preserve_existing_design: true
+  admin_theme: "engine"
+  asset_root: "public/assets"
+
+business:
+  product_name: "Plan BAIT Prepago de portabilidad con 36 GB"
+  product_code: "prepago_100"
+  offer: "36 GB + redes ilimitadas por $100 mensuales durante 12 meses"
+  price: 100
+  currency: "MXN"
+  timezone: "America/Mexico_City"
+
+domain:
+  production: "https://baitprepago.com"
+  canonical: "https://baitprepago.com"
+  vercel_alias: "https://baitprepago2.vercel.app"
+  www_strategy: "redirect_to_apex"
+
+landing:
+  runtime: "static_html"
+  success_route: "/gracias/"
+
+form:
+  template: "existing"               # formulario-bait-prepago (3 pasos, vanilla JS, captcha propio)
+  steps: 3
+  submit_endpoint: "/api/leads"
+  fields:
+    - phone
+    - nip                            # se valida, NUNCA se persiste (regla del proyecto, GEMINI.md)
+    - nip_valid_until
+    - nombre
+    - apellido
+    - email
+    - consent
+    - captcha_challenge_id
+    - captcha_answer
+  secret_field: null
+  events_emitted:
+    - page_view
+    - form_step_1_start
+    - form_step_2_start
+    - form_step_3_start
+    - form_submitted
+
+database:
+  provider: "neon"
+  schema: "app"
+  runtime_role_name: "baitprepago_app_runtime"
+  test_branch_required: true
+
+auth:
+  enabled: true
+  provider: "neon_auth"
+  public_signup: false
+  bootstrap_admin_email: "jcastaneda@grupoconcentra.com"
+
+email:
+  enabled: true
+  provider: "resend"
+  from_name: "BAIT Prepago"
+  from_email: ""                     # pending_credential: RESEND_FROM_EMAIL (dominio verificado en Resend)
+
+crm:
+  provider: "none"
+  api_url_setting: "intelix_api_url"
+
+analytics:
+  enabled: true
+  first_party: true
+  google_ads: false
+  meta_ads: false
+  search_console: false
+  gtm_id: ""
+  ga4_id: ""
+  meta_pixel_id: ""
+
+security:
+  waf: true
+  edge_guard: true
+  form_bot_protection: true
+  distributed_rate_limit: true
+  csp_strict_nonce: true
+
+seo:
+  enabled: true
+  index_production_only: true
+
+integrations: []
+
+deployment:
+  provider: "vercel"
+  production_branch: "main"
+  framework_preset: "nextjs"
+  crons:
+    - path: "/api/cron/outbox"
+      schedule: "*/5 * * * *"
+    - path: "/api/cron/nip-purge"
+      schedule: "0 9 * * *"
+    - path: "/api/cron/reports"
+      schedule: "5 9 * * *"
+    - path: "/api/cron/google-ads"
+      schedule: "30 2 * * *"
