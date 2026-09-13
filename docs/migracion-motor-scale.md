@@ -1,6 +1,6 @@
-# walkthrough.md — BAIT Prepago sobre el motor Scale
+# Migración de BAIT Prepago al motor Scale — bitácora
 
-Rama `feat/scale-engine` (desde `main` @ `83d6a5f9`) · playbook Scale v2.0.0 · engine SHA `92de3ce` · 2026-09-13.
+Rama `feat/scale-engine` (desde `main` @ `83d6a5f9`) · motor Scale v2.0.0 · 2026-09-13.
 Producción (Neon `main` `br-lingering-sun-avyoux4u` y el proyecto Vercel) **no fue tocada**. Todo lo verificado corrió en
 local y en la rama Neon de test `scale-test-20260912` (`br-billowing-moon-avyvasmr`).
 
@@ -12,14 +12,14 @@ local y en la rama Neon de test `scale-test-20260912` (`br-billowing-moon-avyvas
 | Working tree con una migración a Next 14 sin commit, landing degradada, schema `app` reducido ya aplicado en Neon `main`. | Parqueado en `wip/next-scaffold-20260912` (`ea6bc201`). No se reutiliza nada. Su schema `app` en Neon `main` deberá reemplazarse (ver §6). |
 | Formulario real de 3 pasos en `assets/site.js` con CAPTCHA propio y contrato `201/409/422`. | `form: existing`. El motor se adapta al contrato de la landing, no al revés. |
 | Regla del proyecto: el NIP nunca se persiste. | `submitLead` no escribe `lead_secrets`; `nip`/`nip_valid_until` solo se validan. |
-| Sin CRM (Intelix era de la plantilla BAIT Pospago). | `CRM_PROVIDER=none` → sin outbox; el cron `outbox` queda inerte. |
+| Sin CRM de destino. | La integración CRM del motor se retiró por completo (ver §8). |
 
 ## 2. Zona protegida (design lock)
 
 Copiado sin cambios desde `main` a `public/legacy/{index.html,gracias/,duplicado/,aviso-de-privacidad/,walmart-beneficios/}`,
 `public/assets/{site.css,site.js,images/,bait-logo.svg}`, `public/robots.txt`, `public/sitemap.xml` (24 archivos en `.scale-design-lock.json`).
 
-Único cambio sancionado (wiring, `02_forms_logic.md` §1 / `36` §5.4-5.5), verificado con `verify-design-lock.ps1 -Verify` antes de re-snapshotear:
+Único cambio sancionado (wiring de analítica y anti-bot), verificado contra el design lock antes de re-snapshotear:
 - `public/legacy/index.html`: `window.BAIT_ANALYTICS_CONFIG = { formId:'portability-form-wrapper', formName:'portabilidad_prepago', contentName:'BAIT Prepago', landingSections:[...] }` + `<script src="assets/js/bait-analytics.js">`; `site.js` versionado `?v=20260912`.
 - `public/assets/site.js`: añade al payload `website:''` (honeypot), `form_started_at`, `idempotency_key` (se regenera tras un fallo), `session_id`; emite `BaitAnalytics.formStepView/formSubmitted/formResult`. Sigue haciendo POST a `/api/leads`.
 
@@ -35,11 +35,11 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 - Tests: `tests/unit/lead-schema-prepago.test.ts`, `tests/unit/captcha.test.ts`.
 
 **Adaptados** (ver `git diff main..feat/scale-engine -- src tests scripts`)
-- `submit-lead.ts`: `birthdateEnc/stateCode` opcionales, `nipEnc` opcional (sin `lead_secrets`), `outboxDestination` opcional.
+- `submit-lead.ts`: `birthdateEnc/stateCode` opcionales, `nipEnc` opcional (sin `lead_secrets`).
 - `privilege-manifest.ts`: rol `baitprepago_app_runtime`; `+captcha_challenges`, `-otp_proofs`.
 - `proxy.ts`: rutas estáticas de la landing, redirect `/gracias`→`/gracias/` (308) hecho aquí porque el matcher de `next.config` ignora la barra final y hacía bucle; CSP sin hosts Intelix; sin inyección GTM en HTML (la landing no tiene placeholders — GTM/GA4/Pixel los carga `bait-analytics.js` desde `/api/analytics/config`).
 - `next.config.ts`/`vercel.json`: `skipTrailingSlashRedirect`, rewrites `/`→`/legacy/index.html` y `/<dir>/`→`/legacy/<dir>/index.html`, `www`→apex, `framework: nextjs`, 4 crons.
-- Crons: `nip-purge` purga también CAPTCHAs; `outbox` con mapa Intelix local y null-safe; `reports` null-safe en `byState`.
+- Crons: `nip-purge` purga también CAPTCHAs; `reports` adaptado al formulario prepago.
 - Admin: `LeadsClient`, `LeadDrawer`, `LeadDetailClient`, `DashboardClient`, `LogsClient`, `AnalyticsClient` (secciones de esta landing), `SettingsClient` (campos del formulario prepago), exports, `[id]` (sin stack trace en respuesta), marca/logo `/assets/bait-logo.svg`.
 - Emails: `coupon-template.ts` (prepago), `report-template.ts`, `sender.ts`. `origin.ts` (`baitprepago.com`), `auth.ts`, `rbac.ts`, `db/index.ts`, `RUNTIME_ROLE.md`, `firewall-setup.sh`.
 - `scripts/provision-runtime-role.mjs`: tolera `ALTER ROLE … PASSWORD` denegado en Neon (reaplica grants y avisa).
@@ -48,14 +48,13 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 
 **Eliminados a propósito** (por eso `audit-project` §1 marca FAIL — aceptado):
 `src/app/robots.ts`, `src/app/sitemap.ts` (los estáticos de `main` son zona protegida y los sustituyen),
-`scripts/{grant-settings,insert-admin,debug-leads,query-db,create-admin}.ts`, `scripts/check-neon-auth.js` (utilidades ad-hoc de BAIT Pospago con URLs/roles de otro proyecto).
+`scripts/{grant-settings,insert-admin,debug-leads,query-db,create-admin}.ts`, `scripts/check-neon-auth.js` (utilidades ad-hoc del proyecto de origen del motor).
 
-## 4. ASUMIDOS (defaults del playbook / decisiones sin dato del usuario)
+## 4. ASUMIDOS (defaults del motor / decisiones sin dato del usuario)
 
 | Supuesto | Dónde cambiarlo |
 |---|---|
 | `plan_code = prepago_100` para todo lead. | `LEAD_PLAN_CODE`. |
-| `CRM_PROVIDER=none` (no hay CRM). | `CRM_PROVIDER=intelix` + `INTELIX_*`. |
 | Email de confirmación al lead **apagado**. | `LEAD_CONFIRMATION_EMAIL=on` (requiere Resend). |
 | `ALLOWED_ORIGINS = baitprepago.com, www, baitprepago2.vercel.app`. | `ALLOWED_ORIGINS` (añadir alias de Preview si se prueba el formulario ahí). |
 | Host canónico `baitprepago.com` (www → apex 301). | `CANONICAL_HOST` en `next.config.ts`. |
@@ -78,7 +77,7 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 **Env vars a cargar en Vercel (Production; Preview apuntando a la rama de test):**
 `APP_DATABASE_URL` (rol runtime; el owner `DATABASE_URL` NO va en Vercel — migraciones desde local),
 `PII_ENCRYPTION_KEY`, `PII_BLIND_INDEX_KEY`, `IP_HASH_KEY`, `CAPTCHA_PEPPER`, `CRON_SECRET`, `CLICK_ID_SECRET`,
-`APP_URL`, `ALLOWED_ORIGINS`, `CRM_PROVIDER=none`, `LEAD_PLAN_CODE`, `LEAD_CONFIRMATION_EMAIL=off`,
+`APP_URL`, `ALLOWED_ORIGINS`, `LEAD_PLAN_CODE`, `LEAD_CONFIRMATION_EMAIL=off`,
 `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `ADMIN_BOOTSTRAP_EMAIL`, `PRIVACY_POLICY_VERSION`, `TERMS_VERSION`,
 opcionales: `RESEND_*`, `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_META_PIXEL_ID`, `GOOGLE_ADS_*`.
 `next build` necesita `NEON_AUTH_BASE_URL` y `NEON_AUTH_COOKIE_SECRET` presentes → sin ellas el Preview falla en build.
@@ -103,7 +102,11 @@ El equivalente para producción (`br-lingering-sun-avyoux4u`) se lee con `get_au
    `NEON_AUTH_BASE_URL=https://ep-square-recipe-avlk7lu1.neonauth.c-11.us-east-1.aws.neon.tech/neondb/auth`.
    Nota: `app.admin_profiles` quedó vacío (el registro del WIP se eliminó con el schema) → hace falta el bootstrap del primer admin (paso 8).
 
-**Pendiente (requiere sesión de Vercel del usuario):**
+**Pendiente:**
+
+5b. Aplicar la migración `0009_drop_crm_outbox` en Neon `main` (`DATABASE_URL=<owner main> npm run db:migrate`, luego
+   `scripts/provision-runtime-role.mjs` para resincronizar grants). Elimina dos tablas vacías; ya aplicada en la rama de test.
+
 
 6. Cargar en Vercel (Production) el contenido de `.env.production.vercel` (gitignored; secretos nuevos generados, rol runtime, Neon Auth).
    Con CLI: `vercel env add <NAME> production` por variable, o pegar en Settings → Environment Variables.
@@ -134,14 +137,12 @@ El equivalente para producción (`br-lingering-sun-avyoux4u`) se lee con `get_au
 | `scan-template-residue.ps1` | sin residuos |
 | `audit-project.ps1 -RunChecks` | §1 FAIL esperado (8 eliminados a propósito, §3); §2–§7 OK (env contract 45/45, design lock, estructura, type-check/lint/unit/integration) |
 
-## 8. Hallazgos para el playbook (`35_change_log_knowledge.md`, pendientes de escribir en `D:\Contexto\Planes\Scale`)
+## 8. Pulido posterior (2026-09-13)
 
-1. `scripts/provision-runtime-role.mjs`: en Neon, `neondb_owner` no puede `ALTER ROLE … PASSWORD` sobre roles creados por SQL → el script abortaba. Parche: try/catch, aviso, reaplicar grants; contraseña con `reset_postgres_role_password`.
-2. `tests/integration/track-api.test.ts` y `tests/unit/schema-real.test.ts` leen `APP_DATABASE_URL`/`DATABASE_URL` de `.env.local` → en un destino con URLs de producción en `.env.local` pegan a prod. Deben forzar `TEST_DATABASE_URL`/`TEST_OWNER_DATABASE_URL`.
-3. `audit-project.ps1` §1 exige todos los archivos del motor aunque `robots.ts`/`sitemap.ts` deban eliminarse cuando la zona protegida trae `robots.txt`/`sitemap.xml`, y aunque `scripts/*.ts` ad-hoc sean de BAIT Pospago. Sugerencia: lista de "opcionales" o respetar `project.config.yaml`.
-4. Snapshot `0007` del motor no coincide con `schema/app.ts` en `ads_metrics` (drizzle-kit genera un diff espurio en la primera migración del destino).
-5. `next.config` `redirects` con `skipTrailingSlashRedirect` ignora la barra final → `/gracias`→`/gracias/` hace bucle; hacerlo en `proxy.ts` con `new URL(pathname + '/')` (NextURL normaliza y quita la barra).
-6. `scripts/get-refresh-token.mjs` traía client id/secret de Google OAuth hardcodeados.
-7. Sourcing de `.env` en bash con URLs sin comillas (`&channel_binding=`) deja exports vacíos y el servidor falla cerrado con 429 "Too many requests" — síntoma engañoso; documentar que los valores deben ir entre comillas.
-8. Si el destino ya tenía un schema `app` parcial (WIP), el migrador de drizzle "salta" migraciones y deja drift silencioso; hay que `DROP SCHEMA app, drizzle` en la rama de test antes de migrar.
-9. La landing real no trae placeholders `{{GTM_ID}}`; la inyección de GTM en `proxy.ts` es inerte y conviene retirarla o hacerla condicional.
+- Retirada la integración CRM heredada del motor (outbox, cron `/api/cron/outbox`, módulo Logs del admin, ajustes de CRM,
+  indicadores "entrega a CRM"): este proyecto no entrega leads a ningún CRM. Migración `0009_drop_crm_outbox` elimina
+  `app.delivery_outbox`, `app.integration_deliveries` y sus tipos (tablas vacías).
+- Reporte periódico simplificado: leads recibidos, portabilidades ganadas, desglose por fuente y por estado comercial.
+- `GET /api/admin/analytics/acquisition` tenía la autenticación comentada (heredado): restaurada con `analytics.view`.
+- Eliminados archivos ajenos al proyecto: reportes generados por las herramientas de migración, `.neon` de otro proyecto,
+  `.obsidian`, scripts sueltos, un scaffold CRA (`mi-app/`) y un build antiguo (`dist/`).

@@ -45,23 +45,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# agent tooling scratch (antigravity / codex / graphify — NO commitear)
+# herramientas de agentes / scratch local (no commitear)
 /.workspace/
 /.agents/
 /.codex/
 /.claude/
-/graphify-out/
-/design-reference/
-/scratch.ts
-/scratch.*.ts
-/CLAUDE.md
 /.antigravitycli/
-
-# residuos de scaffolds previos / config local
-/dist/
-/mi-app/
-/.agents/
-.neon
-*.enc
-/payload.json
-.env.branch
+/CLAUDE.md
+/scratch*.mjs
+/scratch*.ts

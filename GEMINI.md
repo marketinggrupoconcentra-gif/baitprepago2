@@ -7,7 +7,6 @@
 - **Base de Datos**: Neon PostgreSQL, proyecto `sweet-mud-87845510`, schema `app` (Drizzle ORM, migraciones en `src/db/migrations`)
 - **Autenticación del admin**: Neon Auth (servidor administrado por Neon)
 - **Correo**: Resend
-- **Motor**: playbook Scale v2.0.0 (`project.config.yaml`, modo `transplant`)
 
 > [!WARNING]
 > **STACK ESTRICTO**
@@ -41,7 +40,7 @@ El NIP (Número de Identificación Personal) que el usuario recibe por SMS es **
     dedupe por blind index del teléfono.
   - *Atribución (`src/lib/analytics/attribution.ts`)*: UTMs, gclid/fbclid hasheados, ids de Meta, primer/último toque en `app.lead_attribution`.
   - *Persistencia (`src/lib/leads/submit-lead.ts`)*: una transacción → `app.leads` (PII cifrada), `lead_consents`, `lead_attribution`, evento `lead_success`.
-    Outbox solo si `CRM_PROVIDER != none`.
+
 - **Base de Datos**: `src/db/schema/app.ts` + `npm run db:migrate`; grants del rol runtime en `src/lib/security/privilege-manifest.ts`.
 
 ### 4.1 Stage 1H — NIP condicional, email, privacidad y CAPTCHA
