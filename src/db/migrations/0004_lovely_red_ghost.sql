@@ -1,0 +1,1 @@
+DROP TABLE "app"."otp_proofs" CASCADE;

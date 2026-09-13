@@ -1,0 +1,74 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   BAIT PREPAGO — Global CSS (solo rutas React: /admin; la landing trae su propio CSS)
+   Base layer compatible con Tailwind (si se agrega en el futuro)
+   Los estilos de la landing (.lp-*) se inlinean aquí para consistencia.
+   ───────────────────────────────────────────────────────────────────────────── */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── VARIABLES GLOBALES ──────────────────────────────────────────────────────── */
+:root {
+  --yellow: #ffd400;
+  --yellow-dim: rgba(255, 204, 0, .12);
+  --yellow-glow: rgba(255, 204, 0, .28);
+  --bg: #080808;
+  --bg2: #101010;
+  --bg3: #161616;
+  --border: rgba(255, 255, 255, .07);
+  --text: #fff;
+  --muted: #888;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --ease: .22s cubic-bezier(.4, 0, .2, 1);
+  --content-max: 1200px;
+}
+
+/* ── RESET ───────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--bg);
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+body {
+  min-width: 0;
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+}
+
+img, picture, video, canvas {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

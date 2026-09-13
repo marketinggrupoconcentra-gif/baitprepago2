@@ -1,0 +1,69 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788889006759,
+      "tag": "0000_true_bullseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788891574282,
+      "tag": "0001_boring_madame_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788901010904,
+      "tag": "0002_etapa22_otp_rate_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789000000000,
+      "tag": "0003_audit_action_outbox_retry",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789082091106,
+      "tag": "0004_lovely_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789089504186,
+      "tag": "0005_aspiring_spiral",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789092569195,
+      "tag": "0006_silky_lethal_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789103294909,
+      "tag": "0007_amused_ender_wiggin",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789278624319,
+      "tag": "0008_prepago_form_captcha",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "app"."delivery_outbox" ADD COLUMN "last_error_payload" jsonb;
