@@ -86,6 +86,33 @@
   var wrapper = document.getElementById('portability-form-wrapper');
   if (!wrapper) return;
 
+  // ── Wiring con el motor Scale (36_analytics_data_contract.md §5) ──────────
+  // form_started_at + idempotency_key + session_id viajan en el payload; los
+  // eventos de paso/envío alimentan /admin/dashboard y /admin/analytics.
+  function newUuid() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    var b = new Uint8Array(16);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(b);
+    else for (var i = 0; i < 16; i += 1) b[i] = Math.floor(Math.random() * 256);
+    b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    var hex = Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join('');
+    return hex.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+  }
+  function analyticsSessionId() {
+    try {
+      var stored = sessionStorage.getItem('bait_analytics_session_id');
+      if (stored && /^[0-9a-f-]{36}$/i.test(stored)) return stored;
+    } catch (_) {}
+    return undefined;
+  }
+  function analytics(method) {
+    if (!window.BaitAnalytics || typeof window.BaitAnalytics[method] !== 'function') return;
+    try { window.BaitAnalytics[method].apply(window.BaitAnalytics, Array.prototype.slice.call(arguments, 1)); } catch (_) {}
+  }
+  var formStartedAt = Date.now();
+  var idempotencyKey = newUuid();
+  analytics('formStepView', 1);
+
   var step1 = document.getElementById('pf-step-1');
   var step2 = document.getElementById('pf-step-2');
   var step3 = document.getElementById('pf-step-3');
@@ -101,6 +128,7 @@
   ];
 
   function goTo(n) {
+    analytics('formStepView', n);
     [step1, step2, step3].forEach(function (s, i) { s.classList.toggle('pf-hidden', i + 1 !== n); });
     var m = STEP_META[n - 1];
     barFill.style.width = m.pct;
@@ -297,8 +325,14 @@
       fb_adset_id: utms.fb_adset_id || null,
       fb_campaign_id: utms.fb_campaign_id || null,
       referrer: document.referrer || null,
-      page_url: window.location.href
+      page_url: window.location.href,
+      // Scale: anti-bot + idempotencia + sesión de analítica
+      website: '',
+      form_started_at: formStartedAt,
+      idempotency_key: idempotencyKey,
+      session_id: analyticsSessionId()
     };
+    analytics('formSubmitted');
 
     fetch('/api/leads', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
@@ -316,8 +350,11 @@
       });
     }).then(function (result) {
       if (submitBtn) submitBtn.disabled = false;
+      analytics('formResult', result.ok, result.status);
 
       if (!result.ok) {
+        // Nuevo intento = nueva idempotency key (el motor dedupe por key+payload).
+        idempotencyKey = newUuid();
         if (result.status === 409 && result.error === 'duplicate_lead') {
           try {
             sessionStorage.removeItem('bait_lead_name');
