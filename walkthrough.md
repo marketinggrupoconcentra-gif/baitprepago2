@@ -83,6 +83,12 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 opcionales: `RESEND_*`, `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_META_PIXEL_ID`, `GOOGLE_ADS_*`.
 `next build` necesita `NEON_AUTH_BASE_URL` y `NEON_AUTH_COOKIE_SECRET` presentes → sin ellas el Preview falla en build.
 
+Preview (rama Neon de test): Neon Auth ya está provisionado (`better_auth`, gestionado por Neon) →
+`NEON_AUTH_BASE_URL=https://ep-dry-thunder-ava45ynu.neonauth.c-11.us-east-1.aws.neon.tech/neondb/auth`.
+Estado del Preview `dpl_B33p934xBatg455xg5ihNkaJFKsj` (commit `2b3bc359`): compila y pasa TypeScript; falla en
+"Collecting page data" con `[auth] NEON_AUTH_BASE_URL no está definida` — solo faltan las env vars; basta un Redeploy tras cargarlas.
+El equivalente para producción (`br-lingering-sun-avyoux4u`) se lee con `get_auth` (lectura de prod: requiere tu autorización).
+
 ## 6. Producción — pasos pendientes de go-ahead (NO ejecutados)
 
 1. Snapshot de Neon `main` (`create_snapshot`) y export de `public.leads` (está vacía, pero se respalda).
