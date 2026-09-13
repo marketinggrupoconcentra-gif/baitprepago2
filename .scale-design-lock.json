@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-09-13T08:38:59.2683329-06:00",
+  "created_at": "2026-09-13T12:32:49.7809627-06:00",
   "protected_zone": [
     "src/app/page.tsx",
     "src/components/landing/",
@@ -18,7 +18,7 @@
   ],
   "files": {
     "public/legacy/index.html": "31b08cd64a88a58b3b79ca9681cfc821d4aff7457f59e6c7c865ecc416ecd368",
-    "public/legacy/aviso-de-privacidad/index.html": "03adf3feb53027af08fade1eabd934bde67c51a67dd412e6eae3a18e4911ee53",
+    "public/legacy/aviso-de-privacidad/index.html": "19edfbca86542e2fcb46d2f8b52761c47c2989e319a7a51452f4c0f858828a25",
     "public/legacy/duplicado/duplicado.css": "cac92bc771709823554ab1d64e74b34f672c01d7325383aaed29cd79246b277a",
     "public/legacy/duplicado/duplicado.js": "0bf1129f601baf877a96bffef62dc731bd08121e666b1386de164ccec657249c",
     "public/legacy/duplicado/index.html": "5bdc6a4077d9577c94f98517cbb89f76b71f7e3a7370325387b2af0cee6fd9e0",
@@ -40,6 +40,6 @@
     "public/assets/site.js": "c4d7626b0fac9368d19dddaa2468a8b91e31bf9a57709cfc543c4ea822a6a922",
     "public/assets/bait-logo.svg": "6c54be3995de83ac016685b77b6273edf9d9286cc0d2cc725cf7990dd0f7bfab",
     "public/robots.txt": "6fa78c29bf77e27e2ec0a06bcba8572b44637c9d8359882561e4b1b865d3519b",
-    "public/sitemap.xml": "1650eba8b0643d6dbb93a8de2515c362a55b5abc180d3a252e2e16ddd6b52425"
+    "public/sitemap.xml": "a6ae30c1e95876ee8b15c5058adbbe5b1d38805aa44bfe88f194876b8fdbe221"
   }
 }
