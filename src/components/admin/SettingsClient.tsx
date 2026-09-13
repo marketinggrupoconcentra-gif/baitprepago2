@@ -3,10 +3,10 @@
  *
  * Configuración — vista `/admin/settings`. Diseño: "Configuración.dc.html".
  *
- * BAIT no tiene almacén de config editable en runtime (env vars + código + Neon
- * Auth, por diseño de seguridad). Esta pantalla es INFORMATIVA: muestra los
- * valores reales y dónde se cambian. Los controles reproducen el diseño pero
- * están deshabilitados; no hay barra "guardar cambios".
+ * Integraciones (GTM/GA4/Pixel, Meta CAPI, Resend, Google Ads, valor de
+ * conversión) se editan aquí y se guardan en app.settings (secretos cifrados,
+ * enmascarados en la UI) con fallback a variables de entorno. El resto de la
+ * pantalla (sistema, formulario, reportes) es informativo.
  */
 'use client';
 
@@ -104,7 +104,7 @@ export default function SettingsClient({
           </p>
         </div>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: AMBER_SOFT, border: `1px solid ${AMBER_BD}`, borderRadius: 20, padding: '7px 13px', font: `600 12px ${SANS}`, color: GOLD, maxWidth: 460 }}>
-          Vista informativa · la configuración se define por variables de entorno, código y Neon Auth
+          Integraciones editables aquí · secretos cifrados y enmascarados · el resto es informativo
         </span>
       </header>
 
@@ -219,7 +219,7 @@ export default function SettingsClient({
                   );
                 })}
               </div>
-              <Note>La mayoría de los estados se calculan desde variables de entorno. GTM puede anularse desde esta base de datos.</Note>
+              <Note>Lo que guardes aquí tiene prioridad sobre las variables de entorno. Los secretos (tokens, client secret, refresh token) se cifran en reposo y nunca se vuelven a mostrar; al editar, deja el campo enmascarado para conservarlo o escribe uno nuevo para reemplazarlo. Guía por plataforma: <code style={cs}>docs/atribucion.md</code>.</Note>
             </Section>
 
             {/* ── Avisos ── */}
