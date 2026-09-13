@@ -1,4 +1,5 @@
 import 'server-only';
+import { enqueueLeadConversions } from '@/lib/conversions/queue';
 import { schema } from '@/db';
 import { eq, sql } from 'drizzle-orm';
 
@@ -46,6 +47,13 @@ export async function submitLead(
     lastUtmContent?: string;
     gclidHash?: string;
     fbclidHash?: string;
+    /** Click ids reales cifrados (solo para importar conversiones offline). */
+    gclidEnc?: string;
+    gbraidEnc?: string;
+    wbraidEnc?: string;
+    fbclidEnc?: string;
+    fbpEnc?: string;
+    userAgent?: string;
     fbAdId?: string;
     fbAdsetId?: string;
     fbCampaignId?: string;
@@ -127,6 +135,12 @@ export async function submitLead(
     lastUtmContent: opts.lastUtmContent ?? opts.utmContent,
     gclidHash: opts.gclidHash,
     fbclidHash: opts.fbclidHash,
+    gclidEnc: opts.gclidEnc,
+    gbraidEnc: opts.gbraidEnc,
+    wbraidEnc: opts.wbraidEnc,
+    fbclidEnc: opts.fbclidEnc,
+    fbpEnc: opts.fbpEnc,
+    userAgent: opts.userAgent,
     fbAdId: opts.fbAdId,
     fbAdsetId: opts.fbAdsetId,
     fbCampaignId: opts.fbCampaignId,
@@ -144,6 +158,10 @@ export async function submitLead(
     termsVersion: opts.termsVersion,
     acceptedAt: opts.now,
   } as typeof schema.leadConsents.$inferInsert);
+
+  // 4b. Cola de conversiones (Google Ads offline / Meta CAPI). event_id = idempotency key,
+  //     el mismo uuid que el Pixel usa como eventID → deduplicación en Meta.
+  await enqueueLeadConversions(tx, { leadId: opts.leadId, eventId: opts.idempotencyKey, occurredAt: opts.now });
 
   // 5. lead_success SOLO si el lead quedó persistido (misma tx → consistente).
   await tx.insert(schema.analyticsEvents).values({

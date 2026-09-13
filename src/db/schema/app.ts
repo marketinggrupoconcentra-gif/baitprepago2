@@ -113,9 +113,17 @@ export const leadAttribution = app.table('lead_attribution', {
   lastUtmTerm:        text('last_utm_term'),
   lastUtmContent:     text('last_utm_content'),
 
-  // Click IDs — protegidos, no se propagan a analytics general
-  gclidHash:          text('gclid_hash'),   // HMAC — no el valor real
-  fbclidHash:         text('fbclid_hash'),  // HMAC — no el valor real
+  // Click IDs — HMAC para atribución/dedupe (nunca se exponen en analytics general)
+  gclidHash:          text('gclid_hash'),
+  fbclidHash:         text('fbclid_hash'),
+  // Click IDs reales cifrados (AES-256-GCM): solo los lee el cron de conversiones
+  // para importar conversiones offline a Google Ads / Meta CAPI. Nunca salen al admin.
+  gclidEnc:           text('gclid_enc'),
+  gbraidEnc:          text('gbraid_enc'),
+  wbraidEnc:          text('wbraid_enc'),
+  fbclidEnc:          text('fbclid_enc'),
+  fbpEnc:             text('fbp_enc'),      // cookie _fbp del Pixel (mejora el match de CAPI)
+  userAgent:          text('user_agent'),   // UA del navegador al enviar (CAPI client_user_agent)
 
   // IDs de Meta Ads (no son PII; la landing los envía como fb_ad_id/fb_adset_id/fb_campaign_id)
   fbAdId:             text('fb_ad_id'),
@@ -382,6 +390,37 @@ export const reportRuns = app.table('report_runs', {
   index('report_runs_schedule_id_idx').on(t.scheduleId),
   index('report_runs_status_idx').on(t.status),
   index('report_runs_period_idx').on(t.periodStart, t.periodEnd),
+]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// app.conversion_deliveries — Cola de conversiones hacia plataformas de anuncios
+// Una fila por (lead, proveedor, evento). El alta del lead solo encola; el cron
+// /api/cron/conversions envía con reintentos y backoff. Nunca guarda PII ni
+// respuestas completas del proveedor (solo un código/mensaje corto de error).
+// ─────────────────────────────────────────────────────────────────────────────
+export const conversionProviderEnum = app.enum('conversion_provider', ['google_ads', 'meta_capi']);
+export const conversionEventEnum = app.enum('conversion_event', ['lead', 'won']);
+export const conversionDeliveryStatusEnum = app.enum('conversion_delivery_status', [
+  'pending', 'sent', 'failed', 'dead', 'skipped',
+]);
+
+export const conversionDeliveries = app.table('conversion_deliveries', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  leadId:         uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  provider:       conversionProviderEnum('provider').notNull(),
+  event:          conversionEventEnum('event').notNull(),
+  eventId:        text('event_id').notNull(),          // = event_id del Pixel (dedupe CAPI) / order_id en Google Ads
+  occurredAt:     timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+  status:         conversionDeliveryStatusEnum('status').notNull().default('pending'),
+  attempts:       integer('attempts').notNull().default(0),
+  nextAttemptAt:  timestamp('next_attempt_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  sentAt:         timestamp('sent_at', { withTimezone: true, mode: 'date' }),
+  lastError:      text('last_error'),                  // código/mensaje corto, nunca el payload
+  createdAt:      timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt:      timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('conversion_deliveries_lead_provider_event_uidx').on(t.leadId, t.provider, t.event),
+  index('conversion_deliveries_status_next_idx').on(t.status, t.nextAttemptAt),
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────

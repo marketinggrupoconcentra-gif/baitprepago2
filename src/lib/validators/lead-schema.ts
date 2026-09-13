@@ -90,7 +90,11 @@ export const LeadInputSchema = z.object({
   utm_content: nullableText(255),
   utm_term: nullableText(255),
   gclid: nullableText(512),
+  gbraid: nullableText(512),
+  wbraid: nullableText(512),
   fbclid: nullableText(512),
+  fbp: nullableText(128),       // cookie _fbp del Pixel (si existe)
+  fbc: nullableText(512),       // cookie _fbc del Pixel (si existe)
   fb_ad_id: nullableText(255),
   fb_adset_id: nullableText(255),
   fb_campaign_id: nullableText(255),

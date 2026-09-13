@@ -30,6 +30,13 @@ import { sendLeadConfirmationEmail } from '@/lib/email/sender';
  */
 
 const MAX_BODY_BYTES = 8_192;
+
+/** _fbc = fb.1.<timestamp>.<fbclid> → recupera el fbclid si la landing no lo traía en la URL. */
+function fbclidFromFbc(fbc: string | null | undefined): string | undefined {
+  if (!fbc) return undefined;
+  const m = /^fb\.1\.\d+\.(.+)$/.exec(fbc);
+  return m?.[1] || undefined;
+}
 const PLAN_CODE = process.env.LEAD_PLAN_CODE ?? 'prepago_100';
 // La landing dice "recibirás tu cupón por correo"; el backend original NO enviaba
 // nada al lead. Se mantiene apagado salvo LEAD_CONFIRMATION_EMAIL=on.
@@ -191,10 +198,13 @@ export async function handleLeadRequest(req: NextRequest, route: string): Promis
     utmContent: data.utm_content ?? fromUrl.utmContent,
   };
   const gclid = data.gclid ?? urlClickIds.gclid;
-  const fbclid = data.fbclid ?? urlClickIds.fbclid;
+  const gbraid = data.gbraid ?? urlClickIds.gbraid;
+  const wbraid = data.wbraid ?? urlClickIds.wbraid;
+  const fbclid = data.fbclid ?? urlClickIds.fbclid ?? fbclidFromFbc(data.fbc);
+  const userAgent = (req.headers.get('user-agent') ?? '').slice(0, 512) || undefined;
   const referrerHost = extractReferrerHost(data.referrer);
   const sourceCategory = resolveSourceCategory({
-    gclidPresent: !!gclid, gbraidPresent: urlClickIds.gbraidPresent, wbraidPresent: urlClickIds.wbraidPresent,
+    gclidPresent: !!gclid, gbraidPresent: !!gbraid, wbraidPresent: !!wbraid,
     fbclidPresent: !!fbclid, utmSource: utm.utmSource, utmMedium: utm.utmMedium, referrerHost,
   });
   // landing_url sin click ids ni parámetros ajenos (solo utm_*)
@@ -239,6 +249,12 @@ export async function handleLeadRequest(req: NextRequest, route: string): Promis
         ...utm,
         gclidHash: gclid ? hashClickId('gclid', gclid) : undefined,
         fbclidHash: fbclid ? hashClickId('fbclid', fbclid) : undefined,
+        gclidEnc: gclid ? encryptPII(gclid) : undefined,
+        gbraidEnc: gbraid ? encryptPII(gbraid) : undefined,
+        wbraidEnc: wbraid ? encryptPII(wbraid) : undefined,
+        fbclidEnc: fbclid ? encryptPII(fbclid) : undefined,
+        fbpEnc: data.fbp ? encryptPII(data.fbp) : undefined,
+        userAgent,
         fbAdId: data.fb_ad_id,
         fbAdsetId: data.fb_adset_id,
         fbCampaignId: data.fb_campaign_id,

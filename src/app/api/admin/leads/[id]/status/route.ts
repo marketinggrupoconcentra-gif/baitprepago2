@@ -10,6 +10,7 @@ import { requireAdminSession } from '@/lib/session';
 import { writeAuditLog } from '@/lib/audit';
 import { eq } from 'drizzle-orm';
 import { logError } from '@/lib/log';
+import { enqueueWonConversions } from '@/lib/conversions/queue';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -101,6 +102,11 @@ export async function PATCH(
         ...(notes !== undefined ? { notes } : {}),
         ...(body.assignedToAuthUserId !== undefined ? { assignedToAuthUserId: body.assignedToAuthUserId } : {}),
       });
+    }
+
+    // Portabilidad ganada → conversión offline (Google Ads) / Purchase (Meta CAPI).
+    if (body.commercialStatus === 'WON' && previousStatus !== 'WON') {
+      await enqueueWonConversions(db, { leadId: id, occurredAt: new Date() });
     }
 
     await writeAuditLog({

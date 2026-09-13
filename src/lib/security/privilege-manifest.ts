@@ -55,6 +55,14 @@ export const PRIVILEGE_MANIFEST: Record<string, TablePrivileges> = {
     delete: false,
   },
 
+  // ── Conversiones a plataformas de anuncios ──────────────────────────────────
+  conversion_deliveries: {
+    select: true,   // cron: filas pendientes; admin: conteos
+    insert: true,   // encolar (tx del lead, cambio a Ganado)
+    update: true,   // estado/reintentos desde el cron
+    delete: false,
+  },
+
   // ── CAPTCHA propio de la landing ────────────────────────────────────────────
   captcha_challenges: {
     select: true,   // consume: leer answer_hash/expires_at/used_at

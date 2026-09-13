@@ -34,7 +34,7 @@ export interface Integration {
   meta: string;
   status: IntegrationStatus;
   value?: string | null;
-  configKeys?: { label: string; dbKey: string; val: string; ph?: string }[];
+  configKeys?: { label: string; dbKey: string; val: string; ph?: string; secret?: boolean; help?: string }[];
 }
 interface SystemInfo {
   appUrl: string | null;
@@ -203,6 +203,7 @@ export default function SettingsClient({
                           {i.key === 'meta_capi' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 10.174c1.766-2.784 3.315-4.174 4.648-4.174 2 0 3.263 2.213 4 5.217.704 2.869.5 6.783-2 6.783-1.114 0-2.648-1.565-4.148-3.652a27.627 27.627 0 01-2.5-4.174z" stroke="#0668E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 10.174c-1.766-2.784-3.315-4.174-4.648-4.174-2 0-3.263 2.213-4 5.217-.704 2.869-.5 6.783 2 6.783 1.114 0 2.648-1.565 4.148-3.652 1-1.391 1.833-2.783 2.5-4.174z" stroke="#0668E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                           {i.key === 'resend' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#000"/><path d="M11 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6" stroke="#fff" strokeWidth="1.5"/><path d="M15 16h6M18 13l3 3-3 3" stroke="#fff" strokeWidth="1.5"/></svg>}
                           {i.key === 'google_ads' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.66 2l-8.58 19.33h7.16l4.29-9.66-2.87-9.67z" fill="#F4B400"/><path d="M14.53 2h7.16l-8.58 19.33h-7.16z" fill="#4285F4"/></svg>}
+                          {i.key === 'conversions' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#16160F" strokeWidth="1.6"/><path d="M12 7v10M9.5 9.5h3.75a1.75 1.75 0 0 1 0 3.5H10.5a1.75 1.75 0 0 0 0 3.5h4" stroke="#16160F" strokeWidth="1.6" strokeLinecap="round"/></svg>}
                         </span>
                         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                           <span style={{ font: `700 13px ${SANS}` }}>{i.label}</span>
@@ -384,22 +385,27 @@ function IntegrationEditor({ integration }: { integration: Integration }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'stretch', width: 'min(100%, 560px)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
         {integration.configKeys?.map(k => (
-          <input 
-            key={k.dbKey}
-            type="text" 
-            value={values[k.dbKey]} 
-            onChange={e => setValues(prev => ({ ...prev, [k.dbKey]: e.target.value }))} 
-            placeholder={k.ph || ''}
-            title={k.label}
-            style={{ font: `500 12px ${MONO}`, padding: '4px 8px', border: `1px solid ${LINE}`, borderRadius: 6, width: 140, outline: 'none' }} 
-            disabled={loading}
-          />
+          <label key={k.dbKey} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ font: `600 11px ${SANS}`, color: '#4B4B44' }}>{k.label}{k.secret ? ' · secreto' : ''}</span>
+            <input
+              type={k.secret ? 'password' : 'text'}
+              autoComplete="off"
+              value={values[k.dbKey]}
+              onFocus={() => { if (k.secret && values[k.dbKey] === '••••••••••••••••') setValues(prev => ({ ...prev, [k.dbKey]: '' })); }}
+              onChange={e => setValues(prev => ({ ...prev, [k.dbKey]: e.target.value }))}
+              placeholder={k.ph || ''}
+              title={k.label}
+              style={{ font: `500 12px ${MONO}`, padding: '6px 8px', border: `1px solid ${LINE}`, borderRadius: 6, width: '100%', outline: 'none', boxSizing: 'border-box' }}
+              disabled={loading}
+            />
+            {k.help && <span style={{ font: `500 10.5px ${SANS}`, color: MUTED, lineHeight: 1.35 }}>{k.help}</span>}
+          </label>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
         <button onClick={handleSave} disabled={loading} style={{ font: `600 11px ${SANS}`, color: '#FFF', background: INK, border: 'none', borderRadius: 6, padding: '5px 10px', cursor: loading ? 'wait' : 'pointer' }}>
           {loading ? 'Guardando...' : 'Guardar'}
         </button>

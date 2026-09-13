@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-09-13T12:32:49.7809627-06:00",
+  "created_at": "2026-09-13T12:50:03.0583820-06:00",
   "protected_zone": [
     "src/app/page.tsx",
     "src/components/landing/",
@@ -17,15 +17,15 @@
     "public/sitemap.xml"
   ],
   "files": {
-    "public/legacy/index.html": "31b08cd64a88a58b3b79ca9681cfc821d4aff7457f59e6c7c865ecc416ecd368",
+    "public/legacy/index.html": "866b4bf7eb9a719a9945751931bf06eced2d9f7bda19c0dceaef563033e8b59f",
     "public/legacy/aviso-de-privacidad/index.html": "19edfbca86542e2fcb46d2f8b52761c47c2989e319a7a51452f4c0f858828a25",
     "public/legacy/duplicado/duplicado.css": "cac92bc771709823554ab1d64e74b34f672c01d7325383aaed29cd79246b277a",
     "public/legacy/duplicado/duplicado.js": "0bf1129f601baf877a96bffef62dc731bd08121e666b1386de164ccec657249c",
-    "public/legacy/duplicado/index.html": "5bdc6a4077d9577c94f98517cbb89f76b71f7e3a7370325387b2af0cee6fd9e0",
+    "public/legacy/duplicado/index.html": "f9c2e8d571b05caf3f3d0192a1ec65d2fcc7c19f091c8ba5773e125b61d533ba",
     "public/legacy/gracias/gracias.css": "468458eebf90dc9b23520b866ff5dec1c8ea1d4a2e4b10c6df80aa4eeb117cab",
     "public/legacy/gracias/gracias.js": "48b12cd95ad6f9e4075600f15e1be93cba6f0d5508bdf272b4de32748d41f2da",
-    "public/legacy/gracias/index.html": "47852cab71bdcbb9f3f92a6b3b969a3efe4466d1ebe346369dcbe44c13e6dfb1",
-    "public/legacy/walmart-beneficios/index.html": "cfa0c5398c42b2d940689221315de8731285366550f861630e321b017930b770",
+    "public/legacy/gracias/index.html": "2ff9f702c778b9c32b68dee4d2dd0242f336cd210484933e48039c1129069d9a",
+    "public/legacy/walmart-beneficios/index.html": "087ca1e544a95ff9479b6b4546da916d9e9776f6f77fb51d02e7a5cc51ddca08",
     "public/assets/images/faisy-bait.png": "1688129f5fda3544b42c451eab155a423ee62ff524a9dc1430a2508b448f2242",
     "public/assets/images/faisy-bait.webp": "59891736afec25f3b0e3fd14b1c4143b0bcd3ae290e60560aeda1b68b392234c",
     "public/assets/images/logo-bait-user-orig.png": "7c6777b9a0612d3ffa63f05fd9d3f080ae1aa72dda4bc019a09f5a91ec6191fc",
@@ -37,7 +37,7 @@
     "public/assets/images/og-bait-portabilidad-v2.png": "37e2cc18a7764da8200e5fd23d8cd5816ac8323398d1dfb8414f0df4748faa11",
     "public/assets/images/pasos.avif": "2e5ff91be3ae1a6e00d3571f1b5165963c61b7296d0fcc6e3e56bdb44bf56239",
     "public/assets/site.css": "604859c3beafab4438f2a3364e29cc1d65dc384eff804c28df1e0fedd3917754",
-    "public/assets/site.js": "c4d7626b0fac9368d19dddaa2468a8b91e31bf9a57709cfc543c4ea822a6a922",
+    "public/assets/site.js": "12cca2840be210f8c4785c342d5e619fc101ca00e07f780b24b99576e7d59b01",
     "public/assets/bait-logo.svg": "6c54be3995de83ac016685b77b6273edf9d9286cc0d2cc725cf7990dd0f7bfab",
     "public/robots.txt": "6fa78c29bf77e27e2ec0a06bcba8572b44637c9d8359882561e4b1b865d3519b",
     "public/sitemap.xml": "a6ae30c1e95876ee8b15c5058adbbe5b1d38805aa44bfe88f194876b8fdbe221"

@@ -35,10 +35,15 @@ const EXPECTED_TABLES = [
   'settings',
   'ads_metrics',
   'captcha_challenges',
+  // 0010 (conversiones Google Ads / Meta CAPI)
+  'conversion_deliveries',
 ];
 
 const EXPECTED_ENUM_TYPES = [
   'lead_status',
+  'conversion_provider',
+  'conversion_event',
+  'conversion_delivery_status',
   'security_event_type',
   'source_category',
 ];

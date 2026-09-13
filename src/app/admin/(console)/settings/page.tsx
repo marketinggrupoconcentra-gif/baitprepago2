@@ -1,19 +1,17 @@
 /**
  * src/app/admin/(console)/settings/page.tsx — Configuración
  *
- * Diseño: "Configuración.dc.html" (Claude Design).
- *
- * IMPORTANTE: BAIT no tiene almacén de configuración editable en runtime. La
- * config vive en variables de entorno, en el código y en Neon Auth (por diseño
- * de seguridad — Etapa 2.2). Esta pantalla es INFORMATIVA / solo lectura: cada
- * campo muestra el valor real actual y de dónde sale. Los estados de integración
- * se calculan server-side desde process.env sin exponer secretos.
+ * Integraciones: los valores viven en app.settings (editables aquí) con
+ * fallback a variables de entorno. Los secretos se guardan cifrados y solo se
+ * muestran enmascarados; el estado se calcula server-side sin exponerlos.
  */
 import { Metadata } from 'next';
 import { requireAdminSessionOrRedirect } from '@/lib/session';
 import { BUSINESS_TIMEZONE } from '@/db/index';
 import SettingsClient, { type IntegrationStatus } from '@/components/admin/SettingsClient';
 import { getDb, schema } from '@/db';
+import { MASKED_VALUE, SENSITIVE_KEYS } from '@/lib/settings';
+import { conversionQueueStats } from '@/lib/conversions/queue';
 
 export const metadata: Metadata = { title: 'Configuración' };
 
@@ -32,28 +30,52 @@ export default async function SettingsPage() {
   const dbSettings: Record<string, string> = {};
   try {
     const rows = await db.select({ key: schema.settings.key, value: schema.settings.value }).from(schema.settings);
-    rows.forEach(r => {
-      if (r.value) dbSettings[r.key] = r.value;
+    rows.forEach((r) => {
+      // Secretos: solo importa si existen (nunca se descifran para la UI)
+      if (r.value) dbSettings[r.key] = SENSITIVE_KEYS.has(r.key) ? MASKED_VALUE : r.value;
     });
   } catch {
     // sin acceso a app.settings → se muestran solo las variables de entorno
   }
 
+  let conversionStats: { provider: string; status: string; n: number }[] = [];
+  try { conversionStats = await conversionQueueStats(); } catch { /* tabla vacía o sin acceso */ }
+  const convSummary = (provider: string) => {
+    const rows = conversionStats.filter((r) => r.provider === provider);
+    if (rows.length === 0) return 'sin conversiones encoladas aún';
+    const n = (st: string) => rows.find((r) => r.status === st)?.n ?? 0;
+    return `enviadas ${n('sent')} · pendientes ${n('pending')} · fallidas ${n('dead')} · omitidas ${n('skipped')}`;
+  };
+
   const v = (key: string, envKey: string) => dbSettings[key] || env[envKey] || '';
   const metaStatus = (key: string, envKey: string) => dbSettings[key] ? 'Configurado en BD' : envKey;
-  const mask = (val: string) => val ? '••••••••••••••••' : '';
+  const mask = (val: string) => val ? MASKED_VALUE : '';
+  const secret = (label: string, dbKey: string, envKey: string, help?: string) => ({ label, dbKey, val: mask(v(dbKey, envKey)), ph: 'sin configurar', secret: true, help });
+  const plain = (label: string, dbKey: string, envKey: string, ph: string, help?: string) => ({ label, dbKey, val: v(dbKey, envKey), ph, help });
 
   const integrations = [
     { key: 'landing', label: 'Landing BAIT Prepago', meta: 'eventos propios (app.analytics_events)', status: 'CONFIGURED' as IntegrationStatus },
     { key: 'gtm', label: 'Google Tag Manager', meta: metaStatus('gtm_id', 'NEXT_PUBLIC_GTM_ID'), status: status(v('gtm_id', 'NEXT_PUBLIC_GTM_ID')), configKeys: [{ label: 'GTM ID', dbKey: 'gtm_id', val: v('gtm_id', 'NEXT_PUBLIC_GTM_ID'), ph: 'GTM-XXXXXXX' }] },
     { key: 'ga4', label: 'Google Analytics 4', meta: metaStatus('ga4_id', 'NEXT_PUBLIC_GA4_ID'), status: status(v('ga4_id', 'NEXT_PUBLIC_GA4_ID')), configKeys: [{ label: 'GA4 ID', dbKey: 'ga4_id', val: v('ga4_id', 'NEXT_PUBLIC_GA4_ID'), ph: 'G-XXXXXXXX' }] },
     { key: 'meta_pixel', label: 'Meta Pixel', meta: metaStatus('meta_pixel_id', 'NEXT_PUBLIC_META_PIXEL_ID'), status: status(v('meta_pixel_id', 'NEXT_PUBLIC_META_PIXEL_ID')), configKeys: [{ label: 'Pixel ID', dbKey: 'meta_pixel_id', val: v('meta_pixel_id', 'NEXT_PUBLIC_META_PIXEL_ID'), ph: 'XXXXXXXXXXXXXX' }] },
-    { key: 'meta_capi', label: 'Meta Conversions API', meta: metaStatus('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN'), status: status(v('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN')), configKeys: [{ label: 'Token', dbKey: 'meta_capi_access_token', val: mask(v('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN')), ph: 'EAAB...' }] },
+    { key: 'meta_capi', label: 'Meta Conversions API', meta: `${metaStatus('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN')} · ${convSummary('meta_capi')}`, status: status(v('meta_pixel_id', 'NEXT_PUBLIC_META_PIXEL_ID'), v('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN')), configKeys: [
+      secret('Token de acceso (CAPI)', 'meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN', 'Events Manager → Pixel → Configuración → Conversions API → Generar token.'),
+      plain('Test event code', 'meta_test_event_code', 'META_TEST_EVENT_CODE', 'TEST12345', 'Solo para probar en Events Manager → "Probar eventos". Vaciar en producción.'),
+    ] },
     { key: 'resend', label: 'Resend (reportes por email)', meta: metaStatus('resend_api_key', 'RESEND_API_KEY'), status: status(v('resend_api_key', 'RESEND_API_KEY')), configKeys: [{ label: 'API Key', dbKey: 'resend_api_key', val: mask(v('resend_api_key', 'RESEND_API_KEY')), ph: 're_...' }] },
-    { key: 'google_ads', label: 'Google Ads', meta: (dbSettings['google_ads_account_id'] || dbSettings['google_ads_access_token']) ? 'Configurado en BD' : 'Métricas y Rendimiento SEM', status: status(v('google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID'), v('google_ads_access_token', 'GOOGLE_ADS_ACCESS_TOKEN')), configKeys: [
-      { label: 'Account ID', dbKey: 'google_ads_account_id', val: v('google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID'), ph: '123-456-7890' },
-      { label: 'Access Token', dbKey: 'google_ads_access_token', val: mask(v('google_ads_access_token', 'GOOGLE_ADS_ACCESS_TOKEN')), ph: 'ya29...' },
-      { label: 'Keyword Filter', dbKey: 'google_ads_campaign_filter', val: v('google_ads_campaign_filter', 'GOOGLE_ADS_CAMPAIGN_FILTER'), ph: 'Ej: Bait' }
+    { key: 'google_ads', label: 'Google Ads', meta: `métricas SEM + conversiones offline · ${convSummary('google_ads')}`, status: status(v('google_ads_developer_token', 'GOOGLE_ADS_DEVELOPER_TOKEN'), v('google_ads_client_id', 'GOOGLE_ADS_OAUTH_CLIENT_ID'), v('google_ads_client_secret', 'GOOGLE_ADS_OAUTH_CLIENT_SECRET'), v('google_ads_refresh_token', 'GOOGLE_ADS_REFRESH_TOKEN'), v('google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID')), configKeys: [
+      plain('Customer ID', 'google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID', '123-456-7890', 'Id de la cuenta de Google Ads (arriba a la derecha en Ads).'),
+      plain('Login customer ID (MCC)', 'google_ads_login_customer_id', 'GOOGLE_ADS_LOGIN_CUSTOMER_ID', '', 'Solo si accedes vía cuenta administradora.'),
+      secret('Developer token', 'google_ads_developer_token', 'GOOGLE_ADS_DEVELOPER_TOKEN', 'Google Ads → Herramientas → Centro de API.'),
+      plain('OAuth client ID', 'google_ads_client_id', 'GOOGLE_ADS_OAUTH_CLIENT_ID', '....apps.googleusercontent.com', 'Google Cloud → Credenciales → OAuth 2.0 (tipo Escritorio).'),
+      secret('OAuth client secret', 'google_ads_client_secret', 'GOOGLE_ADS_OAUTH_CLIENT_SECRET'),
+      secret('Refresh token', 'google_ads_refresh_token', 'GOOGLE_ADS_REFRESH_TOKEN', 'Genera con: node scripts/get-refresh-token.mjs'),
+      plain('Conversión "Lead" (id)', 'google_ads_conversion_action_id', 'GOOGLE_ADS_CONVERSION_ACTION_ID', '123456789', 'Id numérico de la acción de conversión (Objetivos → Conversiones → la acción → URL: ctId=...). Origen: Importar / clics de anuncios.'),
+      plain('Conversión "Portabilidad ganada" (id)', 'google_ads_won_conversion_action_id', 'GOOGLE_ADS_WON_CONVERSION_ACTION_ID', '', 'Opcional. Se sube cuando un lead pasa a estado comercial Ganado.'),
+      plain('Filtro de campañas', 'google_ads_campaign_filter', 'GOOGLE_ADS_CAMPAIGN_FILTER', 'Ej: Bait', 'Solo campañas cuyo nombre contenga este texto (métricas SEM).'),
+    ] },
+    { key: 'conversions', label: 'Valor de conversión', meta: 'MXN por portabilidad ganada (Google Ads / Meta)', status: 'CONFIGURED' as IntegrationStatus, configKeys: [
+      plain('Valor (MXN)', 'conversion_won_value', 'CONVERSION_WON_VALUE', '100', 'Se envía como valor de la conversión "won". Default 100.'),
     ] },
   ];
 

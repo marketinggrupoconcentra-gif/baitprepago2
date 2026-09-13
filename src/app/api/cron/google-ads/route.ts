@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDb, schema } from '@/db';
-import { getSetting } from '@/lib/settings';
 import { logError } from '@/lib/log';
-import { GoogleAdsApi } from 'google-ads-api';
+import { getGoogleAdsConfig } from '@/lib/integrations/config';
+import { createGoogleAdsCustomer } from '@/lib/integrations/google-ads';
 
 export const runtime = 'nodejs';
 // Vercel Cron
@@ -14,36 +14,24 @@ export const maxDuration = 60;
  */
 export async function GET(req: Request) {
   try {
-    // Validar autorización del CRON de Vercel
-    const authHeader = req.headers.get('authorization');
-    if (
-      process.env.NODE_ENV === 'production' &&
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // FLW-005: fail-closed sobre CRON_SECRET
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      logError('/api/cron/google-ads', 'config', new Error('CRON_SECRET missing'));
+      return NextResponse.json({ error: 'Configuración incompleta.' }, { status: 503 });
+    }
+    if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
     }
 
     const db = getDb();
 
-    // 1. Obtener credenciales de la configuración (Base de Datos o Env)
-    const accountId = await getSetting('google_ads_account_id', process.env.GOOGLE_ADS_ACCOUNT_ID);
-    // Ya no usamos un token estático. Vamos a usar la variable base64 y el developer token.
-    const keywordFilter = await getSetting('google_ads_campaign_filter', process.env.GOOGLE_ADS_CAMPAIGN_FILTER);
-    
-    // El JSON descargado inyectado en Base64
-    const b64Credentials = process.env.GOOGLE_ADS_CREDENTIALS_B64;
-    // Developer Token de Google Ads (requerido siempre)
-    const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-
-    if (!accountId || !b64Credentials || !developerToken) {
-      return NextResponse.json(
-        { message: 'Google Ads no está completamente configurado (faltan account_id, developer_token o credentials_b64).' },
-        { status: 200 } 
-      );
+    // 1. Credenciales desde /admin/settings (fallback env)
+    const cfg = await getGoogleAdsConfig();
+    if (!cfg) {
+      return NextResponse.json({ message: 'Google Ads no está configurado (developer token, OAuth client, refresh token o customer id).' }, { status: 200 });
     }
-
-    // Limpiar el account ID (remover guiones y espacios)
-    const cleanAccountId = accountId.replace(/-/g, '').trim();
+    const keywordFilter = cfg.campaignFilter;
 
     // 2. Consulta GQL (Google Ads Query Language)
     // Extraemos rendimiento de campañas de los últimos 30 días
@@ -64,33 +52,8 @@ export async function GET(req: Request) {
       query += ` AND campaign.name LIKE '%${keywordFilter.trim()}%'`;
     }
 
-    // 3. Obtener credenciales y configurar cliente
-    let credentials;
-    try {
-      credentials = JSON.parse(b64Credentials);
-    } catch {
-      const decodedCredentials = Buffer.from(b64Credentials, 'base64').toString('utf-8');
-      credentials = JSON.parse(decodedCredentials);
-    }
-
-    const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
-    if (!refreshToken) {
-      throw new Error('Falta GOOGLE_ADS_REFRESH_TOKEN en el entorno.');
-    }
-
-    const clientId = credentials.installed ? credentials.installed.client_id : credentials.client_id;
-    const clientSecret = credentials.installed ? credentials.installed.client_secret : credentials.client_secret;
-
-    const client = new GoogleAdsApi({
-      client_id: clientId,
-      client_secret: clientSecret,
-      developer_token: developerToken,
-    });
-
-    const customer = client.Customer({
-      customer_id: cleanAccountId,
-      refresh_token: refreshToken,
-    });
+    // 3. Cliente
+    const customer = createGoogleAdsCustomer(cfg);
 
     // 4. Extraer datos con GAQL
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -71,6 +71,13 @@
       "when": 1789323061744,
       "tag": "0009_drop_crm_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789324775669,
+      "tag": "0010_click_ids_conversions",
+      "breakpoints": true
     }
   ]
 }

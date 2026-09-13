@@ -18,9 +18,9 @@ Next.js 16 (App Router) · Drizzle ORM · Neon Postgres (schema `app`) · Neon A
 | Analítica cliente | `public/assets/js/bait-analytics.js` | Configurado por `window.BAIT_ANALYTICS_CONFIG` en `index.html`; lee GTM/GA4/Pixel de `GET /api/analytics/config`; envía embudo a `POST /api/track`. |
 | CAPTCHA propio | `POST /api/captcha/challenge` → `src/lib/security/captcha.ts` | Reto de 6 dígitos (SVG sin `<text>`), hash HMAC con `CAPTCHA_PEPPER`, un solo uso, tabla `app.captcha_challenges`. |
 | Alta de lead | `POST /api/leads` (contrato de la landing) y `POST /api/v1/leads` | Mismo handler `src/lib/leads/handle-lead-request.ts`: origen → bot → rate limit distribuido → honeypot → tiempo mínimo → idempotencia → Zod (`src/lib/validators/lead-schema.ts`) → CAPTCHA → dedupe por teléfono (blind index) → transacción `submitLead`. |
-| Datos | `src/db/schema/app.ts`, migraciones `src/db/migrations/0000..0009` | PII cifrada (AES-256-GCM) + blind indexes HMAC. Rol runtime de mínimo privilegio `baitprepago_app_runtime` (`src/lib/security/privilege-manifest.ts`). |
+| Datos | `src/db/schema/app.ts`, migraciones `src/db/migrations/0000..0010` | PII cifrada (AES-256-GCM) + blind indexes HMAC. Rol runtime de mínimo privilegio `baitprepago_app_runtime` (`src/lib/security/privilege-manifest.ts`). |
 | Admin | `/admin/*` (`src/app/admin`) | Neon Auth + RBAC (`src/lib/rbac.ts`): dashboard, leads, analytics, SEM, settings, usuarios. |
-| Crons (`vercel.json`) | `/api/cron/{reports,nip-purge,google-ads}` | `Authorization: Bearer CRON_SECRET`. `nip-purge` purga retos CAPTCHA y buckets de rate limit vencidos. |
+| Crons (`vercel.json`) | `/api/cron/{reports,nip-purge,google-ads,conversions}` | `Authorization: Bearer CRON_SECRET`. `nip-purge` purga retos CAPTCHA y buckets de rate limit; `conversions` envía leads/ganados a Google Ads (offline) y Meta CAPI. |
 | Edge | `src/proxy.ts` | CSP, cabeceras de seguridad, rate limit en memoria, redirect `/gracias` → `/gracias/`, `/admin` sin sesión → login. |
 
 Respuestas de `POST /api/leads` que consume `site.js`:
@@ -81,7 +81,7 @@ Smoke manual de la landing contra un servidor local (`npm run build && npm start
 
 ## 6. Despliegue (Vercel)
 
-- Rama `main` → producción; cualquier otra rama → Preview. `vercel.json` fija `framework: nextjs`, 3 crons y cabeceras.
+- Rama `main` → producción; cualquier otra rama → Preview. `vercel.json` fija `framework: nextjs`, 4 crons y cabeceras.
 - Variables de entorno de producción: todas las `[REQUIRED]` de `.env.example` (nunca las `[LOCAL]`).
 - Primer administrador: `POST /api/admin/bootstrap` con `ADMIN_BOOTSTRAP_EMAIL`, o `scripts/create-admin-direct.mjs`.
 - Rollback: `vercel rollback <deployment-id>` (o "Promote" del deployment anterior en el dashboard).
@@ -97,6 +97,8 @@ Smoke manual de la landing contra un servidor local (`npm run build && npm start
 
 ## 8. UTMs y atribución
 
+Guía completa (parámetros de URL por plataforma, qué se guarda, conversiones offline y Conversions API): `docs/atribucion.md`.
+
 `site.js` captura `utm_*`, `gclid`, `fbclid`, `fb_ad_id/fb_adset_id/fb_campaign_id`, `referrer`, `page_url` y `session_id`.
 El servidor clasifica la fuente (`src/lib/analytics/attribution.ts`), hashea los click ids (`CLICK_ID_SECRET`) y guarda
 primer/último toque en `app.lead_attribution`. El embudo (`page_view → form_step_1_start → form_submitted → lead_success`)
@@ -105,5 +107,6 @@ vive en `app.analytics_events` y se visualiza en `/admin/analytics`.
 ## 9. Documentos de trabajo
 
 - `project.config.yaml` — manifiesto del proyecto (zona protegida, dominio, formulario, crons).
+- `docs/atribucion.md` — atribución de campañas y conversiones hacia Google Ads / Meta.
 - `docs/migracion-motor-scale.md` — bitácora de la migración al motor (decisiones, supuestos, pasos de producción).
 - `GEMINI.md` — reglas del proyecto para cualquier agente (stack estricto, NIP, CDMX).

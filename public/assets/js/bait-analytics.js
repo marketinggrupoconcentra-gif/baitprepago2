@@ -198,7 +198,7 @@
 
   function track(eventName, params, options) {
     params = params || {};
-    var eventId = uuid();
+    var eventId = (options && options.eventId) || uuid();
     var dataLayerEvent = Object.assign({}, params, {
       event: eventName,
       event_id: eventId,
@@ -433,11 +433,10 @@
       formSubmitted = true;
       track('form_submitted', { form_id: FORM_NAME, form_step: currentStep });
     },
-    formResult: function (success, status) {
+    formResult: function (success, status, eventId) {
       if (success) {
-        formSucceeded = true;
         storageSet(FORM_SUCCESS_KEY, '1');
-        track('form_submit_success', { form_id: FORM_NAME, response_status: Number(status) || 200 });
+        track('form_submit_success', { form_id: FORM_NAME, response_status: Number(status) || 200 }, { eventId: eventId });
       } else {
         track('form_submit_error', { form_id: FORM_NAME, error_code: 'downstream_rejected', response_status: Number(status) || 0 });
       }

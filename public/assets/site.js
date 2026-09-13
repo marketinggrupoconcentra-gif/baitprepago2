@@ -60,9 +60,14 @@
   });
 
   var UTM_KEYS = [
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid',
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'gbraid', 'wbraid',
     'fbclid', 'fb_ad_id', 'fb_adset_id', 'fb_campaign_id'
   ];
+  // Cookies que deja el Pixel de Meta (si está activo); mejoran el match de Conversions API.
+  function readCookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
   var SESSION_KEY = 'bait_utms';
   var DUPLICATE_SESSION_KEY = 'bait_duplicate_process';
 
@@ -320,7 +325,11 @@
       utm_content: utms.utm_content || null,
       utm_term: utms.utm_term || null,
       gclid: utms.gclid || null,
+      gbraid: utms.gbraid || null,
+      wbraid: utms.wbraid || null,
       fbclid: utms.fbclid || null,
+      fbp: readCookie('_fbp'),
+      fbc: readCookie('_fbc'),
       fb_ad_id: utms.fb_ad_id || null,
       fb_adset_id: utms.fb_adset_id || null,
       fb_campaign_id: utms.fb_campaign_id || null,
@@ -350,7 +359,8 @@
       });
     }).then(function (result) {
       if (submitBtn) submitBtn.disabled = false;
-      analytics('formResult', result.ok, result.status);
+      // El id del evento de conversión = idempotency key → Meta deduplica Pixel vs CAPI.
+      analytics('formResult', result.ok, result.status, idempotencyKey);
 
       if (!result.ok) {
         // Nuevo intento = nueva idempotency key (el motor dedupe por key+payload).
