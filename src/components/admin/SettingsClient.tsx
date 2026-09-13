@@ -45,7 +45,6 @@ interface SystemInfo {
   authProvider: string;
   privacyPolicyVersion: string | null;
   termsVersion: string | null;
-  maxDeliveryAttempts: number;
 }
 interface FormField { label: string; key: string; visible: boolean; required: boolean; conditional?: boolean; locked?: boolean }
 interface ReportSchedule { id: string; name: string; frequency: string; isActive: boolean; recipientCount: number; recipientDomains: string[] }
@@ -183,8 +182,6 @@ export default function SettingsClient({
                 <Rule label="Anti-abuso" desc="Honeypot, rate limiting distribuido por IP/teléfono y bloqueo de bots/escáneres en el edge." on />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14, borderTop: `1px solid #EFEEE9`, paddingTop: 16 }}>
-                <ReadField label="Reintentos de envío al CRM" value={`${si?.maxDeliveryAttempts ?? 5} intentos`}
-                  hint="Backoff creciente; al agotarlos el outbox marca el lead como fallido. Definido en src/lib/outbox/claim.ts." />
                 <ReadField label="NIP de portabilidad" value="No se persiste"
                   hint="Se valida en el servidor y se descarta; nunca se guarda (regla del proyecto). El cron diario purga retos CAPTCHA y buckets de rate limit vencidos." />
               </div>
@@ -205,7 +202,6 @@ export default function SettingsClient({
                           {i.key === 'meta_pixel' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 10.174c1.766-2.784 3.315-4.174 4.648-4.174 2 0 3.263 2.213 4 5.217.704 2.869.5 6.783-2 6.783-1.114 0-2.648-1.565-4.148-3.652a27.627 27.627 0 01-2.5-4.174z" stroke="#0668E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 10.174c-1.766-2.784-3.315-4.174-4.648-4.174-2 0-3.263 2.213-4 5.217-.704 2.869-.5 6.783 2 6.783 1.114 0 2.648-1.565 4.148-3.652 1-1.391 1.833-2.783 2.5-4.174z" stroke="#0668E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                           {i.key === 'meta_capi' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 10.174c1.766-2.784 3.315-4.174 4.648-4.174 2 0 3.263 2.213 4 5.217.704 2.869.5 6.783-2 6.783-1.114 0-2.648-1.565-4.148-3.652a27.627 27.627 0 01-2.5-4.174z" stroke="#0668E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 10.174c-1.766-2.784-3.315-4.174-4.648-4.174-2 0-3.263 2.213-4 5.217-.704 2.869-.5 6.783 2 6.783 1.114 0 2.648-1.565 4.148-3.652 1-1.391 1.833-2.783 2.5-4.174z" stroke="#0668E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                           {i.key === 'resend' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#000"/><path d="M11 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6" stroke="#fff" strokeWidth="1.5"/><path d="M15 16h6M18 13l3 3-3 3" stroke="#fff" strokeWidth="1.5"/></svg>}
-                          {i.key === 'intelix' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="8" rx="3" fill="#6366F1"/><rect x="3" y="12" width="18" height="8" rx="3" fill="#4F46E5"/><line x1="7" y1="8" x2="7.01" y2="8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/><line x1="7" y1="16" x2="7.01" y2="16" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>}
                           {i.key === 'google_ads' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.66 2l-8.58 19.33h7.16l4.29-9.66-2.87-9.67z" fill="#F4B400"/><path d="M14.53 2h7.16l-8.58 19.33h-7.16z" fill="#4285F4"/></svg>}
                         </span>
                         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
@@ -250,7 +246,7 @@ export default function SettingsClient({
                   ))}
                 </div>
               )}
-              <Note>Los avisos operativos (caída de leads, fallo de entrega al CRM) se registran en la bitácora y el outbox; su envío por correo depende de que Resend esté configurado.</Note>
+              <Note>Los avisos operativos (caída de leads, fallos de tracking) se registran en la bitácora; su envío por correo depende de que Resend esté configurado.</Note>
             </Section>
 
             {/* ── Datos y privacidad ── */}
@@ -367,7 +363,7 @@ function IntegrationEditor({ integration }: { integration: Integration }) {
       } else {
         alert(`Error al guardar configuración de ${integration.label}`);
       }
-    } catch (e) {
+    } catch {
       alert(`Error de red al guardar ${integration.label}`);
     } finally {
       setLoading(false);

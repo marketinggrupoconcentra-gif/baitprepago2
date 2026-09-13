@@ -21,11 +21,12 @@ const eslintConfig = defineConfig([
     ".agents/**",
     ".codex/**",
     ".claude/**",
-    "design-reference/**",
     "docs/**",
-    "graphify-out/**",
-    "scratch.ts",
-    "scratch.*.ts",
+    "scratch*.ts",
+    "scratch*.mjs",
+    // Zona protegida: landing vanilla en producción (no se reescribe con reglas de Next)
+    "public/legacy/**",
+    "public/assets/site.js",
   ]),
   {
     rules: {

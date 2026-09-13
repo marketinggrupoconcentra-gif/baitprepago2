@@ -7,7 +7,7 @@ import { neon } from '@neondatabase/serverless';
 import { migrate } from 'drizzle-orm/neon-http/migrator';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync, readdirSync } from 'fs';
+import { readdirSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = join(__dirname, '../src/db/migrations');

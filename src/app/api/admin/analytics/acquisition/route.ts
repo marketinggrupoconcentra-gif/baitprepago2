@@ -5,7 +5,7 @@
  * Requiere: analytics.view
  *
  * Todo sale de tablas reales (app.analytics_events, app.leads,
- * app.lead_attribution, app.delivery_outbox). Lo que NO se puede calcular desde
+ * app.lead_attribution). Lo que NO se puede calcular desde
  * la landing (inversión, CPC, CPL, impresiones, Search Console, jerarquía de
  * grupos/anuncios) NO se estima: el cliente muestra estados "no conectado".
  *
@@ -14,7 +14,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, schema } from '@/db/index';
 import { requireAdminSession } from '@/lib/session';
-import { sql, count, sum, eq, and, gte, lte } from 'drizzle-orm';
+
+import { sql, sum, and, gte, lte } from 'drizzle-orm';
 import { BUSINESS_TIMEZONE } from '@/db/index';
 import { logError } from '@/lib/log';
 
@@ -78,7 +79,7 @@ function eventCountsSql(from: Date, to: Date, channel: string | null) {
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
-    // await requireAdminSession('analytics.view');
+    await requireAdminSession('analytics.view');
   } catch (res) {
     return res as NextResponse;
   }
@@ -137,7 +138,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       landingRow,
       sectionRows,
       geoRows,
-      deliveryRow,
       healthRow,
       lastEventRow,
       campaignEventRows,
@@ -243,17 +243,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         FROM app.leads
         WHERE created_at >= ${from} AND created_at < ${toExclusive}
         GROUP BY 1 ORDER BY 2 DESC LIMIT 12
-      `),
-      // 12 — entrega de leads (estado técnico)
-      db.execute(sql`
-        SELECT
-          count(*) FILTER (WHERE status = 'delivered')::int AS delivered,
-          count(*) FILTER (WHERE status = 'failed')::int AS failed,
-          count(*) FILTER (WHERE status = 'duplicate')::int AS duplicate,
-          count(*) FILTER (WHERE status IN ('received', 'processing'))::int AS pending,
-          count(*)::int AS total
-        FROM app.leads
-        WHERE created_at >= ${from} AND created_at < ${toExclusive}
       `),
       // 13 — salud del tracking (cobertura de atribución en el período)
       db.execute(sql`
@@ -484,7 +473,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }));
 
     const spark = rows(sparkRows);
-    const delivery = rows(deliveryRow)[0] ?? {};
     const landing = rows(landingRow)[0] ?? {};
     const lastEvent = rows(lastEventRow)[0]?.last_event ?? null;
 
@@ -539,13 +527,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         code: String(r.code),
         leads: Number(r.leads) || 0,
       })),
-      delivery: {
-        delivered: Number(delivery.delivered) || 0,
-        failed: Number(delivery.failed) || 0,
-        duplicate: Number(delivery.duplicate) || 0,
-        pending: Number(delivery.pending) || 0,
-        total: Number(delivery.total) || 0,
-      },
       health: {
         sessions: Number(healthData.sessions) || 0,
         attributed: Number(healthData.attributed) || 0,

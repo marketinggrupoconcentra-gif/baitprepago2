@@ -36,7 +36,6 @@ describe('Cron auth — sin CRON_SECRET configurado (FLW-005 fail-closed)', () =
     const ROOT = path.resolve(__dirname, '../..');
     const files = [
       'src/app/api/cron/reports/route.ts',
-      'src/app/api/cron/outbox/route.ts',
       'src/app/api/cron/nip-purge/route.ts',
     ];
     for (const f of files) {

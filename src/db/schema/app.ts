@@ -1,4 +1,4 @@
-import { pgSchema, uuid, text, timestamp, boolean, integer, pgEnum, index, uniqueIndex, smallint, primaryKey, jsonb, varchar, bigint, date, numeric } from 'drizzle-orm/pg-core';
+import { pgSchema, uuid, text, timestamp, boolean, integer, index, uniqueIndex, smallint, primaryKey, varchar, bigint, date, numeric } from 'drizzle-orm/pg-core';
 
 // ── Schema propio — NO tocar neon_auth ────────────────────────────────────────
 export const app = pgSchema('app');
@@ -20,14 +20,6 @@ export const sourceCategoryEnum = app.enum('source_category', [
   'referral',
   'direct',
   'other',
-]);
-
-export const outboxStatusEnum = app.enum('outbox_status', [
-  'pending',
-  'processing',
-  'delivered',
-  'failed',
-  'dead',
 ]);
 
 export const securityEventTypeEnum = app.enum('security_event_type', [
@@ -173,33 +165,6 @@ export const idempotencyKeys = app.table('idempotency_keys', {
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// app.delivery_outbox — Retry pattern para downstream Intelix
-// El lead NO se pierde si Intelix cae. La DB es source of truth.
-// ─────────────────────────────────────────────────────────────────────────────
-export const deliveryOutbox = app.table('delivery_outbox', {
-  id:             uuid('id').primaryKey().defaultRandom(),
-  leadId:         uuid('lead_id').notNull().references(() => leads.id),
-  destination:    text('destination').notNull(),   // 'intelix'
-  status:         outboxStatusEnum('status').notNull().default('pending'),
-  attempts:       integer('attempts').notNull().default(0),
-  nextAttemptAt:  timestamp('next_attempt_at', { withTimezone: true, mode: 'date' }),
-  deliveredAt:    timestamp('delivered_at', { withTimezone: true, mode: 'date' }),
-  lastErrorCode:  text('last_error_code'),         // código de error, NO respuesta completa del proveedor
-  lastErrorPayload: jsonb('last_error_payload'),     // respuesta raw de intelix para debug
-  // ── Lease / claim exclusivo (FLW-004) ──────────────────────────────────────
-  lockedAt:       timestamp('locked_at', { withTimezone: true, mode: 'date' }),
-  leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true, mode: 'date' }),
-  lockedBy:       text('locked_by'),               // id efímero del worker
-  createdAt:      timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-  updatedAt:      timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (t) => [
-  index('delivery_outbox_status_next_attempt_idx').on(t.status, t.nextAttemptAt),
-  index('delivery_outbox_lead_id_idx').on(t.leadId),
-  index('delivery_outbox_lease_idx').on(t.status, t.leaseExpiresAt),
-]);
-
-
-// ─────────────────────────────────────────────────────────────────────────────
 // app.rate_limits — Rate limiting DISTRIBUIDO en Postgres (SEC-004)
 // Sin Redis/KV. Bucket fijo por (scope, key_hash, bucket_start).
 // key_hash = HMAC de IP o blind index de teléfono — NUNCA IP en claro.
@@ -290,7 +255,7 @@ export const auditActionEnum = app.enum('audit_action', [
   'REPORT_DISABLED',
   'REPORT_MANUAL_RUN',
   'SETTINGS_CHANGED',
-  'OUTBOX_RETRY_QUEUED',
+  'OUTBOX_RETRY_QUEUED',   // valor histórico del tipo en BD; ya no se emite
 ]);
 
 export const commercialStatusEnum = app.enum('commercial_status', [
@@ -316,18 +281,6 @@ export const reportRunStatusEnum = app.enum('report_run_status', [
   'FAILED',
 ]);
 
-export const integrationDeliveryStatusEnum = app.enum('integration_delivery_status', [
-  'PENDING',
-  'DELIVERED',
-  'FAILED',
-  'DEAD',
-]);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// app.admin_profiles — Roles y permisos de administradores BAIT
-// auth_user_id referencia neon_auth.user.id (UUID) sin FK directa para
-// no acoplar al schema administrado por Neon Auth.
-// ─────────────────────────────────────────────────────────────────────────────
 export const adminProfiles = app.table('admin_profiles', {
   id:                   uuid('id').primaryKey().defaultRandom(),
   authUserId:           uuid('auth_user_id').notNull().unique(), // neon_auth.user.id
@@ -364,7 +317,7 @@ export const auditLogs = app.table('audit_logs', {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // app.lead_management — Estado comercial CRM separado del estado técnico
-// lead.status = estado técnico del pipeline (received/delivered/failed...)
+// lead.status = estado técnico del alta (received)
 // lead_management.commercial_status = estado CRM (NEW/CONTACTED/WON...)
 // ─────────────────────────────────────────────────────────────────────────────
 export const leadManagement = app.table('lead_management', {
@@ -429,30 +382,6 @@ export const reportRuns = app.table('report_runs', {
   index('report_runs_schedule_id_idx').on(t.scheduleId),
   index('report_runs_status_idx').on(t.status),
   index('report_runs_period_idx').on(t.periodStart, t.periodEnd),
-]);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// app.integration_deliveries — Outbox para integraciones externas (Meta CAPI etc.)
-// NO reutilizar delivery_outbox de Intelix — responsabilidades diferentes.
-// event_id UNIQUE para deduplicación con proveedor (ej: Meta dedup).
-// NO guardar payload PII.
-// ─────────────────────────────────────────────────────────────────────────────
-export const integrationDeliveries = app.table('integration_deliveries', {
-  id:               uuid('id').primaryKey().defaultRandom(),
-  integration:      text('integration').notNull(),             // 'meta_capi' | 'resend' | etc.
-  eventName:        text('event_name').notNull(),              // 'Lead' | 'PageView' | etc.
-  eventId:          uuid('event_id').notNull().unique(),       // Para deduplicación con proveedor
-  leadId:           uuid('lead_id'),                           // referencia opcional sin FK para flexibilidad
-  status:           integrationDeliveryStatusEnum('status').notNull().default('PENDING'),
-  attemptCount:     integer('attempt_count').notNull().default(0),
-  lastHttpStatus:   smallint('last_http_status'),
-  nextAttemptAt:    timestamp('next_attempt_at', { withTimezone: true, mode: 'date' }),
-  createdAt:        timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-  updatedAt:        timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (t) => [
-  index('integration_deliveries_status_idx').on(t.status, t.nextAttemptAt),
-  index('integration_deliveries_integration_idx').on(t.integration),
-  index('integration_deliveries_lead_id_idx').on(t.leadId),
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────

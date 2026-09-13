@@ -32,8 +32,6 @@ export async function submitLead(
     /** Secreto tipo NIP: si se omite NO se escribe lead_secrets (BAIT Prepago nunca persiste el NIP). */
     nipEnc?: string;
     nipExpiresAt?: Date;
-    /** Destino del outbox (p.ej. 'intelix'); si se omite NO se encola entrega (crm.provider = none). */
-    outboxDestination?: string;
     sessionId?: string;
     sourceCategory: 'google_ads' | 'meta_ads' | 'paid_other' | 'organic' | 'referral' | 'direct' | 'other';
     utmSource?: string;
@@ -146,15 +144,6 @@ export async function submitLead(
     termsVersion: opts.termsVersion,
     acceptedAt: opts.now,
   } as typeof schema.leadConsents.$inferInsert);
-
-  if (opts.outboxDestination) {
-    await tx.insert(schema.deliveryOutbox).values({
-      leadId: opts.leadId,
-      destination: opts.outboxDestination,
-      status: 'pending',
-      nextAttemptAt: opts.now,
-    });
-  }
 
   // 5. lead_success SOLO si el lead quedó persistido (misma tx → consistente).
   await tx.insert(schema.analyticsEvents).values({

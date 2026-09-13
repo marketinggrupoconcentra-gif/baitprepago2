@@ -32,12 +32,11 @@ GRANT USAGE ON SCHEMA app TO baitprepago_app_runtime;   -- NUNCA GRANT CREATE
 
 | Tabla (`app.`)         | SELECT | INSERT | UPDATE | DELETE | Justificación |
 |------------------------|:---:|:---:|:---:|:---:|---|
-| leads                  | ✔ | ✔ | ✔ |   | alta (tx lead), dedup, listados admin, dashboard/reportes, update de estado por outbox |
+| leads                  | ✔ | ✔ | ✔ |   | alta (tx lead), dedup, listados admin, dashboard/reportes, cambios de estado desde el admin |
 | lead_secrets           | ✔ | ✔ |   | ✔ | (vacía en BAIT Prepago: el NIP no se persiste) insert (tx lead), delete (cron). Sin UPDATE |
-| lead_attribution       | ✔ | ✔ |   |   | insert (tx lead), joins de reportes/dashboard/admin/outbox |
+| lead_attribution       | ✔ | ✔ |   |   | insert (tx lead), joins de reportes/dashboard/admin |
 | lead_consents          | ✔ | ✔ |   |   | insert (tx lead), detalle de lead en admin |
 | idempotency_keys       | ✔ | ✔ |   |   | SELECT (check idempotencia) + INSERT ... RETURNING (`onConflictDoNothing`). Sin UPDATE |
-| delivery_outbox        | ✔ | ✔ | ✔ |   | insert (tx lead), claim `FOR UPDATE SKIP LOCKED` + UPDATE de estado, detalle admin |
 | analytics_events       | ✔ | ✔ |   |   | insert (`/api/track`, `lead_success`), lecturas de analítica/funnel |
 | security_events        |   | ✔ |   |   | append-only (`logSecurityEvent`). SELECT denegado |
 | admin_profiles         | ✔ | ✔ | ✔ |   | autorización (session), alta/edición de usuarios y bootstrap. Baja lógica vía `is_active` |
@@ -47,7 +46,6 @@ GRANT USAGE ON SCHEMA app TO baitprepago_app_runtime;   -- NUNCA GRANT CREATE
 | report_runs            | ✔ | ✔ | ✔ |   | dedup, INSERT, UPDATE de estado (SENT/FAILED) |
 | captcha_challenges     | ✔ | ✔ | ✔ | ✔ | emitir (INSERT), consumir (UPDATE ... WHERE used_at IS NULL RETURNING), purga (DELETE) |
 | rate_limits            | ✔ | ✔ | ✔ | ✔ | `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, purga (DELETE ... WHERE) |
-| integration_deliveries |   |   |   |   | sin uso en runtime → sin privilegios |
 
 `SELECT` acompaña a `UPDATE`/`DELETE` cuando el `WHERE`/`RETURNING` referencia
 columnas (requisito de PostgreSQL), y a `INSERT` cuando hay `RETURNING`.

@@ -3,7 +3,7 @@
  *
  * Página de detalle de un lead individual.
  * Muestra todos los datos del formulario, atribución, consentimientos,
- * gestión CRM y estado de entrega a Intelix.
+ * gestión comercial.
  */
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';

@@ -8,7 +8,7 @@
  * REGLA: No se puede ser el último Administrador activo.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, schema, withTransaction } from '@/db/index';
+import { schema, withTransaction } from '@/db/index';
 import { requireAdminSession } from '@/lib/session';
 import { writeAuditLog } from '@/lib/audit';
 import { eq, and, ne, sql } from 'drizzle-orm';

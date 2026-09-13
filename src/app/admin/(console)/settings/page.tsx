@@ -12,10 +12,8 @@
 import { Metadata } from 'next';
 import { requireAdminSessionOrRedirect } from '@/lib/session';
 import { BUSINESS_TIMEZONE } from '@/db/index';
-import { MAX_ATTEMPTS } from '@/lib/outbox/claim';
 import SettingsClient, { type IntegrationStatus } from '@/components/admin/SettingsClient';
 import { getDb, schema } from '@/db';
-import { eq } from 'drizzle-orm';
 
 export const metadata: Metadata = { title: 'Configuración' };
 
@@ -33,12 +31,13 @@ export default async function SettingsPage() {
   
   const dbSettings: Record<string, string> = {};
   try {
-    const keys = ['gtm_id', 'ga4_id', 'meta_pixel_id', 'meta_capi_access_token', 'resend_api_key', 'intelix_api_url', 'intelix_api_key', 'google_ads_account_id', 'google_ads_access_token', 'google_ads_campaign_filter'];
     const rows = await db.select({ key: schema.settings.key, value: schema.settings.value }).from(schema.settings);
     rows.forEach(r => {
       if (r.value) dbSettings[r.key] = r.value;
     });
-  } catch (err) {}
+  } catch {
+    // sin acceso a app.settings → se muestran solo las variables de entorno
+  }
 
   const v = (key: string, envKey: string) => dbSettings[key] || env[envKey] || '';
   const metaStatus = (key: string, envKey: string) => dbSettings[key] ? 'Configurado en BD' : envKey;
@@ -51,10 +50,6 @@ export default async function SettingsPage() {
     { key: 'meta_pixel', label: 'Meta Pixel', meta: metaStatus('meta_pixel_id', 'NEXT_PUBLIC_META_PIXEL_ID'), status: status(v('meta_pixel_id', 'NEXT_PUBLIC_META_PIXEL_ID')), configKeys: [{ label: 'Pixel ID', dbKey: 'meta_pixel_id', val: v('meta_pixel_id', 'NEXT_PUBLIC_META_PIXEL_ID'), ph: 'XXXXXXXXXXXXXX' }] },
     { key: 'meta_capi', label: 'Meta Conversions API', meta: metaStatus('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN'), status: status(v('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN')), configKeys: [{ label: 'Token', dbKey: 'meta_capi_access_token', val: mask(v('meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN')), ph: 'EAAB...' }] },
     { key: 'resend', label: 'Resend (reportes por email)', meta: metaStatus('resend_api_key', 'RESEND_API_KEY'), status: status(v('resend_api_key', 'RESEND_API_KEY')), configKeys: [{ label: 'API Key', dbKey: 'resend_api_key', val: mask(v('resend_api_key', 'RESEND_API_KEY')), ph: 're_...' }] },
-    { key: 'intelix', label: 'Intelix (CRM downstream)', meta: (dbSettings['intelix_api_url'] || dbSettings['intelix_api_key']) ? 'Configurado en BD' : 'INTELIX_API_URL · INTELIX_API_KEY', status: status(v('intelix_api_url', 'INTELIX_API_URL'), v('intelix_api_key', 'INTELIX_API_KEY')), configKeys: [
-      { label: 'URL', dbKey: 'intelix_api_url', val: v('intelix_api_url', 'INTELIX_API_URL'), ph: 'https://...' },
-      { label: 'API Key', dbKey: 'intelix_api_key', val: mask(v('intelix_api_key', 'INTELIX_API_KEY')), ph: 'ey...' }
-    ] },
     { key: 'google_ads', label: 'Google Ads', meta: (dbSettings['google_ads_account_id'] || dbSettings['google_ads_access_token']) ? 'Configurado en BD' : 'Métricas y Rendimiento SEM', status: status(v('google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID'), v('google_ads_access_token', 'GOOGLE_ADS_ACCESS_TOKEN')), configKeys: [
       { label: 'Account ID', dbKey: 'google_ads_account_id', val: v('google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID'), ph: '123-456-7890' },
       { label: 'Access Token', dbKey: 'google_ads_access_token', val: mask(v('google_ads_access_token', 'GOOGLE_ADS_ACCESS_TOKEN')), ph: 'ya29...' },
@@ -71,7 +66,6 @@ export default async function SettingsPage() {
     authProvider: 'Neon Auth (managed)',
     privacyPolicyVersion: env.PRIVACY_POLICY_VERSION ?? null,
     termsVersion: env.TERMS_VERSION ?? null,
-    maxDeliveryAttempts: MAX_ATTEMPTS,
   };
 
   // Campos reales del formulario de portabilidad (public/assets/site.js → src/lib/validators/lead-schema.ts)

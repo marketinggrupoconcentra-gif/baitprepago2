@@ -1,4 +1,4 @@
-import { toZonedTime, format } from 'date-fns-tz';
+import { toZonedTime } from 'date-fns-tz';
 import { startOfDay, addDays } from 'date-fns';
 
 const BUSINESS_TIMEZONE = 'America/Mexico_City';

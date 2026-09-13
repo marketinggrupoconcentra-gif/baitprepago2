@@ -13,7 +13,7 @@ import { getDb, schema } from '@/db/index';
 import { requireAdminSession } from '@/lib/session';
 import { decryptPII } from '@/lib/crypto';
 import { writeAuditLog, writeRequiredAuditLog } from '@/lib/audit';
-import { desc, and, gte, lte, lt, eq } from 'drizzle-orm';
+import { desc, and, gte, lt, eq } from 'drizzle-orm';
 import { logError } from '@/lib/log';
 import { toCSVRow } from '@/lib/security/csv';
 import { getBusinessDayBounds } from '@/lib/business-time';

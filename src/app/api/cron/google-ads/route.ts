@@ -68,7 +68,7 @@ export async function GET(req: Request) {
     let credentials;
     try {
       credentials = JSON.parse(b64Credentials);
-    } catch (e) {
+    } catch {
       const decodedCredentials = Buffer.from(b64Credentials, 'base64').toString('utf-8');
       credentials = JSON.parse(decodedCredentials);
     }

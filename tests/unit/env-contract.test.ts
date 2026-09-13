@@ -23,8 +23,6 @@ const REQUIRED_PRODUCTION: string[] = [
 
 // Variables de integración — opcionales pero documentadas en .env.example
 const OPTIONAL_INTEGRATION: string[] = [
-  'INTELIX_API_URL',
-  'INTELIX_API_KEY',
   'NEXT_PUBLIC_GTM_ID',
   'NEXT_PUBLIC_GA4_ID',
   'NEXT_PUBLIC_META_PIXEL_ID',

@@ -17,7 +17,6 @@ const hasDb = Boolean(SCHEMA_DB_URL);
 const EXPECTED_TABLES = [
   // Etapa 1
   'analytics_events',
-  'delivery_outbox',
   'idempotency_keys',
   'lead_attribution',
   'lead_consents',
@@ -27,13 +26,12 @@ const EXPECTED_TABLES = [
   // Etapa 2 (migration 0001)
   'admin_profiles',
   'audit_logs',
-  'integration_deliveries',
   'lead_management',
   'report_runs',
   'report_schedules',
   // Etapa 2.2 (migration 0002)
   'rate_limits',
-  // 0006 / 0007 / 0008 (Scale + BAIT Prepago)
+  // 0006 / 0007 / 0008 (motor + BAIT Prepago); 0009 retira el outbox CRM
   'settings',
   'ads_metrics',
   'captcha_challenges',
@@ -41,7 +39,6 @@ const EXPECTED_TABLES = [
 
 const EXPECTED_ENUM_TYPES = [
   'lead_status',
-  'outbox_status',
   'security_event_type',
   'source_category',
 ];
@@ -170,8 +167,8 @@ describe.skipIf(!hasDb)('schema-real: verificacion contra Neon DB', () => {
       WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'app'
     `) as SchemaRow[];
     expect(result.length).toBeGreaterThanOrEqual(4);
-    const outboxFk = result.find(r => r.table_name === 'delivery_outbox' && r.foreign_table === 'leads');
-    expect(outboxFk, 'FK delivery_outbox -> leads no encontrada').toBeDefined();
+    const attributionFk = result.find(r => r.table_name === 'lead_attribution' && r.foreign_table === 'leads');
+    expect(attributionFk, 'FK lead_attribution -> leads no encontrada').toBeDefined();
   });
 });
 

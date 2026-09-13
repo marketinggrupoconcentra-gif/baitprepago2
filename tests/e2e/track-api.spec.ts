@@ -35,7 +35,7 @@ test.describe('Real API /track Endpoint Tests (FLW-008)', () => {
         eventName: 'page_view',
       },
       headers: {
-        'Referer': originUrl + '/planes'
+        'Referer': originUrl + '/'
       }
     });
 

@@ -82,7 +82,6 @@ export type Lead = typeof schema.leads.$inferSelect;
 export type NewLead = typeof schema.leads.$inferInsert;
 export type LeadAttribution = typeof schema.leadAttribution.$inferSelect;
 export type NewLeadAttribution = typeof schema.leadAttribution.$inferInsert;
-export type DeliveryOutbox = typeof schema.deliveryOutbox.$inferSelect;
 export type SecurityEvent = typeof schema.securityEvents.$inferSelect;
 
 // Etapa 2 types
@@ -92,5 +91,4 @@ export type AuditLog = typeof schema.auditLogs.$inferSelect;
 export type LeadManagement = typeof schema.leadManagement.$inferSelect;
 export type ReportSchedule = typeof schema.reportSchedules.$inferSelect;
 export type ReportRun = typeof schema.reportRuns.$inferSelect;
-export type IntegrationDelivery = typeof schema.integrationDeliveries.$inferSelect;
 export type AdsMetric = typeof schema.adsMetrics.$inferSelect;

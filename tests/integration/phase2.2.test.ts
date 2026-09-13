@@ -5,7 +5,6 @@
  */
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { neon } from '@neondatabase/serverless';
-import { randomUUID } from 'crypto';
 
 const TEST_URL = process.env.TEST_DATABASE_URL;
 if (!TEST_URL) throw new Error('[CONFIG FAILURE] TEST_DATABASE_URL required');
@@ -24,8 +23,6 @@ describe('Etapa 2.2 — Final Canonical Closure Regression', () => {
   let sql: (strings: TemplateStringsArray, ...v: unknown[]) => Promise<any[]>;
   let hashClickId: typeof import('../../src/lib/attribution-server').hashClickId;
   let checkOrigin: typeof import('../../src/lib/security/origin').checkOrigin;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let getPeriodBounds: any; // we can't easily import from route.ts, but we can test logic
 
   beforeAll(async () => {
     sql = neon(TEST_URL);

@@ -2,7 +2,7 @@ import { getDb, schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { encryptPII, decryptPII } from '@/lib/crypto';
 
-const SENSITIVE_KEYS = new Set(['resend_api_key', 'intelix_api_key', 'meta_capi_access_token']);
+const SENSITIVE_KEYS = new Set(['resend_api_key', 'meta_capi_access_token']);
 
 /**
  * Obtiene un ajuste desde la base de datos (app.settings) por su clave.

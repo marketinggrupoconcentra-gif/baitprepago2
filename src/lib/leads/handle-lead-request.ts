@@ -31,9 +31,6 @@ import { sendLeadConfirmationEmail } from '@/lib/email/sender';
 
 const MAX_BODY_BYTES = 8_192;
 const PLAN_CODE = process.env.LEAD_PLAN_CODE ?? 'prepago_100';
-// crm.provider en project.config.yaml: 'none' → no se encola entrega (sin Intelix)
-const CRM_PROVIDER = (process.env.CRM_PROVIDER ?? 'none').toLowerCase();
-const OUTBOX_DESTINATION = CRM_PROVIDER === 'none' ? undefined : CRM_PROVIDER;
 // La landing dice "recibirás tu cupón por correo"; el backend original NO enviaba
 // nada al lead. Se mantiene apagado salvo LEAD_CONFIRMATION_EMAIL=on.
 const LEAD_EMAIL_ENABLED = (process.env.LEAD_CONFIRMATION_EMAIL ?? 'off').toLowerCase() === 'on';
@@ -237,7 +234,6 @@ export async function handleLeadRequest(req: NextRequest, route: string): Promis
         stateCode: null,
         planCode: PLAN_CODE,
         // NIP: validado arriba, NUNCA persistido (regla BAIT Prepago) → sin lead_secrets
-        outboxDestination: OUTBOX_DESTINATION,
         sessionId: data.session_id,
         sourceCategory,
         ...utm,

@@ -1,5 +1,5 @@
 # project.config.yaml — manifiesto Scale del proyecto BAIT Prepago (baitprepago2)
-# Rellenado el 2026-09-12 desde lo descubierto en el repo (main @ 83d6a5f9). Ver walkthrough.md.
+# Ver docs/migracion-motor-scale.md.
 
 project:
   name: "BAIT Prepago"
@@ -14,7 +14,7 @@ mode:
 protected_zone:
   - "public/legacy/"
   - "public/assets/site.css"
-  - "public/assets/site.js"          # controlador del formulario (solo wiring sancionado, ver walkthrough)
+  - "public/assets/site.js"          # controlador del formulario (solo wiring de analítica/anti-bot)
   - "public/assets/images/"
   - "public/assets/bait-logo.svg"
   - "public/robots.txt"
@@ -85,7 +85,6 @@ email:
 
 crm:
   provider: "none"
-  api_url_setting: "intelix_api_url"
 
 analytics:
   enabled: true
@@ -115,8 +114,6 @@ deployment:
   production_branch: "main"
   framework_preset: "nextjs"
   crons:
-    - path: "/api/cron/outbox"
-      schedule: "*/5 * * * *"
     - path: "/api/cron/nip-purge"
       schedule: "0 9 * * *"
     - path: "/api/cron/reports"

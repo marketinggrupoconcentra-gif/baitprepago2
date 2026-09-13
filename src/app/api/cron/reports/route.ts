@@ -28,11 +28,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const SOURCE_LABEL_MAP: Record<string, string> = {
-  google_ads: 'Google Ads', meta_ads: 'Meta Ads', paid_other: 'Pago otro',
-  organic: 'Orgánico', referral: 'Referral', direct: 'Directo', other: 'Otro',
-};
-
 type ReportFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
 function shouldRunToday(
@@ -83,7 +78,6 @@ function getPeriodBounds(
     // Mes anterior
     const prevMonth = m === 0 ? 11 : m - 1;
     const prevYear = m === 0 ? y - 1 : y;
-    const daysInMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
     periodStart = new Date(Date.UTC(prevYear, prevMonth, 1, 6, 0, 0));
     periodEnd   = new Date(Date.UTC(prevYear, prevMonth + 1, 1, 6, 0, 0));
     periodLabel = new Date(prevYear, prevMonth, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
@@ -210,17 +204,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // Obtener datos del período usando LT para exclusive end (FLW-009)
       const period = and(gte(schema.leads.createdAt, periodStart), lt(schema.leads.createdAt, periodEnd));
 
-      const [totals, byState, bySource] = await Promise.all([
+      const [totals, byCommercial, bySource] = await Promise.all([
+        db.select({ total: sql<number>`count(*)::int` }).from(schema.leads).where(period),
         db.select({
-          total: sql<number>`count(*)::int`,
-          delivered: sql<number>`count(*) filter (where ${schema.leads.status} = 'delivered')::int`,
-          failed: sql<number>`count(*) filter (where ${schema.leads.status} = 'failed')::int`,
-          duplicate: sql<number>`count(*) filter (where ${schema.leads.status} = 'duplicate')::int`,
-        }).from(schema.leads).where(period),
-        db.select({
-          stateCode: schema.leads.stateCode,
+          status: schema.leadManagement.commercialStatus,
           count: sql<number>`count(*)::int`,
-        }).from(schema.leads).where(period).groupBy(schema.leads.stateCode).orderBy(sql`count(*) desc`).limit(10),
+        }).from(schema.leads)
+          .innerJoin(schema.leadManagement, eq(schema.leads.id, schema.leadManagement.leadId))
+          .where(period).groupBy(schema.leadManagement.commercialStatus).orderBy(sql`count(*) desc`),
         db.select({
           sourceCategory: schema.leadAttribution.sourceCategory,
           count: sql<number>`count(*)::int`,
@@ -236,12 +227,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         periodLabel,
         frequency: freqLabel,
         totalLeads: t?.total ?? 0,
-        delivered: t?.delivered ?? 0,
-        failed: t?.failed ?? 0,
-        duplicate: t?.duplicate ?? 0,
-        deliveryRate: t?.total ? Math.round((t.delivered / t.total) * 1000) / 10 : 0,
-        byState: byState.map((s) => ({ stateCode: s.stateCode ?? '—', count: s.count })),
         bySource,
+        byCommercial,
         generatedAt: nowCDMX.toLocaleString('es-MX', { timeZone: BUSINESS_TIMEZONE }),
       };
 
@@ -259,12 +246,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         
         const { toCSVRow } = await import('@/lib/security/csv');
         
-        const headers = ['ID', 'Reference', 'Status', 'StateCode', 'SourceCategory', 'CreatedAt'];
+        const headers = ['ID', 'Reference', 'Status', 'SourceCategory', 'CreatedAt'];
         const rows = [toCSVRow(headers)];
 
         for (const { leads: l, lead_attribution: attr } of rawLeads) {
           const row = [
-            l.id, l.publicReference, l.status, l.stateCode || '', 
+            l.id, l.publicReference, l.status,
             attr?.sourceCategory || '', l.createdAt.toISOString()
           ];
           rows.push(toCSVRow(row));

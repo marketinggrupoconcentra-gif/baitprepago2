@@ -9,7 +9,7 @@
  * - El botón fija el estado (abierto / colapsado) e ignora el umbral hasta
  *   "Volver a automático".
  * - < 768 px: barra superior con hamburguesa + panel deslizante con backdrop.
- * - Insignias (Leads / Logs) con datos reales de /api/admin/nav/counts.
+ * - Insignia de Leads con datos reales de /api/admin/nav/counts.
  *
  * Client Component (navegación + logout). Recibe `session` del layout server.
  * Logo oficial: /assets/brand/bait.svg (ya en el repo).
@@ -39,7 +39,7 @@ const PANEL_W = 236;
 const BREAKPOINT = 1024;
 const MOBILE = 768;
 
-type BadgeKind = 'leads' | 'logs';
+type BadgeKind = 'leads';
 
 interface NavItem {
   href: string;
@@ -64,11 +64,6 @@ const ICON = {
   analitica: (
     <>
       <path d="M3 16.5h14" /><path d="M5.5 16.5V9M9.5 16.5V4.5M13.5 16.5v-5" />
-    </>
-  ),
-  logs: (
-    <>
-      <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h8" /><circle cx="15.5" cy="14.5" r="2" />
     </>
   ),
   usuarios: (
@@ -97,7 +92,6 @@ const NAV_PRINCIPAL: NavItem[] = [
   { href: '/admin/dashboard', label: 'Resumen', permission: 'dashboard.view', icon: svg(ICON.resumen) },
   { href: '/admin/leads', label: 'Leads', permission: 'leads.view', icon: svg(ICON.leads), badge: 'leads' },
   { href: '/admin/analytics', label: 'Analítica', permission: 'analytics.view', icon: svg(ICON.analitica) },
-  { href: '/admin/logs', label: 'Logs', permission: 'logs.view', icon: svg(ICON.logs), badge: 'logs' },
 ];
 const NAV_ADMIN: NavItem[] = [
   { href: '/admin/users', label: 'Usuarios', permission: 'users.view', icon: svg(ICON.usuarios) },
@@ -106,7 +100,6 @@ const NAV_ADMIN: NavItem[] = [
 
 const BADGE_STYLE: Record<BadgeKind, { bg: string; fg: string; bgActive: string; fgActive: string; dot: string; pulse: boolean }> = {
   leads: { bg: '#F0EFEA', fg: '#54544C', bgActive: '#F0DFAB', fgActive: '#6B5200', dot: '#E0A800', pulse: false },
-  logs: { bg: '#F7E0DA', fg: '#7A2718', bgActive: '#F7E0DA', fgActive: '#7A2718', dot: '#A33A2A', pulse: true },
 };
 
 export default function AdminSidebar({ session }: { session: AdminSession }) {
@@ -122,7 +115,7 @@ export default function AdminSidebar({ session }: { session: AdminSession }) {
   const [manual, setManual] = useState<null | 'open' | 'closed'>(null);
   const [hover, setHover] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [counts, setCounts] = useState<{ leadsPending: number | null; logsFailed: number | null }>({ leadsPending: null, logsFailed: null });
+  const [counts, setCounts] = useState<{ leadsPending: number | null }>({ leadsPending: null });
 
   const hoverT = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -150,7 +143,7 @@ export default function AdminSidebar({ session }: { session: AdminSession }) {
       try {
         const res = await fetch('/api/admin/nav/counts');
         const json = await res.json();
-        if (alive && res.ok) setCounts({ leadsPending: json.leadsPending ?? null, logsFailed: json.logsFailed ?? null });
+        if (alive && res.ok) setCounts({ leadsPending: json.leadsPending ?? null });
       } catch { /* silencioso — la navegación no depende de esto */ }
     })();
     return () => { alive = false; };
@@ -219,7 +212,7 @@ export default function AdminSidebar({ session }: { session: AdminSession }) {
 
   const renderItem = (item: NavItem) => {
     const active = pathname === item.href || pathname.startsWith(item.href + '/');
-    const badgeCount = item.badge === 'leads' ? counts.leadsPending : item.badge === 'logs' ? counts.logsFailed : null;
+    const badgeCount = item.badge === 'leads' ? counts.leadsPending : null;
     const bs = item.badge ? BADGE_STYLE[item.badge] : null;
     const showBadge = bs != null && typeof badgeCount === 'number' && badgeCount > 0;
 

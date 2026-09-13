@@ -52,7 +52,7 @@ export async function GET(
     }
 
     // Obtener datos relacionados en paralelo
-    const [attribution, consent, management, outbox] = await Promise.all([
+    const [attribution, consent, management] = await Promise.all([
       db
         .select()
         .from(schema.leadAttribution)
@@ -77,22 +77,6 @@ export async function GET(
         .select()
         .from(schema.leadManagement)
         .where(eq(schema.leadManagement.leadId, id))
-        .limit(1)
-        .then(r => r[0] ?? null),
-
-      db
-        .select({
-          destination: schema.deliveryOutbox.destination,
-          status: schema.deliveryOutbox.status,
-          attempts: schema.deliveryOutbox.attempts,
-          deliveredAt: schema.deliveryOutbox.deliveredAt,
-          lastErrorCode: schema.deliveryOutbox.lastErrorCode,
-          nextAttemptAt: schema.deliveryOutbox.nextAttemptAt,
-          createdAt: schema.deliveryOutbox.createdAt,
-          updatedAt: schema.deliveryOutbox.updatedAt,
-        })
-        .from(schema.deliveryOutbox)
-        .where(eq(schema.deliveryOutbox.leadId, id))
         .limit(1)
         .then(r => r[0] ?? null),
     ]);
@@ -177,7 +161,6 @@ export async function GET(
       attribution: attribution ?? null,
       consent: consent ?? null,
       management: finalManagement ?? null,
-      delivery: outbox ?? null,
     });
 
   } catch (err: unknown) {

@@ -27,7 +27,7 @@ export const PRIVILEGE_MANIFEST: Record<string, TablePrivileges> = {
   leads: {
     select: true,   // read for dedup, export, admin list
     insert: true,   // create lead in atomic tx
-    update: true,   // status transitions (received→delivered/failed)
+    update: true,   // cambios de estado técnico desde el admin
     delete: false,   // leads are never deleted at runtime
   },
   lead_secrets: {
@@ -52,20 +52,6 @@ export const PRIVILEGE_MANIFEST: Record<string, TablePrivileges> = {
     select: true,   // check for duplicates
     insert: true,   // reserve in atomic tx
     update: false,  // immutable after creation
-    delete: false,
-  },
-
-  // ── Delivery ────────────────────────────────────────────────────────────────
-  delivery_outbox: {
-    select: true,   // claim query reads eligible rows
-    insert: true,   // create outbox entry with lead
-    update: true,   // status transitions during claim/deliver/fail/dead
-    delete: false,  // outbox rows are never deleted
-  },
-  integration_deliveries: {
-    select: false,  // managed by admin/migration only
-    insert: false,
-    update: false,
     delete: false,
   },
 

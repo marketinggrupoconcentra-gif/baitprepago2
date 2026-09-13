@@ -17,7 +17,6 @@
     (window.location.pathname.indexOf('gracias') !== -1 ? 'thank_you' : 'landing');
   var formStarted = false;
   var formSubmitted = false;
-  var formSucceeded = false;
   var currentStep = 1;
   var activeMs = 0;
   var activeSince = document.visibilityState === 'visible' ? Date.now() : null;
@@ -236,7 +235,7 @@
     }
     if (vendorConfig.metaPixelId) {
       if (!window.fbq) {
-        var fbq = function () { fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments); };
+        var fbq = function () { if (fbq.callMethod) { fbq.callMethod.apply(fbq, arguments); } else { fbq.queue.push(arguments); } };
         fbq.queue = [];
         fbq.loaded = true;
         fbq.version = '2.0';
