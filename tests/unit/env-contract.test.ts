@@ -30,7 +30,7 @@ const OPTIONAL_INTEGRATION: string[] = [
   'NEXT_PUBLIC_META_PIXEL_ID',
   'META_PIXEL_ID',
   'META_CAPI_ACCESS_TOKEN',
-  'RESEND_API_KEY',
+  'BREVO_API_KEY',
 ];
 
 // Note: Variables with code defaults (APP_URL, etc.) are documented in .env.example

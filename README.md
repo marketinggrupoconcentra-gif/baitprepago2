@@ -1,7 +1,7 @@
 # BAIT Prepago 2
 
-Landing de portabilidad **BAIT Prepago** (`https://baitprepago.com`) sobre el motor **Scale** v2.0.0:
-Next.js 16 (App Router) · Drizzle ORM · Neon Postgres (schema `app`) · Neon Auth (admin) · Resend · Vercel.
+Landing de portabilidad **BAIT Prepago** (`https://www.portabilidadbait.com`) sobre el motor **Scale** v2.0.0:
+Next.js 16 (App Router) · Drizzle ORM · Neon Postgres (schema `app`) · Neon Auth (admin) · Brevo · Vercel.
 
 - **Zona horaria de negocio**: `America/Mexico_City` (ver `GEMINI.md` §5).
 - **Regla de oro**: el NIP de portabilidad **nunca en claro** (`GEMINI.md` §2): se cifra solo para entregarlo a Intelix y se borra al entregar (o a las 72 h).

@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const CANONICAL_HOST = 'baitprepago.com';
+const CANONICAL_HOST = 'portabilidadbait.com';
 
 // Páginas estáticas de la landing (zona protegida) servidas desde public/legacy/<dir>/index.html.
 // Usan rutas relativas (./x.css, ../assets/...), por eso la URL canónica lleva "/" final.

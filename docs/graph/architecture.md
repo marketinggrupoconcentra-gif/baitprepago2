@@ -34,7 +34,7 @@ flowchart TD
     end
 
     Schema -- Descartados --> PII(NIP y fecha de vigencia<br>NO PERSISTIDOS)
-    Crons -->|reportes| Resend[Resend]
+    Crons -->|reportes| Brevo[Brevo]
 ```
 
 - Zona protegida (landing, páginas estáticas y assets): `.scale-design-lock.json`.

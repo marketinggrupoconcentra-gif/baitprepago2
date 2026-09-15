@@ -388,7 +388,7 @@ export const reportRuns = app.table('report_runs', {
   periodEnd:            timestamp('period_end', { withTimezone: true, mode: 'date' }).notNull(),
   status:               reportRunStatusEnum('status').notNull().default('PENDING'),
   leadCount:            integer('lead_count').notNull().default(0),
-  providerMessageId:    text('provider_message_id'),           // ID de Resend si envió
+  providerMessageId:    text('provider_message_id'),           // ID de Brevo si envió
   attemptCount:         integer('attempt_count').notNull().default(0),
   errorCode:            text('error_code'),                    // código saneado, sin datos
   startedAt:            timestamp('started_at', { withTimezone: true, mode: 'date' }),

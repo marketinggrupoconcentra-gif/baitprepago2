@@ -34,8 +34,8 @@ business:
   timezone: "America/Mexico_City"
 
 domain:
-  production: "https://baitprepago.com"
-  canonical: "https://baitprepago.com"
+  production: "https://www.portabilidadbait.com"
+  canonical: "https://www.portabilidadbait.com"
   vercel_alias: "https://baitprepago2.vercel.app"
   www_strategy: "redirect_to_apex"
 
@@ -79,9 +79,9 @@ auth:
 
 email:
   enabled: true
-  provider: "resend"
+  provider: "brevo"
   from_name: "BAIT Prepago"
-  from_email: ""                     # pending_credential: RESEND_FROM_EMAIL (dominio verificado en Resend)
+  from_email: "noreply@portabilidadbait.com"  # BREVO_FROM_EMAIL (dominio verificado en Brevo)
 
 crm:
   provider: "intelix"

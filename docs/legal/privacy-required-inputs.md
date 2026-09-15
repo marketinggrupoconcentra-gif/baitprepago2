@@ -1,6 +1,6 @@
 # Datos legales pendientes — Aviso de Privacidad Integral
 
-Estado: **RESOLVED** — Se incluyeron los datos corporativos de Walmart y se autorizó Resend.
+Estado: **RESOLVED** — Se incluyeron los datos corporativos de Walmart y se autorizó Brevo.
 
 ## Pendientes
 

@@ -75,7 +75,7 @@ export default async function SettingsPage() {
       secret('Token de acceso (CAPI)', 'meta_capi_access_token', 'META_CAPI_ACCESS_TOKEN', 'Events Manager → Pixel → Configuración → Conversions API → Generar token.'),
       plain('Test event code', 'meta_test_event_code', 'META_TEST_EVENT_CODE', 'TEST12345', 'Solo para probar en Events Manager → "Probar eventos". Vaciar en producción.'),
     ] },
-    { key: 'resend', label: 'Resend (reportes por email)', meta: metaStatus('resend_api_key', 'RESEND_API_KEY'), status: status(v('resend_api_key', 'RESEND_API_KEY')), configKeys: [{ label: 'API Key', dbKey: 'resend_api_key', val: mask(v('resend_api_key', 'RESEND_API_KEY')), ph: 're_...' }] },
+    { key: 'brevo', label: 'Brevo (email transaccional)', meta: metaStatus('brevo_api_key', 'BREVO_API_KEY'), status: status(v('brevo_api_key', 'BREVO_API_KEY')), configKeys: [{ label: 'API Key', dbKey: 'brevo_api_key', val: mask(v('brevo_api_key', 'BREVO_API_KEY')), ph: 'xkeysib-...' }] },
     { key: 'google_ads', label: 'Google Ads', meta: `métricas SEM + conversiones offline · ${convSummary('google_ads')}`, status: status(v('google_ads_developer_token', 'GOOGLE_ADS_DEVELOPER_TOKEN'), v('google_ads_client_id', 'GOOGLE_ADS_OAUTH_CLIENT_ID'), v('google_ads_client_secret', 'GOOGLE_ADS_OAUTH_CLIENT_SECRET'), v('google_ads_refresh_token', 'GOOGLE_ADS_REFRESH_TOKEN'), v('google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID')), configKeys: [
       plain('Customer ID', 'google_ads_account_id', 'GOOGLE_ADS_ACCOUNT_ID', '123-456-7890', 'Id de la cuenta de Google Ads (arriba a la derecha en Ads).'),
       plain('Login customer ID (MCC)', 'google_ads_login_customer_id', 'GOOGLE_ADS_LOGIN_CUSTOMER_ID', '', 'Solo si accedes vía cuenta administradora.'),

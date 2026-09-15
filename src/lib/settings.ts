@@ -6,7 +6,7 @@ import { encryptPII, decryptPII } from '@/lib/crypto';
 export const EDITABLE_SETTING_KEYS = [
   'gtm_id', 'ga4_id', 'meta_pixel_id',
   'meta_capi_access_token', 'meta_test_event_code',
-  'resend_api_key',
+  'brevo_api_key',
   'google_ads_developer_token', 'google_ads_client_id', 'google_ads_client_secret', 'google_ads_refresh_token',
   'google_ads_account_id', 'google_ads_login_customer_id', 'google_ads_campaign_filter',
   'google_ads_conversion_action_id', 'google_ads_won_conversion_action_id',
@@ -16,7 +16,7 @@ export const EDITABLE_SETTING_KEYS = [
 
 /** Secretos: cifrados en reposo (AES-256-GCM) y enmascarados en la UI. */
 export const SENSITIVE_KEYS = new Set<string>([
-  'resend_api_key',
+  'brevo_api_key',
   'intelix_api_key',
   'meta_capi_access_token',
   'google_ads_developer_token',

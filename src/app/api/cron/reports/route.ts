@@ -10,7 +10,7 @@
  * 3. Verificar idempotencia via run_key
  * 4. Calcular período del reporte
  * 5. Obtener datos reales de analytics
- * 6. Enviar email via Resend
+ * 6. Enviar email via Brevo
  * 7. Marcar run como SENT (o FAILED)
  *
  * SEGURIDAD: Requiere CRON_SECRET header.
@@ -21,7 +21,6 @@ import { getDb, schema } from '@/db/index';
 import { eq, and, gte, lt, sql } from 'drizzle-orm';
 import { BUSINESS_TIMEZONE } from '@/db/index';
 import { buildReportHtml, buildReportText } from '@/lib/email/report-template';
-import { Resend } from 'resend';
 import { logError, logInfo } from '@/lib/log';
 
 export const runtime = 'nodejs';
@@ -98,15 +97,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const { getSetting } = await import('@/lib/settings');
-  const resendApiKey = await getSetting('resend_api_key', process.env.RESEND_API_KEY);
+  const brevoApiKey = process.env.BREVO_API_KEY;
   
-  if (!resendApiKey) {
-    logInfo('/api/cron/reports', 'skip', { reason: 'RESEND_NOT_CONFIGURED' });
-    return NextResponse.json({ ok: true, skipped: true, reason: 'RESEND_NOT_CONFIGURED' });
+  if (!brevoApiKey) {
+    logInfo('/api/cron/reports', 'skip', { reason: 'BREVO_NOT_CONFIGURED' });
+    return NextResponse.json({ ok: true, skipped: true, reason: 'BREVO_NOT_CONFIGURED' });
   }
 
   const db = getDb();
-  const resend = new Resend(resendApiKey);
+
+  const { BrevoClient } = await import('@getbrevo/brevo');
+  const brevoClient = new BrevoClient({ apiKey: brevoApiKey });
 
   // Obtener hora actual en CDMX (UTC - 6 fijo)
   const nowUtc = new Date();
@@ -235,7 +236,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const recipients = JSON.parse(schedule.recipients) as string[];
       const subject = `[BAIT Prepago] Reporte ${freqLabel} — ${periodLabel}`;
 
-      const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'reportes@baitprepago.com';
+      const fromEmail = process.env.BREVO_FROM_EMAIL ?? 'reportes@portabilidadbait.com';
+      const fromName  = process.env.BREVO_FROM_NAME ?? 'BAIT Prepago';
 
       // Extraer datos detallados para CSV
       let attachments = undefined;
@@ -267,24 +269,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         ];
       }
 
-      const { data: resendData, error: resendError } = await resend.emails.send({
-        from: fromEmail,
-        to: recipients,
+      await brevoClient.transactionalEmails.sendTransacEmail({
+        sender:      { name: fromName, email: fromEmail },
+        to:          recipients.map((r: string) => ({ email: r })),
         subject,
-        html: buildReportHtml(reportData),
-        text: buildReportText(reportData),
-        attachments,
+        htmlContent: buildReportHtml(reportData),
+        textContent: buildReportText(reportData),
+        ...(attachments ? {
+          attachment: attachments.map(
+            (a: { filename: string; content: string }) => ({ name: a.filename, content: a.content }),
+          ),
+        } : {}),
       });
-
-      if (resendError) {
-        throw new Error(`Resend error: ${resendError.message}`);
-      }
 
       // Marcar como SENT
       await db.update(schema.reportRuns).set({
         status: 'SENT',
         leadCount: t?.total ?? 0,
-        providerMessageId: resendData?.id ?? null,
+        providerMessageId: null,
         finishedAt: new Date(),
       }).where(eq(schema.reportRuns.id, runId!));
 

@@ -55,7 +55,7 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 | Supuesto | Dónde cambiarlo |
 |---|---|
 | `plan_code = prepago_100` para todo lead. | `LEAD_PLAN_CODE`. |
-| Email de confirmación al lead **apagado**. | `LEAD_CONFIRMATION_EMAIL=on` (requiere Resend). |
+| Email de confirmación al lead **apagado**. | `LEAD_CONFIRMATION_EMAIL=on` (requiere Brevo). |
 | `ALLOWED_ORIGINS = baitprepago.com, www, baitprepago2.vercel.app`. | `ALLOWED_ORIGINS` (añadir alias de Preview si se prueba el formulario ahí). |
 | Host canónico `baitprepago.com` (www → apex 301). | `CANONICAL_HOST` en `next.config.ts`. |
 | Nombre del rol runtime `baitprepago_app_runtime` (nuevo; `bait_app_prod` del sitio vanilla se deja intacto). | `project.config.yaml` / `RUNTIME_ROLE_NAME`. |
@@ -68,7 +68,7 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 
 | Módulo | Variable exacta | Efecto mientras falte |
 |---|---|---|
-| Emails (reportes programados, confirmación al lead) | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | `cron/reports` registra y no envía; `LEAD_CONFIRMATION_EMAIL` debe quedar `off`. |
+| Emails (reportes programados, confirmación al lead) | `BREVO_API_KEY`, `BREVO_FROM_EMAIL` | `cron/reports` registra y no envía; `LEAD_CONFIRMATION_EMAIL` debe quedar `off`. |
 | Tag Manager / GA4 / Meta Pixel en la landing | `NEXT_PUBLIC_GTM_ID` (o `NEXT_PUBLIC_GA4_ID`), `NEXT_PUBLIC_META_PIXEL_ID` | `bait-analytics.js` solo envía el embudo interno a `/api/track`. |
 | Google Ads (SEM) | `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CREDENTIALS_B64`, `GOOGLE_ADS_REFRESH_TOKEN`, `GOOGLE_ADS_ACCOUNT_ID` | `/admin/sem` muestra "no conectado"; `cron/google-ads` no-op. |
 | Meta CAPI | `META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN` | Sin uso en el motor actual. |
@@ -79,7 +79,7 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 `PII_ENCRYPTION_KEY`, `PII_BLIND_INDEX_KEY`, `IP_HASH_KEY`, `CAPTCHA_PEPPER`, `CRON_SECRET`, `CLICK_ID_SECRET`,
 `APP_URL`, `ALLOWED_ORIGINS`, `LEAD_PLAN_CODE`, `LEAD_CONFIRMATION_EMAIL=off`,
 `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `ADMIN_BOOTSTRAP_EMAIL`, `PRIVACY_POLICY_VERSION`, `TERMS_VERSION`,
-opcionales: `RESEND_*`, `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_META_PIXEL_ID`, `GOOGLE_ADS_*`.
+opcionales: `BREVO_*`, `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_META_PIXEL_ID`, `GOOGLE_ADS_*`.
 `next build` necesita `NEON_AUTH_BASE_URL` y `NEON_AUTH_COOKIE_SECRET` presentes → sin ellas el Preview falla en build.
 
 Preview (rama Neon de test): Neon Auth ya está provisionado (`better_auth`, gestionado por Neon) →

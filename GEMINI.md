@@ -6,12 +6,12 @@
 - **Infraestructura y Hosting**: Vercel (Next.js 16, App Router, Fluid Compute)
 - **Base de Datos**: Neon PostgreSQL, proyecto `sweet-mud-87845510`, schema `app` (Drizzle ORM, migraciones en `src/db/migrations`)
 - **Autenticación del admin**: Neon Auth (servidor administrado por Neon)
-- **Correo**: Resend
+- **Correo**: Brevo (Sendinblue)
 
 > [!WARNING]
 > **STACK ESTRICTO**
-> Queda estrictamente prohibido utilizar o configurar servicios alternativos de terceros como: Cloudflare, Cloudflare Pages, Cloudflare Workers, Supabase, Firebase, Redis, WorkOS, Auth0, Clerk, SendGrid, Mailgun, Amazon SES, Brevo, Twilio, etc.
-> El stack es exclusivo de Vercel, Neon y Resend.
+> Queda estrictamente prohibido utilizar o configurar servicios alternativos de terceros como: Cloudflare, Cloudflare Pages, Cloudflare Workers, Supabase, Firebase, Redis, WorkOS, Auth0, Clerk, SendGrid, Mailgun, Amazon SES, Resend, Twilio, etc.
+> El stack es exclusivo de Vercel, Neon y Brevo.
 
 ## 2. Reglas de Seguridad (PII y NIP)
 
@@ -56,7 +56,7 @@ El NIP (Número de Identificación Personal) que el usuario recibe por SMS es **
 - El NIP sigue sin persistirse. Si el NIP capturado coincide con los últimos 4 dígitos del teléfono a portar, el
   formulario exige y valida (server-side, en `lead-schema.ts`: `isWithinNipValidityWindow`) una fecha de vigencia del NIP
   dentro de la ventana `hoy..hoy+5` días naturales en `America/Mexico_City`. Esa fecha tampoco se persiste.
-- `app.leads.email_enc` captura el correo (cifrado) para el envío futuro del cupón BAIT (`LEAD_CONFIRMATION_EMAIL=on` + Resend).
+- `app.leads.email_enc` captura el correo (cifrado) para el envío futuro del cupón BAIT (`LEAD_CONFIRMATION_EMAIL=on` + Brevo).
 - El Aviso de Privacidad vive en `/aviso-de-privacidad/` (página estática, sin JS). Su contenido legal (razón social,
   domicilio, contacto ARCO) está pendiente — ver `docs/legal/privacy-required-inputs.md`.
 
