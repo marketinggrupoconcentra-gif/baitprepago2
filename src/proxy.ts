@@ -96,7 +96,7 @@ function applySecurityHeaders(
   // Nada bajo /api ni /admin debe indexarse (anti-scraping vía buscadores).
   // En cualquier deploy que NO sea producción (previews *.vercel.app, staging),
   // TODO el sitio va noindex para que el alias técnico nunca compita con el
-  // dominio canónico baitprepago.com.
+  // dominio canónico portabilidadbait.com.
   if (isAdmin || isApi || isNonProd) {
     res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
   }

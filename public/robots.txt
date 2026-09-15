@@ -1,3 +1,43 @@
 User-agent: *
 Allow: /
-Sitemap: https://baitprepago.com/sitemap.xml
+Disallow: /admin/
+Disallow: /api/
+
+# AI crawlers / scrapers — bloqueo explícito
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: AmazonBot
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+Sitemap: https://portabilidadbait.com/sitemap.xml

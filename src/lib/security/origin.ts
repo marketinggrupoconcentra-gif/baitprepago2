@@ -20,7 +20,7 @@ function buildAllowedOrigins(): Set<string> {
   }
 
   // 2. ALLOWED_ORIGINS — lista adicional separada por coma
-  //    Ejemplo: https://baitprepago2.vercel.app,https://baitprepago.com
+  //    Ejemplo: https://baitprepago2.vercel.app,https://portabilidadbait.com
   const extra = process.env.ALLOWED_ORIGINS ?? '';
   for (const raw of extra.split(',')) {
     const trimmed = raw.trim();
