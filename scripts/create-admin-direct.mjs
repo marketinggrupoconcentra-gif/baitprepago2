@@ -8,8 +8,25 @@
  *   node --env-file=.env.local scripts/create-admin-direct.mjs
  */
 import { neon } from '@neondatabase/serverless';
-import { hash } from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { scrypt, randomBytes, randomUUID } from 'crypto';
+import { promisify } from 'util';
+
+const scryptAsync = promisify(scrypt);
+
+/**
+ * Parámetros exactos de Better Auth (@better-auth/utils/dist/password.node.mjs):
+ *   N=16384, r=16, p=1, dkLen=64
+ *   maxmem = 128 * N * r * 2
+ *   password normalizada con NFKC (crítico para caracteres especiales)
+ */
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const N = 16384, r = 16, p = 1, dkLen = 64;
+  const maxmem = 128 * N * r * 2;
+  const derivedKey = await scryptAsync(password.normalize('NFKC'), salt, dkLen, { N, r, p, maxmem });
+  return `${salt}:${derivedKey.toString('hex')}`;
+}
+
 
 const EMAIL    = process.env.ADMIN_BOOTSTRAP_EMAIL;
 const PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD;
@@ -58,7 +75,7 @@ async function main() {
   `;
 
   // ─── 4. Hashear la contraseña (bcrypt, cost 10 — mismo que Better Auth) ───
-  const passwordHash = await hash(PASSWORD, 10);
+  const passwordHash = await hashPassword(PASSWORD);
 
   if (existingAccount) {
     await sql`

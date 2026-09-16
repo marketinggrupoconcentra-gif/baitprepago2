@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: { default: 'Panel administrativo', template: '%s · BAIT Prepago' },
   description: 'Panel interno de BAIT Prepago.',
-  metadataBase: new URL(process.env.APP_URL ?? 'https://www.portabilidadbait.com'),
+  metadataBase: new URL(process.env.APP_URL ?? 'https://portabilidadbait.com'),
   robots: {
     index: false,
     follow: false,

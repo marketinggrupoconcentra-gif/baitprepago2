@@ -41,7 +41,7 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 - `next.config.ts`/`vercel.json`: `skipTrailingSlashRedirect`, rewrites `/`→`/legacy/index.html` y `/<dir>/`→`/legacy/<dir>/index.html`, `www`→apex, `framework: nextjs`, 4 crons.
 - Crons: `nip-purge` purga también CAPTCHAs; `reports` adaptado al formulario prepago.
 - Admin: `LeadsClient`, `LeadDrawer`, `LeadDetailClient`, `DashboardClient`, `LogsClient`, `AnalyticsClient` (secciones de esta landing), `SettingsClient` (campos del formulario prepago), exports, `[id]` (sin stack trace en respuesta), marca/logo `/assets/bait-logo.svg`.
-- Emails: `coupon-template.ts` (prepago), `report-template.ts`, `sender.ts`. `origin.ts` (`baitprepago.com`), `auth.ts`, `rbac.ts`, `db/index.ts`, `RUNTIME_ROLE.md`, `firewall-setup.sh`.
+- Emails: `coupon-template.ts` (prepago), `report-template.ts`, `sender.ts`. `origin.ts` (`portabilidadbait.com`), `auth.ts`, `rbac.ts`, `db/index.ts`, `RUNTIME_ROLE.md`, `firewall-setup.sh`.
 - `scripts/provision-runtime-role.mjs`: tolera `ALTER ROLE … PASSWORD` denegado en Neon (reaplica grants y avisa).
 - `scripts/get-refresh-token.mjs`: OAuth client desde `GOOGLE_ADS_OAUTH_CLIENT_ID/SECRET` (antes hardcodeado).
 - Tests del motor: `track-api.test.ts` y `schema-real.test.ts` fuerzan `TEST_*` (antes podían pegarle a `.env.local` de prod); `etapa22.test.ts` lee rol/branch de env y pasa `outboxDestination` en el test de concurrencia; espera 18 tablas.
@@ -56,8 +56,8 @@ Ids del formulario (para futuras adaptaciones): `pf-phone`, `pf-phone-confirm`, 
 |---|---|
 | `plan_code = prepago_100` para todo lead. | `LEAD_PLAN_CODE`. |
 | Email de confirmación al lead **apagado**. | `LEAD_CONFIRMATION_EMAIL=on` (requiere Brevo). |
-| `ALLOWED_ORIGINS = baitprepago.com, www, baitprepago2.vercel.app`. | `ALLOWED_ORIGINS` (añadir alias de Preview si se prueba el formulario ahí). |
-| Host canónico `baitprepago.com` (www → apex 301). | `CANONICAL_HOST` en `next.config.ts`. |
+| `ALLOWED_ORIGINS = portabilidadbait.com, www, baitprepago2.vercel.app`. | `ALLOWED_ORIGINS` (añadir alias de Preview si se prueba el formulario ahí). |
+| Host canónico `portabilidadbait.com` (www → apex 301). | `CANONICAL_HOST` en `next.config.ts`. |
 | Nombre del rol runtime `baitprepago_app_runtime` (nuevo; `bait_app_prod` del sitio vanilla se deja intacto). | `project.config.yaml` / `RUNTIME_ROLE_NAME`. |
 | Secretos locales (`PII_*`, `IP_HASH_KEY`, `CAPTCHA_PEPPER`, `CRON_SECRET`, `NEON_AUTH_COOKIE_SECRET`) generados nuevos para `.env.local`. Producción debe tener los suyos (no se copian). | Vercel env. |
 | `PII_ENCRYPTION_KEY` anterior de `.env.local` no era hex de 64; se generó una nueva (respaldo `.env.local.bak-pre-scale`). No hay datos cifrados en prod que dependan de ella (0 leads). | — |

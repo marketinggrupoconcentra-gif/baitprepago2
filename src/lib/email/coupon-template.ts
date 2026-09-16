@@ -14,7 +14,7 @@ interface CouponOpts {
 }
 
 const BRAND = process.env.BREVO_FROM_NAME ?? 'BAIT Prepago';
-const SITE = (process.env.APP_URL ?? 'https://www.portabilidadbait.com').replace(/\/$/, '');
+const SITE = (process.env.APP_URL ?? 'https://portabilidadbait.com').replace(/\/$/, '');
 const YELLOW = '#ffd400';
 
 export function buildCouponHtml({ firstName, reference }: CouponOpts): string {

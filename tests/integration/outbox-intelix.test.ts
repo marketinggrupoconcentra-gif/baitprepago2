@@ -119,7 +119,7 @@ describe('Outbox → Intelix (contrato real)', () => {
 
     const call = calls.find((c) => c.dn === phone);
     expect(call).toBeDefined();
-    expect(call).toMatchObject({ chat_id: 1, dn: phone, compania: 'telcel', nombre: 'Ana', apellidos: 'Prueba', nip: '2468', capturista: '89991' });
+    expect(call).toMatchObject({ chat_id: 1, dn: phone, compania: 'telcel', nombre: 'Ana', apellidos: 'Prueba', nip: '2468', capturista: '99977' });
     expect(Object.keys(call!).sort()).toEqual(['apellidos', 'capturista', 'chat_id', 'compania', 'dn', 'nip', 'nombre', 'url']);
 
     const [row] = await ownerSql`SELECT o.status, o.delivered_at, l.status AS lead_status FROM app.delivery_outbox o JOIN app.leads l ON l.id = o.lead_id WHERE o.lead_id = ${leadId}`;

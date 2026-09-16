@@ -34,8 +34,8 @@ business:
   timezone: "America/Mexico_City"
 
 domain:
-  production: "https://www.portabilidadbait.com"
-  canonical: "https://www.portabilidadbait.com"
+  production: "https://portabilidadbait.com"
+  canonical: "https://portabilidadbait.com"
   vercel_alias: "https://baitprepago2.vercel.app"
   www_strategy: "redirect_to_apex"
 

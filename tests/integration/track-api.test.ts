@@ -17,7 +17,7 @@ describe('Real API /track Endpoint (FLW-008)', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('ALLOWED_ORIGINS', 'https://baitprepago.com,https://www.baitprepago.com');
+    vi.stubEnv('ALLOWED_ORIGINS', 'https://portabilidadbait.com,https://www.portabilidadbait.com');
     
     const mod = await import('@/app/api/track/route');
     POST = mod.POST;
@@ -52,7 +52,7 @@ describe('Real API /track Endpoint (FLW-008)', () => {
     const req = new NextRequest('http://localhost/api/track', {
       method: 'POST',
       headers: {
-        'Origin': 'https://baitprepago.com'
+        'Origin': 'https://portabilidadbait.com'
       },
       body: JSON.stringify({
         eventId,
@@ -73,7 +73,7 @@ describe('Real API /track Endpoint (FLW-008)', () => {
     const req = new NextRequest('http://localhost/api/track', {
       method: 'POST',
       headers: {
-        'Origin': 'https://baitprepago.com'
+        'Origin': 'https://portabilidadbait.com'
       },
       body: JSON.stringify({
         eventId: crypto.randomUUID(),
@@ -100,7 +100,7 @@ describe('Real API /track Endpoint (FLW-008)', () => {
 
     const req1 = new NextRequest('http://localhost/api/track', {
       method: 'POST',
-      headers: { 'Origin': 'https://baitprepago.com' },
+      headers: { 'Origin': 'https://portabilidadbait.com' },
       body: payload
     });
 
@@ -109,7 +109,7 @@ describe('Real API /track Endpoint (FLW-008)', () => {
 
     const req2 = new NextRequest('http://localhost/api/track', {
       method: 'POST',
-      headers: { 'Origin': 'https://baitprepago.com' },
+      headers: { 'Origin': 'https://portabilidadbait.com' },
       body: payload
     });
 

@@ -85,7 +85,7 @@ test.describe('Real API /track Endpoint Tests (FLW-008)', () => {
   test('enforces rate limiting', async ({ request }) => {
     const sessionId = crypto.randomUUID();
     const headers = { 
-      'Origin': 'https://baitprepago.com',
+      'Origin': 'https://portabilidadbait.com',
       'X-Forwarded-For': '192.168.1.100' // mock IP for this specific test
     };
 

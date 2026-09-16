@@ -48,7 +48,7 @@ export interface IntelixConfig {
 
 export const INTELIX_DEFAULTS = {
   apiUrl: 'https://intelix-api.grupoconcentra.com/api/botmaker/store/portability',
-  capturista: '89991',
+  capturista: '99977',
   compania: 'telcel',
   chatId: 1,
 } as const;
