@@ -225,10 +225,9 @@
   function configureVendors(config) {
     vendorConfig = config || {};
     if (vendorConfig.gtmId) {
-      window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
-      // Google Tag Gateway: carga GTM desde nuestro dominio (first-party proxy) en lugar de
-      // www.googletagmanager.com — mejora matchrate de cookies y evita bloqueadores.
-      loadScript('/gtm.js?id=' + encodeURIComponent(vendorConfig.gtmId), 'bait-gtm');
+      // GTM ya está instalado con el snippet estándar en el <head> del HTML.
+      // No se re-inyecta el script aquí para evitar doble carga.
+      // Solo inicializamos el dataLayer si aún no arrancó (el snippet del <head> lo hace primero).
     } else if (vendorConfig.ga4Id) {
       window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
       window.gtag('js', new Date());
