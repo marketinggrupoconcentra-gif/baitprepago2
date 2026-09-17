@@ -5,8 +5,37 @@
   "showAttachments": false,
   "hideUnresolved": false,
   "showOrphans": true,
-  "collapse-color-groups": true,
-  "colorGroups": [],
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "tag:#modulo/frontend",
+      "color": { "a": 1, "rgb": 14701138 }
+    },
+    {
+      "query": "tag:#modulo/api",
+      "color": { "a": 1, "rgb": 2718041 }
+    },
+    {
+      "query": "tag:#modulo/lib",
+      "color": { "a": 1, "rgb": 3050327 }
+    },
+    {
+      "query": "tag:#modulo/db",
+      "color": { "a": 1, "rgb": 15772168 }
+    },
+    {
+      "query": "tag:#modulo/scripts",
+      "color": { "a": 1, "rgb": 9807270 }
+    },
+    {
+      "query": "tag:#modulo/tests",
+      "color": { "a": 1, "rgb": 6250335 }
+    },
+    {
+      "query": "tag:#auditoria OR tag:#stack OR tag:#workflow OR tag:#config OR tag:#funciones OR tag:#grafo OR tag:#moc",
+      "color": { "a": 1, "rgb": 16755200 }
+    }
+  ],
   "collapse-display": true,
   "showArrow": false,
   "textFadeMultiplier": 0,

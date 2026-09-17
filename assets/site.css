@@ -801,9 +801,10 @@ em {
   border: 1px solid rgba(255, 255, 255, .5);
   border-radius: 20px;
   box-shadow: 0 16px 40px rgba(0, 76, 163, .22);
-  grid-template-columns: auto 1fr;
+  /* Columna 1: GB number (fixed); Columna 2: texto, nunca baja de 0 */
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
-  column-gap: 14px;
+  column-gap: 12px;
 }
 
 .blue-promo::after {
@@ -832,42 +833,53 @@ em {
   grid-column: 1;
   grid-row: 2 / 4;
   line-height: .8;
+  /* Tamaño fijo para que no expanda y coma el espacio del texto */
+  flex-shrink: 0;
 }
 
 .promo-gb strong {
-  font-size: 68px;
+  /* Reducido ligeramente para ceder espacio a la columna de texto */
+  font-size: clamp(52px, 4.4vw, 64px);
   font-weight: 950;
   letter-spacing: -.09em;
 }
 
 .promo-gb span {
-  margin: 0 0 9px 5px;
+  margin: 0 0 9px 4px;
   color: var(--yellow);
-  font-size: 27px;
+  font-size: clamp(22px, 1.8vw, 26px);
   font-weight: 950;
 }
 
 .blue-promo p {
   margin: 3px 0 4px;
-  font-size: 18px;
+  font-size: clamp(14px, 1.35vw, 18px);
   font-weight: 800;
   grid-column: 2;
   grid-row: 2;
+  /* Evita que el texto se corte: permite wrapping */
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .social-pill {
   position: relative;
   z-index: 1;
-  width: fit-content;
-  padding: 8px 11px;
+  /* max-width: 100% garantiza que nunca desborde la celda del grid */
+  max-width: 100%;
+  padding: 7px 10px;
   color: var(--black);
   background: var(--yellow);
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 900;
   line-height: 1.2;
   grid-column: 2;
   grid-row: 3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .floating-badge {
@@ -2560,22 +2572,24 @@ em {
     min-height: 116px;
     padding: 13px 14px;
     border-radius: 19px;
+    column-gap: 10px;
   }
 
   .promo-gb strong {
-    font-size: 62px;
+    font-size: 56px;
   }
 
   .promo-gb span {
-    font-size: 25px;
+    font-size: 22px;
   }
 
   .blue-promo p {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .social-pill {
     font-size: 9px;
+    padding: 6px 9px;
   }
 
   .floating-badge {
@@ -2749,11 +2763,21 @@ em {
   }
 
   .blue-promo {
-    column-gap: 10px;
+    column-gap: 8px;
+    padding: 12px 12px;
   }
 
   .promo-gb strong {
-    font-size: 56px;
+    font-size: 50px;
+  }
+
+  .promo-gb span {
+    font-size: 20px;
+  }
+
+  .social-pill {
+    font-size: 8.5px;
+    padding: 5px 8px;
   }
 }
 

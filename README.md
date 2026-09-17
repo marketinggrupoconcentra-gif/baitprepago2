@@ -1,5 +1,22 @@
 # BAIT Prepago 2
 
+## 📚 Documentación técnica y auditoría
+
+La documentación detallada de configuración por módulo, stack técnico completo, flujo de trabajo y grafo de conexiones vive en un **vault de Obsidian** en [`docs/`](./docs/):
+
+- [`docs/Home.md`](./docs/Home.md) — punto de entrada del vault (mapa de contenidos).
+- [`docs/00-Auditoria-Tecnica.md`](./docs/00-Auditoria-Tecnica.md) — auditoría completa del repositorio.
+- [`docs/01-Stack-Tecnico.md`](./docs/01-Stack-Tecnico.md) — stack tecnológico autorizado.
+- [`docs/02-Flujo-de-Trabajo.md`](./docs/02-Flujo-de-Trabajo.md) — flujo de desarrollo detallado (local → preview → producción).
+- [`docs/03-Variables-de-Entorno.md`](./docs/03-Variables-de-Entorno.md) — inventario de variables de entorno (sin valores/secretos).
+- [`docs/04-Indice-de-Funciones.md`](./docs/04-Indice-de-Funciones.md) — catálogo de funciones por módulo, para no duplicar lógica.
+- [`docs/modules/`](./docs/modules/) — una nota por módulo (frontend, API, lib, DB, scripts, tests).
+- [`docs/graph/architecture.md`](./docs/graph/architecture.md) — diagramas Mermaid de arquitectura y grafo de dependencias.
+
+> Abre la carpeta `docs/` como vault en Obsidian para navegar por enlaces y usar el Graph View — así se visualiza qué módulos/funciones ya existen antes de crear nuevos, evitando duplicaciones.
+>
+> Las reglas de negocio no negociables (stack cerrado, PII/NIP, zona horaria CDMX) siguen siendo autoritativas en [`GEMINI.md`](./GEMINI.md); este vault las referencia y las amplía con detalle operativo.
+
 ## Arquitectura
 
 - **Frontend**: HTML/JS/CSS estático
