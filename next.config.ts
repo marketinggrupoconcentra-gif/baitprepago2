@@ -30,6 +30,13 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         { source: '/', destination: '/legacy/index.html' },
+        // ─── Google Tag Gateway (first-party proxy) ───────────────────────────
+        // Sirve los scripts de Google desde nuestro dominio para mejorar
+        // el matchrate de cookies y evitar bloqueadores de anuncios.
+        // Ref: https://developers.google.com/tag-platform/tag-manager/gateway
+        { source: '/gtm.js', destination: 'https://www.googletagmanager.com/gtm.js' },
+        { source: '/gtag/js', destination: 'https://www.googletagmanager.com/gtag/js' },
+        { source: '/gtag/destination', destination: 'https://region1.google-analytics.com/g/collect' },
       ],
       afterFiles: STATIC_DIRS.flatMap((dir) => [
         { source: `/${dir}/`, destination: `/legacy/${dir}/index.html` },

@@ -226,12 +226,15 @@
     vendorConfig = config || {};
     if (vendorConfig.gtmId) {
       window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
-      loadScript('https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(vendorConfig.gtmId), 'bait-gtm');
+      // Google Tag Gateway: carga GTM desde nuestro dominio (first-party proxy) en lugar de
+      // www.googletagmanager.com — mejora matchrate de cookies y evita bloqueadores.
+      loadScript('/gtm.js?id=' + encodeURIComponent(vendorConfig.gtmId), 'bait-gtm');
     } else if (vendorConfig.ga4Id) {
       window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
       window.gtag('js', new Date());
       window.gtag('config', vendorConfig.ga4Id, { send_page_view: false });
-      loadScript('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(vendorConfig.ga4Id), 'bait-ga4');
+      // Google Tag Gateway: /gtag/js proxea hacia www.googletagmanager.com/gtag/js
+      loadScript('/gtag/js?id=' + encodeURIComponent(vendorConfig.ga4Id), 'bait-ga4');
     }
     if (vendorConfig.metaPixelId) {
       if (!window.fbq) {
