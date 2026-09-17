@@ -37,6 +37,7 @@ const nextConfig: NextConfig = {
         { source: '/gtm.js', destination: 'https://www.googletagmanager.com/gtm.js' },
         { source: '/gtag/js', destination: 'https://www.googletagmanager.com/gtag/js' },
         { source: '/gtag/destination', destination: 'https://region1.google-analytics.com/g/collect' },
+        { source: '/ns.html', destination: 'https://www.googletagmanager.com/ns.html' },
       ],
       afterFiles: STATIC_DIRS.flatMap((dir) => [
         { source: `/${dir}/`, destination: `/legacy/${dir}/index.html` },
