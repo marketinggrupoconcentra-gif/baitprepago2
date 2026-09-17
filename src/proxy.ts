@@ -57,6 +57,10 @@ function buildCSP(nonce: string, staticLanding = false): string {
       'https://www.facebook.com',
       'https://www.google.com',
       'https://www.google.com.mx',
+      // Google Ads conversion pixels
+      'https://ad.doubleclick.net',
+      'https://googleads.g.doubleclick.net',
+      'https://stats.g.doubleclick.net',
     ],
     'connect-src': [
       "'self'",
@@ -65,9 +69,19 @@ function buildCSP(nonce: string, staticLanding = false): string {
       'https://stats.g.doubleclick.net',
       'https://www.facebook.com',
       'https://www.googletagmanager.com',
+      // Google Ads Conversion Measurement (GTM tags: /ccm/collect)
+      'https://www.google.com',
+      'https://www.google.com.mx',
+      'https://ad.doubleclick.net',
+      // Señales de conversión de Google Ads (Enhanced Conversions)
+      'https://googleads.g.doubleclick.net',
       ...(isDev ? ['ws://localhost:*', 'http://localhost:*'] : []),
     ],
-    'frame-src': ['https://www.googletagmanager.com', 'https://bid.g.doubleclick.net'],
+    'frame-src': [
+      'https://www.googletagmanager.com',
+      'https://bid.g.doubleclick.net',
+      'https://ad.doubleclick.net',
+    ],
     'frame-ancestors': ["'none'"],
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
