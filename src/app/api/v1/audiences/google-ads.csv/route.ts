@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
         lastNameEnc: schema.leads.lastNameEnc,
         phoneEnc: schema.leads.phoneEnc,
         emailEnc: schema.leads.emailEnc,
+        deliveredAt: schema.deliveryOutbox.deliveredAt,
       })
       .from(schema.deliveryOutbox)
       .innerJoin(schema.leads, eq(schema.deliveryOutbox.leadId, schema.leads.id))
@@ -67,9 +68,21 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(schema.deliveryOutbox.deliveredAt))
       .limit(250000);
 
-    // 4. Formatear como CSV (Google Ads Customer Match Template)
-    const headers = ['Email', 'Phone', 'First Name', 'Last Name', 'Country'];
+    // 4. Formatear como CSV (Google Ads Offline Conversions / Customer Match Template)
+    const headers = ['Email', 'Phone', 'First_Name', 'Last_Name', 'Country', 'Conversion_Name', 'Conversion_Time'];
     const out = [toCSVRow(headers)];
+
+    // Formateador de fecha para America/Mexico_City según formato Google Ads (yyyy-MM-dd HH:mm:ss -0600)
+    const formatter = new Intl.DateTimeFormat('es-MX', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
 
     for (const r of rows) {
       try {
@@ -86,7 +99,21 @@ export async function GET(req: NextRequest) {
         const firstName = decryptPII(r.firstNameEnc);
         const lastName = decryptPII(r.lastNameEnc);
 
-        out.push(toCSVRow([email, rawPhone, firstName, lastName, 'MX']));
+        // Formatear deliveredAt
+        let conversionTime = '';
+        if (r.deliveredAt) {
+          // Intl.DateTimeFormat 'es-MX' da algo como "dd/mm/yyyy, HH:mm:ss"
+          // Google Ads acepta "yyyy-MM-dd HH:mm:ss -0600". Lo construiremos manualmente.
+          const parts = formatter.formatToParts(r.deliveredAt);
+          const p: Record<string, string> = {};
+          for (const part of parts) {
+            p[part.type] = part.value;
+          }
+          // Offset de CDMX puede ser -0600 (no hay horario de verano ya)
+          conversionTime = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} -0600`;
+        }
+
+        out.push(toCSVRow([email, rawPhone, firstName, lastName, 'MX', 'conversiones offline pospago bait', conversionTime]));
       } catch (err) {
         // Ignorar fila si hay error de descifrado
         continue;
