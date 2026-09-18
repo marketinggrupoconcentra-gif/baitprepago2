@@ -4,7 +4,6 @@ import { decryptPII } from '@/lib/crypto';
 import { toCSVRow } from '@/lib/security/csv';
 import { and, desc, eq } from 'drizzle-orm';
 import { logError } from '@/lib/log';
-import { checkBot } from '@/lib/security/bot-id';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,10 +23,7 @@ function getBasicAuthCredentials(req: NextRequest): { user: string; pass: string
 }
 
 export async function GET(req: NextRequest) {
-  // 1. Validar Bot (opcional, pero buena práctica)
-  if (checkBot(req.headers).isBot) {
-    return NextResponse.json({ error: 'Request no permitida.' }, { status: 403 });
-  }
+  // (El checkBot se remueve porque Google Ads hará la petición con su propio user-agent automatizado)
 
   // 2. Verificar Autenticación Básica
   const expectedUser = process.env.GOOGLE_ADS_AUDIENCE_USER;
