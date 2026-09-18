@@ -8,7 +8,7 @@
     },
     {
       "path": "/api/cron/outbox",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/reports",
@@ -20,7 +20,7 @@
     },
     {
       "path": "/api/cron/conversions",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/30 * * * *"
     }
   ],
   "rewrites": [
