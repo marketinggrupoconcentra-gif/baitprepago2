@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
           conversionTime = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} -0600`;
         }
 
-        out.push(toCSVRow([email, rawPhone, firstName, lastName, 'MX', 'conversiones offline pospago bait', conversionTime]));
+        out.push(toCSVRow([email, rawPhone, firstName, lastName, 'MX', 'conversiones offline prepago', conversionTime]));
       } catch (err) {
         // Ignorar fila si hay error de descifrado
         continue;
