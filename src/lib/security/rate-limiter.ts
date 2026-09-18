@@ -37,20 +37,26 @@ export async function checkRateLimit(
   keyHash: string,
   config: RateLimitConfig,
   failMode: 'closed' | 'open' = 'closed',
+  units = 1,
 ): Promise<RateLimitResult> {
   const windowMs = config.windowSecs * 1000;
   const start = bucketStart(windowMs);
   const resetAt = start.getTime() + windowMs;
   const expiresAt = new Date(resetAt + windowMs); // TTL: bucket + una ventana de gracia
+  // Un lote de analytics consume su número real de eventos, pero con una sola
+  // escritura. `limit + 1` basta para rechazar un valor inesperadamente grande.
+  const consumedUnits = Number.isFinite(units)
+    ? Math.min(Math.max(1, Math.trunc(units)), config.limit + 1)
+    : 1;
 
   try {
     const db = getDb();
     const rows = await db
       .insert(schema.rateLimits)
-      .values({ scope: config.name, keyHash, bucketStart: start, count: 1, expiresAt })
+      .values({ scope: config.name, keyHash, bucketStart: start, count: consumedUnits, expiresAt })
       .onConflictDoUpdate({
         target: [schema.rateLimits.scope, schema.rateLimits.keyHash, schema.rateLimits.bucketStart],
-        set: { count: sql`${schema.rateLimits.count} + 1` },
+        set: { count: sql`${schema.rateLimits.count} + ${consumedUnits}` },
       })
       .returning({ count: schema.rateLimits.count });
 

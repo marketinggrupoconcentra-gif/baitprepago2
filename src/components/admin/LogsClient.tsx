@@ -422,6 +422,11 @@ export default function LogsClient({
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Tabla / Dashboard (diseño "Métricas de Logs") */}
+          <div style={{ display: 'flex', gap: 3, background: '#EFEEE9', borderRadius: 10, padding: 3 }}>
+            <span style={{ cursor: 'default', padding: '6px 13px', borderRadius: 8, font: `700 12px ${SANS}`, background: CARD, color: INK, boxShadow: '0 1px 3px rgba(22,22,15,0.1)' }}>Tabla</span>
+            <a href="/admin/logs/dashboard" style={{ cursor: 'pointer', padding: '6px 13px', borderRadius: 8, font: `600 12px ${SANS}`, color: MUTED, textDecoration: 'none' }}>Dashboard</a>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: CARD, border: `1px solid ${LINE}`, borderRadius: 20, padding: '6px 12px' }}>
             <span style={{ width: 6, height: 6, borderRadius: 6, background: '#1B7F4B', boxShadow: '0 0 0 3px rgba(27,127,75,0.14)' }} />
             <span style={{ font: `600 12px ${SANS}`, color: '#4B4B44' }}>

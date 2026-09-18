@@ -11,6 +11,7 @@ export const EDITABLE_SETTING_KEYS = [
   'google_ads_account_id', 'google_ads_login_customer_id', 'google_ads_campaign_filter',
   'google_ads_conversion_action_id', 'google_ads_won_conversion_action_id',
   'conversion_won_value',
+  'marketing_budget_google_ads', 'marketing_budget_meta_ads', 'marketing_budget_seo',
   'intelix_api_url', 'intelix_api_key', 'intelix_capturista', 'intelix_compania', 'intelix_chat_id',
 ] as const;
 
@@ -40,6 +41,9 @@ export const SETTING_VALIDATORS: Partial<Record<(typeof EDITABLE_SETTING_KEYS)[n
   google_ads_conversion_action_id: (v) => (/^\d+$/.test(v) ? null : 'El id de la acción de conversión es numérico.'),
   google_ads_won_conversion_action_id: (v) => (/^\d+$/.test(v) ? null : 'El id de la acción de conversión es numérico.'),
   conversion_won_value: (v) => (/^\d+(\.\d{1,2})?$/.test(v) ? null : 'Valor en MXN (p. ej. 100 o 99.50).'),
+  marketing_budget_google_ads: (v) => (/^\d+(\.\d{1,2})?$/.test(v) ? null : 'Presupuesto mensual en MXN (p. ej. 135000).'),
+  marketing_budget_meta_ads: (v) => (/^\d+(\.\d{1,2})?$/.test(v) ? null : 'Presupuesto mensual en MXN (p. ej. 72000).'),
+  marketing_budget_seo: (v) => (/^\d+(\.\d{1,2})?$/.test(v) ? null : 'Presupuesto mensual en MXN (p. ej. 20000).'),
   meta_pixel_id: (v) => (/^\d{5,20}$/.test(v) ? null : 'El Pixel ID es numérico.'),
   gtm_id: (v) => (/^GTM-[A-Z0-9]{4,10}$/.test(v) ? null : 'Formato GTM-XXXXXXX.'),
   ga4_id: (v) => (/^G-[A-Z0-9]{5,15}$/.test(v) ? null : 'Formato G-XXXXXXXX.'),

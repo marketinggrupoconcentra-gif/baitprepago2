@@ -143,8 +143,10 @@ export function TrackingProvider({
       }));
     }
 
-    // Emit 1st party page_view event on mount
-    trackFirstParty('page_view');
+    // Emit 1st party page_view event on mount — sólo fuera del admin: las rutas
+    // React son /admin y /api, y una visita al panel no es una sesión de la landing
+    // (contaminaba "sesiones" en Resumen/Analítica y escribía en Neon sin valor).
+    if (!window.location.pathname.startsWith('/admin')) trackFirstParty('page_view');
 
     // Update last touch ONLY if there is an explicit acquisition signal 
     // so we don't erase last touch with a direct page reload

@@ -71,6 +71,12 @@ const ICON = {
       <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h8" /><circle cx="15.5" cy="14.5" r="2" />
     </>
   ),
+  marketing: (
+    <>
+      <path d="M3 12.5 7.5 8l3.5 3.5L17 5" /><path d="M13 5h4v4" />
+      <path d="M3 16.5h14" />
+    </>
+  ),
   usuarios: (
     <>
       <circle cx="8" cy="7" r="2.8" /><path d="M3 16.5c0-2.6 2.2-4.3 5-4.3s5 1.7 5 4.3" />
@@ -98,6 +104,7 @@ const NAV_PRINCIPAL: NavItem[] = [
   { href: '/admin/leads', label: 'Leads', permission: 'leads.view', icon: svg(ICON.leads), badge: 'leads' },
   { href: '/admin/analytics', label: 'Analítica', permission: 'analytics.view', icon: svg(ICON.analitica) },
   { href: '/admin/logs', label: 'Logs', permission: 'logs.view', icon: svg(ICON.logs), badge: 'logs' },
+  { href: '/admin/marketing', label: 'Marketing', permission: 'marketing.view', icon: svg(ICON.marketing) },
 ];
 const NAV_ADMIN: NavItem[] = [
   { href: '/admin/users', label: 'Usuarios', permission: 'users.view', icon: svg(ICON.usuarios) },

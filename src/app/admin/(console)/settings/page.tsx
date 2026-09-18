@@ -97,6 +97,11 @@ export default async function SettingsPage() {
     { key: 'conversions', label: 'Valor de conversión', meta: 'MXN por portabilidad ganada (Google Ads / Meta)', status: 'CONFIGURED' as IntegrationStatus, configKeys: [
       plain('Valor (MXN)', 'conversion_won_value', 'CONVERSION_WON_VALUE', '100', 'Se envía como valor de la conversión "won". Default 100.'),
     ] },
+    { key: 'marketing_budget', label: 'Presupuesto de marketing', meta: 'MXN mensual por canal · tablero /admin/marketing', status: status(v('marketing_budget_google_ads', 'MARKETING_BUDGET_GOOGLE_ADS'), v('marketing_budget_meta_ads', 'MARKETING_BUDGET_META_ADS'), v('marketing_budget_seo', 'MARKETING_BUDGET_SEO')), configKeys: [
+      plain('Google Ads (MXN / mes)', 'marketing_budget_google_ads', 'MARKETING_BUDGET_GOOGLE_ADS', '135000', 'Presupuesto mensual asignado. Se prorratea por los días del período seleccionado.'),
+      plain('Meta Ads (MXN / mes)', 'marketing_budget_meta_ads', 'MARKETING_BUDGET_META_ADS', '72000', 'Presupuesto mensual asignado a Facebook / Instagram Ads.'),
+      plain('SEO / contenido (MXN / mes)', 'marketing_budget_seo', 'MARKETING_BUDGET_SEO', '20000', 'Presupuesto mensual del canal orgánico.'),
+    ] },
   ];
 
   const systemInfo = {

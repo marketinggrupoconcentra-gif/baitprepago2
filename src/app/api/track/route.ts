@@ -80,6 +80,14 @@ const TrackSchema = z.object({
   deviceCategory: z.enum(['mobile', 'tablet', 'desktop']).optional(),
 }).strict(); // strict: rechazar campos adicionales
 
+const MAX_BATCH_SIZE = 20;
+const TrackRequestSchema = z.union([
+  TrackSchema,
+  z.object({
+    events: z.array(TrackSchema).min(1).max(MAX_BATCH_SIZE),
+  }).strict(),
+]);
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const originCheck = checkOrigin(
     req.headers.get('origin'), 
@@ -91,14 +99,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const ipHash = hashIp(extractIp(req.headers));
-  // Fail open para eventos para no colapsar peticiones normales si redis cae
-  const rateCheck = await checkRateLimit(ipHash, RATE_LIMITS.events, 'open');
-  if (!rateCheck.allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit excedido' },
-      { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSecs) } }
-    );
-  }
 
   let body: unknown;
   try {
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
   }
 
-  const parsed = TrackSchema.safeParse(body);
+  const parsed = TrackRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors },
@@ -115,27 +115,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const event = parsed.data;
+  const events = 'events' in parsed.data ? parsed.data.events : [parsed.data];
 
-  // Rechazar eventos reservados del servidor
-  if (SERVER_ONLY_EVENTS.has(event.eventName)) {
+  // Rechazar el lote completo si intenta incluir eventos reservados del servidor.
+  if (events.some((event) => SERVER_ONLY_EVENTS.has(event.eventName))) {
     return NextResponse.json(
       { error: 'Evento no permitido desde cliente' },
       { status: 403 },
     );
   }
 
-  // Solo aceptar eventos de la lista permitida
-  if (!CLIENT_ALLOWED_EVENTS.has(event.eventName)) {
+  // Mantener compatibilidad: eventos desconocidos se aceptan sin persistir.
+  const acceptedEvents = events.filter((event) => CLIENT_ALLOWED_EVENTS.has(event.eventName));
+  if (acceptedEvents.length === 0) {
     // Aceptar silenciosamente pero no persistir — evitar leakage de errores
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, accepted: 0 });
   }
 
   try {
+    // Una sola escritura de rate limit por lote, cobrando todas sus unidades.
+    const rateCheck = await checkRateLimit(
+      ipHash,
+      RATE_LIMITS.events,
+      'open',
+      acceptedEvents.length,
+    );
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit excedido' },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSecs) } },
+      );
+    }
+
     const db = getDb();
-    await db.insert(schema.analyticsEvents).values({
-      eventId: event.eventId ?? undefined,
-      sessionId: event.sessionId ?? null,
+    await db.insert(schema.analyticsEvents).values(acceptedEvents.map((event) => ({
+      eventId: event.eventId,
+      sessionId: event.sessionId,
       eventName: event.eventName,
       pagePath: event.pagePath ?? null,
       sectionId: event.sectionId ?? null,
@@ -149,9 +164,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       utmContent: event.utmContent ?? null,
       utmTerm: event.utmTerm ?? null,
       deviceCategory: event.deviceCategory ?? null,
-    }).onConflictDoNothing({ target: schema.analyticsEvents.eventId });
+    }))).onConflictDoNothing({ target: schema.analyticsEvents.eventId });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, accepted: acceptedEvents.length });
   } catch (err) {
     // No exponer errores de DB al cliente
     logError('/api/track', 'handler', err);

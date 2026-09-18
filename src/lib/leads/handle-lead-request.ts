@@ -1,5 +1,5 @@
 import 'server-only';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getDb, schema, withTransaction } from '@/db';
 import { encryptPII, blindIndex, hashPayload, decryptPII } from '@/lib/crypto';
@@ -293,6 +293,16 @@ export async function handleLeadRequest(req: NextRequest, route: string): Promis
   // ── Email de confirmación (opcional, fuera de la TX, nunca revierte el lead) ──
   if (LEAD_EMAIL_ENABLED) {
     void sendLeadConfirmationEmail({ to: normalizedEmail, firstName: data.nombre, reference: publicReference });
+  }
+
+  // ── Disparo automático a Intelix (en background para no bloquear la respuesta) ──
+  if (process.env.CRON_SECRET) {
+    const cronUrl = new URL('/api/cron/outbox', req.nextUrl.origin);
+    const cronSecret = process.env.CRON_SECRET;
+    after(() => {
+      fetch(cronUrl, { headers: { authorization: `Bearer ${cronSecret}` } })
+        .catch(err => logError(route, 'intelix-trigger', err instanceof Error ? err : new Error(String(err))));
+    });
   }
 
   return json({ ok: true, saved: true, status: 'received', reference: publicReference }, 201);

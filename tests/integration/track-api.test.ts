@@ -88,6 +88,66 @@ describe('Real API /track Endpoint (FLW-008)', () => {
     expect(body.error).toBe('Evento no permitido desde cliente');
   });
 
+  it('accepts a batch { events: [...] } and persists it with a single request', async () => {
+    const db = getDb();
+    const sessionId = crypto.randomUUID();
+    const ids = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+    const req = new NextRequest('http://localhost/api/track', {
+      method: 'POST',
+      headers: { 'Origin': 'https://portabilidadbait.com' },
+      body: JSON.stringify({
+        events: [
+          { eventId: ids[0], sessionId, eventName: 'page_view' },
+          { eventId: ids[1], sessionId, eventName: 'scroll_depth', scrollPct: 50 },
+          // desconocido → se acepta sin persistir (compatibilidad)
+          { eventId: ids[2], sessionId, eventName: 'evento_desconocido' },
+        ],
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect((await res.json()).accepted).toBe(2);
+
+    const saved = await db.select({ id: schema.analyticsEvents.eventId }).from(schema.analyticsEvents)
+      .where(eq(schema.analyticsEvents.sessionId, sessionId));
+    expect(saved.map((r) => r.id).sort()).toEqual([ids[0], ids[1]].sort());
+
+    // el lote consumió 2 unidades del rate limit en UNA escritura (una fila por IP/ventana)
+    const rl = await db.select({ count: schema.rateLimits.count }).from(schema.rateLimits)
+      .where(eq(schema.rateLimits.scope, 'events'));
+    expect(rl.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a batch larger than 20 events', async () => {
+    const sessionId = crypto.randomUUID();
+    const req = new NextRequest('http://localhost/api/track', {
+      method: 'POST',
+      headers: { 'Origin': 'https://portabilidadbait.com' },
+      body: JSON.stringify({
+        events: Array.from({ length: 21 }, () => ({ eventId: crypto.randomUUID(), sessionId, eventName: 'page_view' })),
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(422); // "Datos inválidos" (validación zod)
+  });
+
+  it('rejects the whole batch if it contains a server-only event', async () => {
+    const sessionId = crypto.randomUUID();
+    const req = new NextRequest('http://localhost/api/track', {
+      method: 'POST',
+      headers: { 'Origin': 'https://portabilidadbait.com' },
+      body: JSON.stringify({
+        events: [
+          { eventId: crypto.randomUUID(), sessionId, eventName: 'page_view' },
+          { eventId: crypto.randomUUID(), sessionId, eventName: 'lead_success' },
+        ],
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+  });
+
   it('deduplicates identical eventIds', async () => {
     const db = getDb();
     const eventId = crypto.randomUUID();

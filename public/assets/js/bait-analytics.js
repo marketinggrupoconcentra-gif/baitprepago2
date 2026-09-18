@@ -20,7 +20,8 @@
   var currentStep = 1;
   var activeMs = 0;
   var activeSince = document.visibilityState === 'visible' ? Date.now() : null;
-  var engagementMilestones = [10, 30, 60, 120, 300];
+  // Solo el hito de 30 s: los demás no alimentan ningún tablero y multiplicaban filas.
+  var engagementMilestones = [30];
   var engagementSent = {};
   var scrollSent = {};
   var sectionSent = {};
@@ -154,11 +155,20 @@
     return payload;
   }
 
-  function sendFirstParty(payload, beacon) {
-    var body = JSON.stringify(payload);
+  // ── Envío first-party en lotes ─────────────────────────────────────────────
+  // Cada petición a /api/track cuesta dos escrituras en Postgres (rate limit +
+  // insert). Se acumulan eventos durante BATCH_DELAY_MS (o hasta BATCH_MAX) y se
+  // envían en UNA sola petición: { events: [...] }. El endpoint acepta hasta 20.
+  var BATCH_DELAY_MS = 1500;
+  var BATCH_MAX = 20;
+  var queue = [];
+  var flushTimer = null;
+
+  function postBatch(events, beacon) {
+    if (!events.length) return;
+    var body = JSON.stringify(events.length === 1 ? events[0] : { events: events });
     if (beacon && navigator.sendBeacon) {
-      navigator.sendBeacon(TRACK_URL, new Blob([body], { type: 'application/json' }));
-      return;
+      if (navigator.sendBeacon(TRACK_URL, new Blob([body], { type: 'application/json' }))) return;
     }
     if (window.fetch) {
       window.fetch(TRACK_URL, {
@@ -169,6 +179,17 @@
         credentials: 'same-origin'
       }).catch(function () {});
     }
+  }
+
+  function flush(beacon) {
+    if (flushTimer) { window.clearTimeout(flushTimer); flushTimer = null; }
+    while (queue.length) postBatch(queue.splice(0, BATCH_MAX), beacon);
+  }
+
+  function sendFirstParty(payload, beacon) {
+    queue.push(payload);
+    if (beacon || queue.length >= BATCH_MAX) { flush(beacon); return; }
+    if (!flushTimer) flushTimer = window.setTimeout(function () { flush(false); }, BATCH_DELAY_MS);
   }
 
   function gaEventName(eventName) {
@@ -208,7 +229,11 @@
       source_category: attribution.sourceCategory || 'direct'
     });
     window.dataLayer.push(dataLayerEvent);
-    sendFirstParty(firstPartyPayload(eventName, params, eventId), options && options.beacon);
+    // firstParty:false → el evento va a GTM/GA4/Meta pero NO se persiste en
+    // app.analytics_events (los tableros del admin no lo consumen).
+    if (!options || options.firstParty !== false) {
+      sendFirstParty(firstPartyPayload(eventName, params, eventId), options && options.beacon);
+    }
     sendVendors(eventName, params, eventId);
     return eventId;
   }
@@ -270,6 +295,8 @@
       activeMs += Date.now() - activeSince;
       activeSince = null;
     }
+    // Al ocultarse la pestaña (móvil: cambio de app) el lote pendiente sale por beacon.
+    if (document.visibilityState !== 'visible') flush(true);
   }
 
   function watchEngagement() {
@@ -278,14 +305,15 @@
       engagementMilestones.forEach(function (milestone) {
         if (seconds >= milestone && !engagementSent[milestone]) {
           engagementSent[milestone] = true;
-          track('engagement_time', { engagement_time_msec: milestone * 1000, section_id: 'active_' + milestone + 's' });
+          track('engagement_time', { engagement_time_msec: milestone * 1000, section_id: 'active_' + milestone + 's' }, { firstParty: false });
         }
       });
     }, 1000);
   }
 
   function watchScroll() {
-    var thresholds = [10, 25, 50, 75, 90, 100];
+    // 50 y 90 son los únicos umbrales que lee el admin (scroll_pct >= 50 / >= 90).
+    var thresholds = [50, 90];
     var check = function () {
       var max = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) - window.innerHeight;
       var pct = max <= 0 ? 100 : Math.min(100, Math.round((window.scrollY / max) * 100));
@@ -389,10 +417,14 @@
       if (!formStarted) {
         formStarted = true;
         track('form_start', { form_id: FORM_NAME, form_step: currentStep });
+        // El paso 1 "inicia" cuando la persona toca el formulario, no al cargar la
+        // página: antes cada visita generaba un form_step_1_start falso que
+        // inflaba el embudo del admin.
+        if (currentStep === 1) track('form_step_1_start', { form_id: FORM_NAME, form_step: 1, section_id: 'step_1' });
       }
       if (!fieldStarted[field]) {
         fieldStarted[field] = true;
-        track('form_field_started', { form_id: FORM_NAME, form_step: currentStep, field_name: field, section_id: 'field_' + field });
+        track('form_field_started', { form_id: FORM_NAME, form_step: currentStep, field_name: field, section_id: 'field_' + field }, { firstParty: false });
       }
     });
     form.addEventListener('focusout', function (event) {
@@ -401,7 +433,7 @@
       var field = normalizedField(control);
       if (fieldHasValue(control) && control.getAttribute('aria-invalid') !== 'true' && !fieldCompleted[field]) {
         fieldCompleted[field] = true;
-        track('form_field_completed', { form_id: FORM_NAME, form_step: currentStep, field_name: field, section_id: 'field_' + field });
+        track('form_field_completed', { form_id: FORM_NAME, form_step: currentStep, field_name: field, section_id: 'field_' + field }, { firstParty: false });
       }
     });
   }
@@ -411,15 +443,18 @@
     if (formStarted && !formSubmitted) {
       track('form_abandoned', { form_id: FORM_NAME, form_step: currentStep, section_id: 'step_' + currentStep }, { beacon: true });
     }
-    track('session_end', { engagement_time_msec: Math.round(effectiveActiveMs()), section_id: 'active_total' }, { beacon: true });
+    track('session_end', { engagement_time_msec: Math.round(effectiveActiveMs()), section_id: 'active_total' }, { firstParty: false });
+    flush(true);
   }
 
   window.BaitAnalytics = {
     track: track,
     formStepView: function (step) {
       currentStep = Number(step) || 1;
-      track('form_step_view', { form_id: FORM_NAME, form_step: currentStep, section_id: 'step_' + currentStep });
-      track('form_step_' + currentStep + '_start', { form_id: FORM_NAME, form_step: currentStep, section_id: 'step_' + currentStep });
+      track('form_step_view', { form_id: FORM_NAME, form_step: currentStep, section_id: 'step_' + currentStep }, { firstParty: false });
+      // Paso 1: se emite en el primer focus real (watchForm). Pasos 2 y 3 sí
+      // implican interacción (la persona avanzó), así que se persisten aquí.
+      if (currentStep > 1) track('form_step_' + currentStep + '_start', { form_id: FORM_NAME, form_step: currentStep, section_id: 'step_' + currentStep });
     },
     formStepCompleted: function (step) {
       track('form_step_completed', { form_id: FORM_NAME, form_step: Number(step), section_id: 'step_' + step });

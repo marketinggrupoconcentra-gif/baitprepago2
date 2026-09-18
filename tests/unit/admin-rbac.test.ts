@@ -48,6 +48,15 @@ describe('RBAC — Roles y permisos', () => {
     });
   });
 
+  // ── Marketing (tablero de decisión) — lectura para los tres roles ────────────
+  describe('marketing.view', () => {
+    it('lo tienen Administrador, Editor y Lector', () => {
+      expect(hasPermission('Administrador', 'marketing.view')).toBe(true);
+      expect(hasPermission('Editor', 'marketing.view')).toBe(true);
+      expect(hasPermission('Lector', 'marketing.view')).toBe(true);
+    });
+  });
+
   // ── Editor ───────────────────────────────────────────────────────────────────
   describe('Editor', () => {
     const role: AdminRole = 'Editor';

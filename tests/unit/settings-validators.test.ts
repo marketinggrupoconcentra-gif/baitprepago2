@@ -29,6 +29,7 @@ describe('otras reglas', () => {
     bad('intelix_api_url', 'http://intelix-api.grupoconcentra.com/x');
   });
   test('valor de conversión en MXN', () => { ok('conversion_won_value', '100'); ok('conversion_won_value', '99.50'); bad('conversion_won_value', '1,000'); });
+  test('presupuestos de marketing en MXN mensual', () => { ok('marketing_budget_google_ads', '135000'); ok('marketing_budget_meta_ads', '72000.50'); ok('marketing_budget_seo', '0'); bad('marketing_budget_google_ads', '135,000'); bad('marketing_budget_seo', 'abc'); });
   test('los secretos están dentro de las claves editables', () => {
     for (const k of SENSITIVE_KEYS) expect(EDITABLE_SETTING_KEYS as readonly string[]).toContain(k);
   });

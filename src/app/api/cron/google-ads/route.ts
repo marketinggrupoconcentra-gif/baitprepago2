@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb, schema } from '@/db';
-import { logError } from '@/lib/log';
+import { logError, logInfo } from '@/lib/log';
 import { getGoogleAdsConfig } from '@/lib/integrations/config';
 import { createGoogleAdsCustomer } from '@/lib/integrations/google-ads';
 
@@ -29,6 +29,8 @@ export async function GET(req: Request) {
     // 1. Credenciales desde /admin/settings (fallback env)
     const cfg = await getGoogleAdsConfig();
     if (!cfg) {
+      // Visible en los logs de Vercel: explica por qué app.ads_metrics sigue vacía.
+      logInfo('/api/cron/google-ads', 'not_configured', { hint: 'faltan developer token, OAuth client, refresh token o customer id (Configuración → Integraciones)' });
       return NextResponse.json({ message: 'Google Ads no está configurado (developer token, OAuth client, refresh token o customer id).' }, { status: 200 });
     }
     const keywordFilter = cfg.campaignFilter;
@@ -105,6 +107,7 @@ export async function GET(req: Request) {
       inserted++;
     }
 
+    logInfo('/api/cron/google-ads', 'synced', { rows: inserted, customerId: cfg.customerId });
     return NextResponse.json({
       success: true,
       message: `Extraídas ${inserted} métricas de campañas de Google Ads.`,
